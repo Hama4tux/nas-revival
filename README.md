@@ -38,6 +38,7 @@ The proposed OpenWrt backend uses uhttpd, rpcd/ubus and small ucode modules with
 | [Roadmap](docs/roadmap.md) | Milestones and acceptance criteria |
 | [Open items](OPEN.md) | Decisions, blockers and unverified work |
 | [Bootstrap validation](docs/research/bootstrap-validation.md) | Checks performed and their limitations |
+| [OpenWrt qualification](docs/research/openwrt-qualification.md) | Read-only hardware probe and what it decides |
 
 ## Repository layout
 
