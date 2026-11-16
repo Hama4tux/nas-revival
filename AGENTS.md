@@ -73,7 +73,7 @@ Platí stejně pro každého agenta. Codex čte tento soubor přímo, Claude Cod
 # Tento projekt – NAS Revival
 
 - Komunikace s vlastníkem česky, veřejná technická dokumentace a commity anglicky; CHANGELOG.md a OPEN.md česky podle společného postupu.
-- První fáze je pouze bootstrap, dokumentace a veřejný upstream průzkum. Neimplementovat firmware, backend ani frontend bez dalšího zadání.
+- Bootstrap je dokončen. Aktuální Stage 1 povoluje lokální přípravu minimálního userspace (shell, diagnostika, SSH), build konfigurace, instalačních/chroot skriptů a testů; na NASu je nespouštět. Žádný firmware, nový kernel, kexec, webové UI, NAS služby ani automatické pokračování do Stage 2.
 - Repozitář je zatím pouze lokální na main, bez remote. V tomto stavu fetch/pull/push vynechat a uvést to při předání. Nevytvářet vzdálený repozitář. Po jeho pozdějším zřízení platí společný git postup.
 - Autoritativní plán je docs/roadmap.md (malými písmeny), aktuální stav a otázky jsou v kořenovém OPEN.md.
 - Předpokládaný cíl: původní ZyXEL NSA310. NSA310b/NSA310S ani různé DT nelze zaměňovat bez ověření. Každý parametr má oddělený stav zdroj / hlášení vlastníka / měření / neznámé.

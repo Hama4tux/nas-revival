@@ -1,0 +1,16 @@
+{
+  "buildroot_release": "2025.02.19",
+  "buildroot_commit": "4f924fd52841608d68ac3dcb83fccee8b8c90316",
+  "buildroot_url": "https://github.com/buildroot/buildroot",
+  "linux_headers_release": "2.6.31.8",
+  "linux_headers_commit": "047e5f383505cda6606b73d49a857895de5e2c48",
+  "linux_headers_url": "https://github.com/gregkh/linux",
+  "components_from_pinned_buildroot": {
+    "gcc": "13.4.0",
+    "uclibc_ng": "1.0.59",
+    "busybox": "1.37.0",
+    "dropbear": "2026.93"
+  },
+  "status": "experimental recipe, full build and vendor-kernel execution unverified",
+  "kernel_build": false
+}

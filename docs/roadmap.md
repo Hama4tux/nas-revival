@@ -2,6 +2,10 @@
 
 Milestones are gated by evidence rather than calendar promises. M0 is complete; the current bounded task adds offline discovery evidence toward M2. No boot experiment or implementation stage is authorized by this document.
 
+## Stage 1 side experiment: existing-kernel chroot
+
+The owner authorized preparation of only a minimal userspace beside the stock firmware: shell, basic diagnostics and key-only Dropbear on 2222. [Build recipe and manual control](research/stage1-userspace.md) are prepared and workstation safety tests pass. A full build, actual ELF/dependency/size audit and vendor-kernel/SSH/stop tests remain pending. No NAS deployment is authorized in this turn; Stage 2 is excluded. This experiment needs neither a new kernel nor any bootloader/UART/USB boot change and does not advance M3.
+
 | Milestone | Deliverable | Acceptance / dependency |
 | --- | --- | --- |
 | M0 — bootstrap | Local repository, sourced analysis, architecture, threat/recovery design | Complete; no firmware or live tests |

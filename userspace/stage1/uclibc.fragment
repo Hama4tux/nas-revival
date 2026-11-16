@@ -1,0 +1,7 @@
+# Keep the pre-time64 ABI and avoid unnecessary threading requirements.
+# UCLIBC_USE_TIME64 is not set
+# UCLIBC_HAS_THREADS is not set
+# UCLIBC_HAS_THREADS_NATIVE is not set
+# UCLIBC_HAS_LINUXTHREADS is not set
+UCLIBC_HAS_LFS=y
+UCLIBC_HAS_SHADOW=y

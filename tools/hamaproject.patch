@@ -1,6 +1,6 @@
 --- a/data/projects.ts
 +++ b/data/projects.ts
-@@ -6,6 +6,33 @@
+@@ -6,6 +6,34 @@
   * Interní infrastruktura (HomeSecurity, HomeAssistant, Proxmox, VyOS) sem nepatří.
   */
  export const PROJECTS: ProjectDef[] = [
@@ -16,8 +16,8 @@
 +    hosting: 'Lokální vývoj; zatím bez veřejné instance a firmware.',
 +    stack: ['Embedded Linux', 'OpenWrt (kandidát)', 'ARMv5', 'Statické webové UI'],
 +    updated: '2026-11-16',
-+    status: 'Dokončen dokumentační bootstrap, porovnání distribucí, návrh backendu, hardwarové abstrakce a bezpečné obnovy. Kompatibilita konkrétní revize NSA310 dosud není ověřená.',
-+    nextStep: 'Dokončit zdrojové porovnání variant NSA310 a připravit evidenční formulář pro pozdější schválenou inventuru zařízení.',
++    status: 'Připraven Stage 1 build postup minimálního userspace a ruční chroot/SSH na 2222; 14 lokálních ABI a bezpečnostních testů prošlo. Úplný build a kompatibilita s původním kernelem zůstávají neověřené.',
++    nextStep: 'Dokončit připnutý Buildroot build a offline audit, poté po samostatném souhlasu ověřit shell, SSH a zastavení na zařízení.',
 +    plans: [
 +      'Ověření hardwaru a obnovitelné zálohy, poté dočasný boot z externího média',
 +      'Úsporné NAS služby, bezpečná webová správa a podepsané aktualizace',
@@ -26,6 +26,7 @@
 +    todo: [],
 +    waiting: [],
 +    milestones: [
++      { date: '2026-11-16', text: 'Stage 1: připraven build postup, offline audit a ruční chroot/SSH controller; 14 lokálních testů, bez nasazení na zařízení.' },
 +      { date: '2026-11-16', text: 'Dokumentační bootstrap: architektura, ADR, zdrojový průzkum a plán obnovy bez zásahu do zařízení.' },
 +    ],
 +    roadmap: 'docs/roadmap.md',
@@ -40,7 +41,7 @@
  # Changelog
 
  ## 2026-11-16
-+- **NAS Revival:** doplněn vývojový projekt lehké NAS distribuce se stavem dokumentačního bootstrapu, dalším krokem a milníkem; otevřené body se přebírají z jeho OPEN.md. Bez provozních údajů zařízení.
++- **NAS Revival:** doplněn projekt se stavem Stage 1 minimálního userspace, build postupem a 14 lokálními testy; skutečný build a test na zařízení zůstávají neověřené, otevřené body se přebírají z OPEN.md.
  - **Revize otevřených bodů:** v detailu projektu je nová karta s tlačítkem Zkontrolovat body. AI (Claude Haiku) porovná otevřené body z OPEN.md s commity za 90 dní a changelogem z posledního nasazení a navrhne, které jsou hotové nebo neaktuální (duplicitní, překonané), s krátkým zdůvodněním. Návrhy odklepneš nebo upravíš a schválíš, při příštím nasazení se v OPEN.md projektu zavřou: hotové jako `[x]`, neaktuální jako `[-]`. Potřebuje klíč k Claude API na serveru.
 
  ## 2026-11-13

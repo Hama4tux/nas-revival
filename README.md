@@ -2,7 +2,9 @@
 
 Give unsupported NAS hardware a useful, maintainable second life with a small Linux system and a modern local administration interface.
 
-**Status: research and documentation only — 2026-11-16. No firmware, installer, backend or frontend is implemented.** The first target is the original **ZyXEL NSA310**; its precise board revision and compatibility remain unverified. An OpenWrt image named NSA310b is not evidence that it is safe for this unit.
+**Status: Stage 1 userspace recipe and manual chroot controller prepared — 2026-11-16. No rootfs build or NAS deployment has been completed; no firmware, backend or frontend is implemented.** The first target is the original **ZyXEL NSA310 A203**; precise board-profile qualification remains incomplete. An OpenWrt image named NSA310b is not evidence that it is safe for this unit.
+
+The [Stage 1 guide](docs/research/stage1-userspace.md) prepares only a shell, basic diagnostics and key-only Dropbear SSH on port 2222 alongside the existing firmware. It proposes maintained Buildroot/uClibc-ng with legacy kernel headers; runtime compatibility with the vendor Linux 2.6.31.8 is unverified. All NAS installation/start operations remain manual and were not executed.
 
 ## Goals
 
@@ -54,7 +56,7 @@ The requested layout is retained. Later OpenWrt packages/overlays belong under `
 
 ## Safety and contributing
 
-Phase 1 permits documentation and public upstream inspection only. No NAS requests, network scans, flashing, NAND writes, boot environment changes, disk initialization or host software installation. Future UART/USB work requires a separately authorized phase. Follow [AGENTS.md](AGENTS.md).
+The current Stage 1 task permits local userspace configuration, scripts and workstation tests only. No NAS requests, automatic deployment, network scans, flashing, NAND writes, boot environment changes, disk initialization or host software installation. No new kernel, kexec or boot experiments. Follow [AGENTS.md](AGENTS.md).
 
 The pre-existing `nas_proxy.py` in the parent workspace is outside this repository and was left untouched. It is a legacy access aid with weakened TLS validation, not a production component or a security pattern to reuse. No local addresses, credentials or device dumps belong in the public repository.
 

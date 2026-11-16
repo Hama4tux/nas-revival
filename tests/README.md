@@ -1,6 +1,12 @@
 # Validation strategy
 
-Bootstrap validation covers local document links, manifest syntax/safety defaults and Git whitespace. These checks do not demonstrate hardware compatibility, successful boot, security, build reproducibility or NAS performance. No runtime implementation exists, so no artificial code unit tests were added.
+Bootstrap validation covers document links, manifest syntax/safety defaults and Git whitespace. Stage 1 now has meaningful workstation tests for ELF/ABI rejection and controller safety, without real mounts or NAS access:
+
+```sh
+python3 -m unittest discover -s tests -p test_stage1.py -v
+```
+
+Clang, when already installed, generates ARM test **objects**, not a deployable rootfs. These tests do not demonstrate vendor-kernel compatibility, a working SSH login, build reproducibility or NAS performance. The full rootfs build/audit remains unverified until sources can be downloaded.
 
 Future meaningful tests:
 

@@ -12,6 +12,9 @@ __pycache__/
 /private/
 /backups/
 /artifacts/
+/nas-revival-stage1/
+/rootfs-stage1*.tar*
+dropbear_*_host_key
 /.private-analysis/
 nas-revival-backup/
 *.raw
