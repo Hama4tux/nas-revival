@@ -6,16 +6,21 @@ Milestones are gated by evidence rather than calendar promises. M0 is complete; 
 
 - **OpenWrt Kirkwood remains the preferred long-term base** ([ADR-0001](adr/0001-base-distribution.md), status proposed). It requires a new kernel and therefore a bootloader/NAND change, so it belongs to M3+ and its ADR gates.
 - **Buildroot in Stage 1 is only a build tool** for a small chroot userspace that runs on the unchanged stock kernel 2.6.31.8. Prebuilt OpenWrt binaries cannot run on that kernel, and modern glibc requires ≥ 3.2, hence uClibc-ng with old headers. Stage 1 is not the final product and does not replace the OpenWrt decision.
-- **Purpose of Stage 1 for OpenWrt:** a safe, key-only SSH foothold to measure what the OpenWrt gates need (board revision, network and fan controller, RAM, disk state, further backups) without touching NAND or boot.
+- **Stage 1 shelved (2026-11-16):** the first full build failed on a uClibc-ng 1.0.59 vs 2.6.31.8 `linux/socket.h` conflict. The owner decided not to patch legacy headers: OpenWrt replaces kernel and userspace anyway, and existing root Telnet suffices for read-only evidence gathering.
 - Buildroot stays the fallback base only if OpenWrt cannot support this board with small upstreamable changes.
 
 ## Owner risk decision (2026-11-16)
 
 The owner considers the device, in its stock state with a 2009 kernel, to have no practical value and accepts the risk of experimenting with it. If an experiment fails, the plan is to buy a USB–TTL (UART) adapter and recover. Full raw dumps of all nine NAND partitions (mtd0–mtd8, with OOB and SHA256SUMS) are kept privately outside the repository. This sets the risk tolerance only; it does not replace per-step owner approval, and restoring from these dumps is not yet qualified (ECC/OOB/bad-block handling, see [OPEN.md](../OPEN.md)). The owner confirmed the existing `/dev/md0` volume is empty after a reformat and may be used freely for experiments; disk health (SMART) is still unverified.
 
-## Stage 1 side experiment: existing-kernel chroot
+## Current focus: OpenWrt qualification
 
-The owner authorized preparation of only a minimal userspace beside the stock firmware: shell, basic diagnostics and key-only Dropbear on 2222. [Build recipe and manual control](research/stage1-userspace.md) are prepared and workstation safety tests pass. A full build, actual ELF/dependency/size audit and vendor-kernel/SSH/stop tests remain pending. No NAS deployment is authorized in this turn; Stage 2 is excluded. This experiment needs neither a new kernel nor any bootloader/UART/USB boot change and does not advance M3.
+1. Read-only evidence via existing root Telnet (owner-approved command list): SoC/clock, Ethernet PHY, fan/thermal controller, `CONFIG_KEXEC`, MTD and U-Boot environment consistency — compared against the OpenWrt NSA310b profile and Linux NSA310 device trees.
+2. USB–TTL (UART) adapter and verified pinout before any boot experiment.
+3. M3: OpenWrt initramfs booted from USB or RAM via U-Boot, without NAND writes, with a documented return to stock.
+4. Only then NAND installation and recovery qualification (M7).
+
+The [Stage 1 chroot recipe](research/stage1-userspace.md) is shelved and kept for reference only.
 
 | Milestone | Deliverable | Acceptance / dependency |
 | --- | --- | --- |

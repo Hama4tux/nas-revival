@@ -73,11 +73,11 @@ Platí stejně pro každého agenta. Codex čte tento soubor přímo, Claude Cod
 # Tento projekt – NAS Revival
 
 - Komunikace s vlastníkem česky, veřejná technická dokumentace a commity anglicky; CHANGELOG.md a OPEN.md česky podle společného postupu.
-- Bootstrap je dokončen. Aktuální Stage 1 povoluje lokální přípravu minimálního userspace (shell, diagnostika, SSH), build konfigurace, instalačních/chroot skriptů a testů; na NASu je nespouštět. Žádný firmware, nový kernel, kexec, webové UI, NAS služby ani automatické pokračování do Stage 2.
+- Bootstrap je dokončen. Stage 1 (chroot userspace na původním kernelu) je od 2026-11-16 zastavený rozhodnutím vlastníka; recept zůstává v userspace/stage1 a scripts/stage1 jen pro případný návrat, dál ho nerozvíjet. Aktuální fáze je kvalifikace OpenWrt: veřejný průzkum, příprava čtecích diagnostických příkazů a plánu dočasného bootu. Žádný flash, zápis do NAND/U-Boot prostředí, kexec, webové UI ani NAS služby.
 - Repozitář je zatím pouze lokální na main, bez remote. V tomto stavu fetch/pull/push vynechat a uvést to při předání. Nevytvářet vzdálený repozitář. Po jeho pozdějším zřízení platí společný git postup.
 - Autoritativní plán je docs/roadmap.md (malými písmeny), aktuální stav a otázky jsou v kořenovém OPEN.md.
 - Předpokládaný cíl: původní ZyXEL NSA310. NSA310b/NSA310S ani různé DT nelze zaměňovat bez ověření. Každý parametr má oddělený stav zdroj / hlášení vlastníka / měření / neznámé.
-- Zákaz přístupu k živému NASu, skenování sítě, připojování UART/USB, restartů, flashování NAND/MTD, změn U-Boot prostředí a formátování či opravy disků v této fázi. Postupy v docs/recovery jsou návrhy, nikoliv oprávnění je vykonat.
+- Zákaz přístupu k živému NASu, skenování sítě, připojování UART/USB, restartů, flashování NAND/MTD, změn U-Boot prostředí a formátování či opravy disků v této fázi. Jedinou výjimkou je předem vlastníkem schválený seznam čistě čtecích příkazů přes stávající root Telnet; každý běh zvlášť schválený. Postupy v docs/recovery jsou návrhy, nikoliv oprávnění je vykonat.
 - Žádná instalace nebo změna hostitelského systému bez potřeby a souhlasu. Veřejný zdrojový průzkum a místní dokumentační kontroly jsou povolené.
 - OpenWrt je podmíněný kandidát podle ADR-0001, nikoliv potvrzená podpora konkrétního kusu. Žádné univerzální flash offsety, přihlašovací údaje ani zkopírované komunitní instalační příkazy.
 - Embedded-first: měřit RAM/CPU/velikost. Na NAS nepřidávat automaticky Node.js, Docker nebo databázový server. Frontend bude pouze statický; API a hardwarové adaptéry oddělit.

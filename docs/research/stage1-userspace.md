@@ -1,5 +1,7 @@
 # Stage 1: minimal userspace beside the ZyXEL firmware
 
+> **Shelved 2026-11-16.** The first full build failed in uClibc-ng 1.0.59 (`libc/inet/if_index.c`): the 2.6.31.8 `linux/socket.h` guard `!defined(__GLIBC__)` redefines `struct iovec`/`sockaddr`/`msghdr`. The owner chose to move to OpenWrt qualification instead of patching legacy headers. Kept for reference only.
+
 Status: **experimental build recipe and controller prepared; no rootfs has been built or deployed in this session**. No NAS connection, credentials, restart, kexec, NAND/environment write, host package installation or changes to existing services. Stage 2 is not authorized.
 
 ## Compatibility decision

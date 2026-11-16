@@ -2,9 +2,9 @@
 
 Give unsupported NAS hardware a useful, maintainable second life with a small Linux system and a modern local administration interface.
 
-**Status: Stage 1 userspace recipe and manual chroot controller prepared — 2026-11-16. No rootfs build or NAS deployment has been completed; no firmware, backend or frontend is implemented.** The first target is the original **ZyXEL NSA310 A203**; precise board-profile qualification remains incomplete. An OpenWrt image named NSA310b is not evidence that it is safe for this unit.
+**Status: OpenWrt qualification — 2026-11-16. Stage 1 (chroot userspace on the stock kernel) is shelved; no firmware, backend or frontend is implemented and nothing has been deployed to the NAS.** The first target is the original **ZyXEL NSA310 A203**; precise board-profile qualification remains incomplete. An OpenWrt image named NSA310b is not evidence that it is safe for this unit.
 
-The [Stage 1 guide](docs/research/stage1-userspace.md) prepares only a shell, basic diagnostics and key-only Dropbear SSH on port 2222 alongside the existing firmware. It proposes maintained Buildroot/uClibc-ng with legacy kernel headers; runtime compatibility with the vendor Linux 2.6.31.8 is unverified. All NAS installation/start operations remain manual and were not executed.
+The [Stage 1 guide](docs/research/stage1-userspace.md) (shelved) prepared a Buildroot/uClibc-ng chroot with key-only SSH beside the stock firmware. Its first full build failed: uClibc-ng 1.0.59 conflicts with the 2.6.31.8 `linux/socket.h` glibc guard. Because OpenWrt brings its own kernel and userspace and root Telnet already gives read access, the owner stopped Stage 1 instead of patching legacy headers.
 
 ## Goals
 
@@ -56,7 +56,7 @@ The requested layout is retained. Later OpenWrt packages/overlays belong under `
 
 ## Safety and contributing
 
-The current Stage 1 task permits local userspace configuration, scripts and workstation tests only. No NAS requests, automatic deployment, network scans, flashing, NAND writes, boot environment changes, disk initialization or host software installation. No new kernel, kexec or boot experiments. Follow [AGENTS.md](AGENTS.md).
+The current phase permits public research, documentation and preparation of read-only diagnostics and a temporary-boot plan. Device commands only from an owner-approved read-only list. No automatic deployment, network scans, flashing, NAND writes, boot environment changes, disk initialization or host software installation. No kexec or boot experiments without separate approval and UART access. Follow [AGENTS.md](AGENTS.md).
 
 The pre-existing `nas_proxy.py` in the parent workspace is outside this repository and was left untouched. It is a legacy access aid with weakened TLS validation, not a production component or a security pattern to reuse. No local addresses, credentials or device dumps belong in the public repository.
 
