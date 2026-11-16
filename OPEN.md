@@ -6,10 +6,10 @@
 
 ## Čeká na rozhodnutí
 - [ ] Před budoucím SSH testem dodat jeden administrátorský veřejný Ed25519 klíč a schválit konkrétní samostatný adresář a existující LAN IP; přístupové heslo ze secret.env není pro přípravu ani build potřeba. (2026-11-16)
-- [ ] Potvrdit důležitost dat na existujícím ext4 svazku /dev/md0 před případnými budoucími pokusy; existence souborového systému nepotvrzuje zdraví disku ani bezpečnost původní inicializace. (2026-11-16)
 - [ ] Pro případné budoucí bootovací experimenty mimo Stage 1 zajistit vhodný USB–TTL adaptér a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
+- [ ] Ověřit zdraví disku pod /dev/md0 (SMART, vadné sektory); vlastník potvrdil, že svazek je prázdný po formátu a lze ho volně použít, zdraví disku tím ale ověřené není. (2026-11-16)
 - [ ] Dokončit skutečný build Stage 1 z připnutých zdrojů a archivovat vyřešenou konfiguraci a audit ELF/ABI, knihoven, symbolů a velikosti rootfs; místní curl nemá funkční DNS, hotové ARM binárky zatím nevznikly. (2026-11-16)
 - [ ] Ověřit kombinaci uClibc-ng 1.0.59, hlaviček 2.6.31.8 a aktuálních balíčků skutečným překladem; při chybě neřešit build tichým zvýšením verze hlaviček ani opuštěnou distribucí. (2026-11-16)
 - [ ] Po samostatném souhlasu ověřit Stage 1 shell, vendor EABI a syscall chování, soukromé devpts, entropii, klíčové SSH přihlášení na 2222 a úplný stop; lokální testy používají simulované mounty, chroot a procesní pohledy a nic na NASu nespouštěly. (2026-11-16)

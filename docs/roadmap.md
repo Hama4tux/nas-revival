@@ -11,7 +11,7 @@ Milestones are gated by evidence rather than calendar promises. M0 is complete; 
 
 ## Owner risk decision (2026-11-16)
 
-The owner considers the device, in its stock state with a 2009 kernel, to have no practical value and accepts the risk of experimenting with it. If an experiment fails, the plan is to buy a USB–TTL (UART) adapter and recover. Full raw dumps of all nine NAND partitions (mtd0–mtd8, with OOB and SHA256SUMS) are kept privately outside the repository. This sets the risk tolerance only; it does not replace per-step owner approval, and restoring from these dumps is not yet qualified (ECC/OOB/bad-block handling, see [OPEN.md](../OPEN.md)). Data on the existing `/dev/md0` volume is still treated as valuable until the owner confirms otherwise.
+The owner considers the device, in its stock state with a 2009 kernel, to have no practical value and accepts the risk of experimenting with it. If an experiment fails, the plan is to buy a USB–TTL (UART) adapter and recover. Full raw dumps of all nine NAND partitions (mtd0–mtd8, with OOB and SHA256SUMS) are kept privately outside the repository. This sets the risk tolerance only; it does not replace per-step owner approval, and restoring from these dumps is not yet qualified (ECC/OOB/bad-block handling, see [OPEN.md](../OPEN.md)). The owner confirmed the existing `/dev/md0` volume is empty after a reformat and may be used freely for experiments; disk health (SMART) is still unverified.
 
 ## Stage 1 side experiment: existing-kernel chroot
 
