@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-16
+- Roadmapa nově vysvětluje rozdělení rolí: OpenWrt zůstává cílovým systémem, Buildroot slouží jen k sestavení malého chrootu na původním kernelu. Zapsáno rozhodnutí vlastníka, že zařízení je bez praktické hodnoty a riziko experimentu přijímá; záchrana přes UART a uložené dumpy NAND.
 - Připraven Stage 1: konfigurace udržovaného Buildroot/uClibc-ng pro ARMv5 soft-float a hlavičky 2.6.31.8, minimální chroot bez initu, offline kontrola ELF a závislostí a ruční instalace/start/stop Dropbearu na 2222 pouze s veřejným klíčem. Host klíče vzniknou až na cíli; původní služby ani síť skripty nekonfigurují.
 - Doplněny lokální testy odmítnutí chybného ABI, obsazeného portu a cizích mountů i úklidu při selhání soukromých PTY. Úplný build/rootfs a skutečná kompatibilita s kernelem nejsou ověřené kvůli nedostupným zdrojovým downloadům; nic nebylo spuštěno na NASu.
 - Doplněna vlastníkem ověřená konfigurace NSA310 A203, přístup root přes Telnet a evidence devíti záloh NAND s OOB mimo repozitář. Lokální analýza mtd0 potvrdila prokládání 2048+64 bajtů, integritu obrazu a U-Boot 1.1.4 / Marvell 3.4.19; původní dump zůstal beze změny.

@@ -2,6 +2,17 @@
 
 Milestones are gated by evidence rather than calendar promises. M0 is complete; the current bounded task adds offline discovery evidence toward M2. No boot experiment or implementation stage is authorized by this document.
 
+## Role of Buildroot vs. OpenWrt
+
+- **OpenWrt Kirkwood remains the preferred long-term base** ([ADR-0001](adr/0001-base-distribution.md), status proposed). It requires a new kernel and therefore a bootloader/NAND change, so it belongs to M3+ and its ADR gates.
+- **Buildroot in Stage 1 is only a build tool** for a small chroot userspace that runs on the unchanged stock kernel 2.6.31.8. Prebuilt OpenWrt binaries cannot run on that kernel, and modern glibc requires ≥ 3.2, hence uClibc-ng with old headers. Stage 1 is not the final product and does not replace the OpenWrt decision.
+- **Purpose of Stage 1 for OpenWrt:** a safe, key-only SSH foothold to measure what the OpenWrt gates need (board revision, network and fan controller, RAM, disk state, further backups) without touching NAND or boot.
+- Buildroot stays the fallback base only if OpenWrt cannot support this board with small upstreamable changes.
+
+## Owner risk decision (2026-11-16)
+
+The owner considers the device, in its stock state with a 2009 kernel, to have no practical value and accepts the risk of experimenting with it. If an experiment fails, the plan is to buy a USB–TTL (UART) adapter and recover. Full raw dumps of all nine NAND partitions (mtd0–mtd8, with OOB and SHA256SUMS) are kept privately outside the repository. This sets the risk tolerance only; it does not replace per-step owner approval, and restoring from these dumps is not yet qualified (ECC/OOB/bad-block handling, see [OPEN.md](../OPEN.md)). Data on the existing `/dev/md0` volume is still treated as valuable until the owner confirms otherwise.
+
 ## Stage 1 side experiment: existing-kernel chroot
 
 The owner authorized preparation of only a minimal userspace beside the stock firmware: shell, basic diagnostics and key-only Dropbear on 2222. [Build recipe and manual control](research/stage1-userspace.md) are prepared and workstation safety tests pass. A full build, actual ELF/dependency/size audit and vendor-kernel/SSH/stop tests remain pending. No NAS deployment is authorized in this turn; Stage 2 is excluded. This experiment needs neither a new kernel nor any bootloader/UART/USB boot change and does not advance M3.
