@@ -10,7 +10,8 @@
 
 ## Nedodělané
 - [ ] Ověřit zdraví disku pod /dev/md0 (SMART, vadné sektory); vlastník potvrdil, že svazek je prázdný po formátu a lze ho volně použít, zdraví disku tím ale ověřené není. (2026-11-16)
-- [ ] Dokončit skutečný build Stage 1 z připnutých zdrojů a archivovat vyřešenou konfiguraci a audit ELF/ABI, knihoven, symbolů a velikosti rootfs; místní curl nemá funkční DNS, hotové ARM binárky zatím nevznikly. (2026-11-16)
+- [ ] Dokončit skutečný build Stage 1 z připnutých zdrojů a archivovat vyřešenou konfiguraci a audit ELF/ABI, knihoven, symbolů a velikosti rootfs; build znovu spuštěn 2026-11-16 16:55 z ~/build/nas-revival-buildroot do output/stage1 (log output/stage1.log), hotové ARM binárky zatím nevznikly. (2026-11-16)
+- [ ] Ověřit PGP podpis kernel.org sha256sums.asc, ze kterého pochází hash tarballu hlaviček 2.6.31.8. (2026-11-16)
 - [ ] Ověřit kombinaci uClibc-ng 1.0.59, hlaviček 2.6.31.8 a aktuálních balíčků skutečným překladem; při chybě neřešit build tichým zvýšením verze hlaviček ani opuštěnou distribucí. (2026-11-16)
 - [ ] Po samostatném souhlasu ověřit Stage 1 shell, vendor EABI a syscall chování, soukromé devpts, entropii, klíčové SSH přihlášení na 2222 a úplný stop; lokální testy používají simulované mounty, chroot a procesní pohledy a nic na NASu nespouštěly. (2026-11-16)
 - [ ] Doověřit PCB revizi, konkrétní SoC a jeho takt, síťový čip a řadič ventilátoru; A203 a CPU jádro Feroceon samy neurčují správný profil. (2026-11-16)
@@ -25,6 +26,8 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Po opakovaných pádech VM (příčina na straně Proxmoxu vyřešena) obnoven vynulovaný checkout Buildrootu a poškozený git repozitáře, smazány rozbité buildy a cache. (2026-11-16)
+- Opraven Stage 1 build, který zamrazil VM (linux.git klonovaný do tmpfs /tmp): hlavičky z kernel.org tarballu s hashem, zákaz tmpfs cest a -j podle volné RAM. (2026-11-16)
 - Založen dokumentační bootstrap, ADR, návrh HAL, bezpečnostní model a plán obnovy bez zásahu do zařízení. (2026-11-16)
 - Dokončena lokální analýza OOB struktury a U-Bootu, zapsán root Telnet a ověřené hardwarové údaje a posouzeny možnosti bootu bez UART; originální mtd0 nezměněn. (2026-11-16)
 - Připraven Stage 1 build postup a ruční chroot/SSH controller; 14 bezpečnostních a ABI kontrol prošlo lokálně, úplný build a NAS testy zůstávají neověřené. (2026-11-16)
