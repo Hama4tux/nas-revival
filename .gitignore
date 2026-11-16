@@ -1,0 +1,20 @@
+# Workstation dependencies and generated output
+node_modules/
+dist/
+build/
+output/
+.cache/
+__pycache__/
+*.pyc
+.DS_Store
+
+# Private device evidence and credentials must remain outside public history
+/private/
+/backups/
+/artifacts/
+.env
+.env.*
+!.env.example
+*.local.*
+*.key
+*.pem

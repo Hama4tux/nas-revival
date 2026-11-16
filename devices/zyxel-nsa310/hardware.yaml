@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "purpose": "documentation-only",
+  "device_id": "zyxel-nsa310",
+  "reviewed_on": "2026-11-16",
+  "qualification": "unverified",
+  "reported_model": "ZyXEL NSA310",
+  "reported_firmware": "V4.70(AFK.1)",
+  "measured": {
+    "board_revision": null,
+    "soc": null,
+    "cpu_hz": null,
+    "ram_bytes": null,
+    "nand_bytes": null,
+    "nand_geometry": null,
+    "mtd_partitions": null,
+    "bootloader": null,
+    "ethernet_controller": null,
+    "fan_controller": null,
+    "uart_voltage": null,
+    "smart_supported": null
+  },
+  "reference_only": {
+    "instruction_set_candidate": "ARMv5 / little-endian soft-float EABI; verify toolchain",
+    "cpu_hz_from_brief": 1200000000,
+    "ram_bytes_from_dt": 268435456,
+    "nand_bytes_from_brief": 134217728,
+    "openwrt_candidate": "zyxel_nsa310b",
+    "linux_dt_candidates": ["kirkwood-nsa310", "kirkwood-nsa310a"],
+    "fan_driver_candidates": ["adt7475", "lm85"],
+    "sources": [
+      "https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310.dts",
+      "https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310a.dts",
+      "https://github.com/openwrt/openwrt/blob/v25.12.6/target/linux/kirkwood/files/arch/arm/boot/dts/marvell/kirkwood-nsa310b.dts"
+    ]
+  },
+  "runtime": {
+    "selected_profile": null,
+    "selectors": {},
+    "actuator_writes_allowed": false,
+    "flash_allowed": false,
+    "boot_environment_changes_allowed": false,
+    "disk_initialization_allowed": false
+  }
+}
