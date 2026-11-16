@@ -1,12 +1,12 @@
 # Roadmap
 
-Milestones are gated by evidence rather than calendar promises. Current phase ends at M0. No later stage is implicitly authorized by this document.
+Milestones are gated by evidence rather than calendar promises. M0 is complete; the current bounded task adds offline discovery evidence toward M2. No boot experiment or implementation stage is authorized by this document.
 
 | Milestone | Deliverable | Acceptance / dependency |
 | --- | --- | --- |
 | M0 — bootstrap | Local repository, sourced analysis, architecture, threat/recovery design | Complete; no firmware or live tests |
 | M1 — feasibility dossier | Source delta, package closure, API/capability fixtures and inventory form | Workstation-only; reproducible provenance; no active device profile |
-| M2 — identity and backup | Exact board, bootloader/MTD inventory, private verified backups and recovery proposal | Owner authorizes physical/live work; resolve disk/data priorities first |
+| M2 — identity and backup | Exact board, bootloader/MTD inventory, private verified backups and recovery proposal | Partial: hardware observations/root Telnet and nine OOB backups recorded; offline U-Boot identified. Board variant, address discrepancy and restore qualification remain open |
 | M3 — temporary boot | Minimal external boot with UART evidence and cooling | Separate authorization; no NAND/environment/user-disk writes; documented return to stock |
 | M4 — read-only administration | Status API, HAL adapter, static responsive dashboard | Auth/ACL/CSRF tests, real resource measurements and missing-device behavior |
 | M5 — NAS services | Users/groups, share permissions, SMB/NFS/SFTP and SMART | Disposable test disk; concurrent access/permission tests; security and memory budgets |
@@ -17,6 +17,9 @@ Milestones are gated by evidence rather than calendar promises. Current phase en
 ## Completed
 
 - [x] M0: documentation bootstrap, conditional distribution decision and risk inventory.
+- [x] Offline discovery: OOB structure/integrity, U-Boot identification, compiled command evidence and no-UART boot assessment; no device access or boot test.
+
+The [U-Boot analysis](research/uboot-analysis.md) does not establish a safe one-shot boot path without UART. Preserve NAND boot; obtain qualified serial access before a separately approved experiment. Root Telnet and matching hashes do not complete M2 or unlock M3. kexec remains unverified and prohibited in this task.
 
 ## Implementation boundaries
 

@@ -1,6 +1,16 @@
 # Recovery plan — preparation only
 
-**No steps in this document authorize device access now.** Phase 1 does not connect to the NAS, reboot it, attach UART/USB or build an image. The owner-reported stock administration still works; preserve it.
+**No steps in this document authorize device access now.** The current task permits local analysis only: no NAS connection, reboot, environment change, UART/USB attachment or firmware preparation. Original bootstrap gates below remain planning history; this discovery update takes precedence.
+
+## Discovery update — 2026-11-16
+
+The owner now has a working root shell through **Telnet**, SMB and web administration. Credentials are in ignored `secret.env`; this analysis did not read or use them. Nine OOB-bearing NAND backups exist outside the repository; the owner verified all hashes. This task rechecked mtd0 integrity and all nine file lengths. That supersedes the earlier lack of shell/backup, but **does not establish a tested restore procedure**.
+
+[Offline analysis](../research/uboot-analysis.md) identifies U-Boot 1.1.4 / Marvell 3.4.19 and compiled USB host/storage, FAT/ext2 and legacy-image paths. Actual USB boot and kernel handoff remain untested. The saved kernel address conflicts with saved MTD partition boundaries; resolve that before any future boot proposal.
+
+Without UART, **no demonstrated safe one-shot alternative boot route exists in the current evidence**. Linux Telnet does not control U-Boot; fixed NAND boot has no established USB branch. Exact-kernel kexec support is unverified and no kexec invocation is authorized. Vendor USB/TFTP recovery has unknown write behavior and includes a bootcmd-update clue.
+
+Keep NAND boot unchanged. Obtain an appropriate serial adapter and verify voltage/pinout before a separately approved observation phase. A failed kernel may require physical reset; automatic fallback is unqualified. No environment changes even temporarily, fw_setenv/saveenv, live-file writes, restart or boot/recovery execution are permitted in this task.
 
 ## Risk classes
 
@@ -28,7 +38,7 @@ cat /proc/cmdline
 dmesg
 ```
 
-Review their output privately; boot arguments/logs can expose identifiers or secrets. Available commands and shell access are unknown. Do not obtain access through an exploit, vendor firmware upload or installation script in this phase.
+Review their output privately; boot arguments/logs can expose identifiers or secrets. Root Telnet access is now owner-confirmed but was not used by this agent; live command availability is not independently checked. Do not obtain access through an exploit, vendor firmware upload or installation script in this phase.
 
 At an identified U-Boot prompt, future `version`, `help` and `printenv` inspection can establish build and capabilities without intentionally changing environment. Confirm their semantics on that build; current [printenv documentation](https://docs.u-boot.org/en/latest/usage/cmd/printenv.html) is a reference, not proof of vendor command support. Environment exports can contain secrets and must remain private. No `setenv`, `saveenv`, `fw_setenv`, `env default`, or boot script execution is part of inventory.
 
