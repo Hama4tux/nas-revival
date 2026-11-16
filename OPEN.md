@@ -2,10 +2,10 @@
 
 ## Stav (2026-11-16)
 - Stav: Stage 1 (chroot na původním kernelu) zastaven po neúspěšném buildu uClibc-ng proti hlavičkám 2.6.31.8; projekt přechází na kvalifikaci OpenWrt. Na NASu se nic neměnilo, zálohy NAND jsou mimo repozitář.
-- Další krok: připravit seznam čistě čtecích diagnostických příkazů pro stávající root Telnet a porovnat výsledky s profilem OpenWrt NSA310b; souběžně pořídit USB–TTL adaptér.
+- Další krok: po schválení vlastníkem spustit připravenou čtecí diagnostiku přes root Telnet a porovnat výsledky s profilem OpenWrt NSA310b; souběžně pořídit USB–TTL adaptér.
 
 ## Čeká na rozhodnutí
-- [ ] Schválit konkrétní seznam čtecích příkazů přes root Telnet (SoC, síť, ventilátor, CONFIG_KEXEC, MTD/U-Boot prostředí), až bude připravený; bez toho nelze ověřit, že profil OpenWrt NSA310b sedí na A203. (2026-11-16)
+- [ ] Schválit a spustit čtecí diagnostiku scripts/openwrt/probe-readonly.sh přes root Telnet (výstup uložit do output/, necommitovat); bez ní nelze ověřit, že profil OpenWrt NSA310b sedí na A203 (SoC, ventilátor ADT7476/LM85, síť r8169, U-Boot prostředí). (2026-11-16)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
