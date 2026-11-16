@@ -16,19 +16,22 @@ This is a **candidate, not confirmed support** for the vendor kernel. The old-he
 
 ## Workstation build
 
-All [source pins](../../userspace/stage1/sources.json) and [configuration](../../userspace/stage1/configs/nsa310_stage1_defconfig) are committed. Buildroot's pinned package hashes/patches select package contents. Git commits identify the two source snapshots; tag signatures were not independently authenticated here. This environment can read source through the GitHub connector, but direct downloads fail DNS resolution; no Buildroot source checkout, cross libc or QEMU ARM runtime is available. Therefore actual ELF files, dependency closure and rootfs size remain unmeasured.
+All [source pins](../../userspace/stage1/sources.json) and [configuration](../../userspace/stage1/configs/nsa310_stage1_defconfig) are committed. Buildroot's pinned package hashes/patches select package contents. A Git commit identifies the Buildroot snapshot and a SHA-256 the kernel header tarball; tag and PGP signatures were not independently authenticated here.
 
 On an Ubuntu workstation with existing Buildroot prerequisites, as an ordinary user (no sudo):
 
 ```sh
 # Download public build sources only; no NAS connection.
-git clone --depth 1 --branch 2025.02.19 https://github.com/buildroot/buildroot.git /tmp/nas-revival-buildroot
-git -C /tmp/nas-revival-buildroot rev-parse HEAD
+# Use a disk path: /tmp is tmpfs (RAM) on Ubuntu and the build is refused there.
+git clone --depth 1 --branch 2025.02.19 https://github.com/buildroot/buildroot.git ~/build/nas-revival-buildroot
+git -C ~/build/nas-revival-buildroot rev-parse HEAD
 # Must be 4f924fd52841608d68ac3dcb83fccee8b8c90316.
 
 cd ~/VScode/NAS310/nas-revival
-python3 scripts/stage1/build.py /tmp/nas-revival-buildroot "$PWD/output/stage1"
+python3 scripts/stage1/build.py ~/build/nas-revival-buildroot "$PWD/output/stage1"
 ```
+
+Memory and disk guards: the first attempt kept Buildroot and its download cache under tmpfs `/tmp` and fetched 2.6.31.8 headers as a full `linux.git` clone; RAM and swap filled and the workstation VM froze (2026-11-16). Headers now come from the kernel.org `linux-2.6.31.8.tar.xz` (about 50 MB) with a SHA-256 from kernel.org `sha256sums.asc` (its PGP signature was not verified here), enforced by `BR2_DOWNLOAD_FORCE_CHECK_HASHES`. `build.py` refuses source, output or download cache on tmpfs/ramfs, needs 2 GiB available RAM and 10 GiB free disk, sizes `-j` at one job per 1.5 GiB available RAM (max 8) and caches downloads in `~/.cache/nas-revival/dl` unless `BR2_DL_DIR` is set.
 
 The output directory must be fresh. For configuration inspection only, use a different fresh output path and `--configure-only`. The script never installs workstation packages: missing prerequisites stop the build. Buildroot may download and compile build-local host tools/dependencies. No `make linux`, bootloader, disk image or firmware target is requested.
 

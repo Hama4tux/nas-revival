@@ -11,6 +11,37 @@ SCRIPTS = ROOT / 'scripts/stage1'
 sys.path.insert(0, str(SCRIPTS))
 from audit_rootfs import audit_elf, check_arm_abi, inside, readelf
 from finalize import finalize
+import build
+
+
+class BuildGuardTests(unittest.TestCase):
+    def test_ram_backed_paths_are_refused(self):
+        tmpfs = next((m for m in ('/dev/shm', '/tmp', '/run')
+                      if build.filesystem_type(m) == 'tmpfs'), None)
+        if tmpfs is None:
+            self.skipTest('no tmpfs mount found')
+        with self.assertRaisesRegex(ValueError, 'RAM'):
+            build.check_build_paths({'Download cache': Path(tmpfs) / 'not-yet/dl'})
+        build.check_build_paths({'Output': ROOT})
+
+    def test_job_count_is_bounded_by_memory(self):
+        gib = build.GIB
+        self.assertEqual(build.job_count(8, 3 * gib), 2)
+        self.assertEqual(build.job_count(4, 64 * gib), 4)
+        self.assertEqual(build.job_count(32, 64 * gib), 8)
+        with self.assertRaisesRegex(ValueError, 'close applications'):
+            build.job_count(8, gib)
+
+    def test_headers_come_from_hashed_tarball_not_git(self):
+        import json
+        external = ROOT / 'userspace/stage1'
+        config = (external / 'configs/nsa310_stage1_defconfig').read_text()
+        sources = json.loads((external / 'sources.json').read_text())
+        self.assertNotIn('CUSTOM_GIT', config)
+        self.assertIn(f'_TARBALL_LOCATION="{sources["linux_headers_url"]}"', config)
+        self.assertIn('BR2_DOWNLOAD_FORCE_CHECK_HASHES=y', config)
+        hashes = (external / 'patches/linux-headers/linux-headers.hash').read_text()
+        self.assertIn(f'sha256  {sources["linux_headers_sha256"]}  linux-2.6.31.8.tar.xz', hashes)
 
 
 class ElfAuditTests(unittest.TestCase):
