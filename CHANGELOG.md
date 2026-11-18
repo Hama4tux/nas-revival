@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-11-18
+- Do otevřených bodů přidán návrh postupu buildu OpenWrt a virtuálního testu, čeká na schválení.
+
 ## 2026-11-16
 - Stage 1 zastaven: první úplný build spadl v uClibc-ng 1.0.59 na kolizi se starým linux/socket.h z 2.6.31.8. Protože OpenWrt přinese vlastní kernel i userspace a čtecí přístup už dává root Telnet, projekt přechází rovnou na kvalifikaci OpenWrt. Recept Stage 1 zůstává v repozitáři jen pro referenci.
 - Roadmapa nově vysvětluje rozdělení rolí: OpenWrt zůstává cílovým systémem, Buildroot slouží jen k sestavení malého chrootu na původním kernelu. Zapsáno rozhodnutí vlastníka, že zařízení je bez praktické hodnoty a riziko experimentu přijímá; záchrana přes UART a uložené dumpy NAND.

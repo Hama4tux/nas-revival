@@ -5,6 +5,7 @@
 - Další krok: po schválení vlastníkem spustit připravenou čtecí diagnostiku přes root Telnet a porovnat výsledky s profilem OpenWrt NSA310b; souběžně pořídit USB–TTL adaptér.
 
 ## Čeká na rozhodnutí
+- [ ] Schválit návrh buildu OpenWrt (Image Builder 25.12.6, případně plný build kvůli DT NSA310 s ADT7476) a virtuálního testu (qemu-user chroot s CPU arm926 + QEMU armsr VM 256 MB) včetně instalace qemu na pracovní stanici; bez toho nelze připravit image pro M3. (2026-11-18)
 - [ ] Schválit a spustit čtecí diagnostiku scripts/openwrt/probe-readonly.sh přes root Telnet (výstup uložit do output/, necommitovat); bez ní nelze ověřit, že profil OpenWrt NSA310b sedí na A203 (SoC, ventilátor ADT7476/LM85, síť r8169, U-Boot prostředí). (2026-11-16)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
