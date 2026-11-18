@@ -16,7 +16,7 @@ The owner considers the device, in its stock state with a 2009 kernel, to have n
 ## Current focus: OpenWrt qualification
 
 1. Read-only evidence via existing root Telnet (owner-approved command list): SoC/clock, Ethernet PHY, fan/thermal controller, `CONFIG_KEXEC`, MTD and U-Boot environment consistency — compared against the OpenWrt NSA310b profile and Linux NSA310 device trees.
-2. USB–TTL (UART) adapter and verified pinout before any boot experiment.
+2. USB–TTL (UART) adapter and verified pinout before any boot experiment. Workstation build and layered QEMU simulation are done ([OpenWrt simulation](research/openwrt-simulation.md)); an ADT7476 initramfs variant is prepared for the case the probe finds that chip.
 3. M3: OpenWrt initramfs booted from USB or RAM via U-Boot, without NAND writes, with a documented return to stock.
 4. Only then NAND installation and recovery qualification (M7).
 

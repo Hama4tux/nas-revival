@@ -1,0 +1,22 @@
+# Extra packages for the NSA310 test image, on top of the zyxel_nsa310b profile.
+# One per line; "#" starts a comment. All verified to install and build with
+# OpenWrt 25.12.6 Image Builder (docs/research/openwrt-simulation.md).
+
+# ADT7476 fan controller of the original NSA310 (NSA310b/OpenWrt default: LM85)
+kmod-hwmon-adt7475
+
+# Storage
+mdadm
+block-mount
+e2fsprogs
+smartmontools
+kmod-usb-storage
+kmod-fs-vfat
+
+# Services and future administration backend
+ksmbd-server
+openssh-sftp-server
+uhttpd
+rpcd
+ucode
+ucode-mod-ubus

@@ -1,7 +1,11 @@
 # Changelog
 
 ## 2026-11-18
-- Do otevřených bodů přidán návrh postupu buildu OpenWrt a virtuálního testu, čeká na schválení.
+- Build OpenWrt 25.12.6 pro NSA310 se dá zopakovat jedním skriptem: stažení s ověřením podpisu OpenWrt, Image Builder s balíčky pro NAS (RAID, SMART, SMB, SFTP, ventilátor ADT7476) a vlastními opravami.
+- Simulace na pracovní stanici ve třech vrstvách: rozbor image (device tree, jádro, mapa NAND), programy pro NAS na emulovaném procesoru ARMv5TE a celý OpenWrt v QEMU s 256 MB RAM a 3TB diskem včetně restartu a vytržení napájení.
+- Opraveny dvě chyby, které simulace odhalila: datový RAID se po startu nepřipojil (mdadm startoval až po fstab) a ukázkový záznam v konfiguraci mdadm bránil sestavení pole.
+- Připravena varianta dočasného bootovacího image pro původní NSA310 s čipem ventilátoru ADT7476.
+- Zjištěno, že rozložení NAND v OpenWrt se překrývá s původním U-Bootem a přepíše oddíly výrobce; instalace do NAND potřebuje samostatný plán.
 
 ## 2026-11-16
 - Stage 1 zastaven: první úplný build spadl v uClibc-ng 1.0.59 na kolizi se starým linux/socket.h z 2.6.31.8. Protože OpenWrt přinese vlastní kernel i userspace a čtecí přístup už dává root Telnet, projekt přechází rovnou na kvalifikaci OpenWrt. Recept Stage 1 zůstává v repozitáři jen pro referenci.
