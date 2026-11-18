@@ -2,13 +2,16 @@
 
 ## Stav (2026-11-18)
 - Stav: Na pracovní stanici je ověřený build OpenWrt 25.12.6 pro NSA310 a třívrstvá simulace v QEMU (statická analýza image, userspace na ARMv5TE, celý systém s 256 MB RAM a 3TB diskem). Našly se a opravily dvě chyby v připojování RAIDu. Na NASu se nic neměnilo.
-- Další krok: spustit čtecí diagnostiku přes Telnet (rozhodne LM85 nebo ADT7476 a tím, kterou initramfs variantu použít), pořídit USB–TTL adaptér a pak dočasný boot z RAM (M3).
+- Další krok: zapnout NAS tlačítkem, ověřit Telnet a spustit čtecí diagnostiku přes Telnet (rozhodne LM85 nebo ADT7476 a tím, kterou initramfs variantu použít), pořídit USB–TTL adaptér a pak dočasný boot z RAM (M3).
 
 ## Čeká na rozhodnutí
 - [ ] Schválit a spustit čtecí diagnostiku scripts/openwrt/probe-readonly.sh přes root Telnet (výstup uložit do output/, necommitovat); bez ní nelze ověřit, že profil OpenWrt NSA310b sedí na A203 (SoC, ventilátor ADT7476/LM85, síť r8169, U-Boot prostředí). (2026-11-16)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
+- [ ] Čtecí diagnostika je schválená (2026-11-18), ale neproběhla: NAS po výpadku 12V větve na Deltě 3 nenaběhl sám a je třeba ho zapnout tlačítkem. Pak spustit `python3 scripts/openwrt/telnet_run.py <IP NASu> ../secret.env scripts/openwrt/probe-readonly.sh > output/probe.txt`. (2026-11-18)
+- [ ] Po zapnutí ověřit, jestli Telnet naběhne sám přes háček telnetd_boot na md0; když ne, otevřít ho jako dřív ve webovém rozhraní přes nas_proxy.py po přihlášení adresou `/r41773,/adv,/cgi-bin/remote_help-cgi?type=backdoor` (servisní přístup ZyXEL). (2026-11-18)
+- [ ] NAS se po výpadku napájení nezapne sám (nutné tlačítko) – zohlednit u napájení z Delty a v plánu obnovy. (2026-11-18)
 - [ ] Instalace OpenWrt do NAND vyžaduje samostatný plán: oddíl ubi v OpenWrt (od 0x140000) přepíše prostředí U-Bootu i všechny oddíly výrobce a uboot_env v OpenWrt (0xC0000) leží uvnitř oddílu původního U-Bootu; buď nový U-Boot z OpenWrt, nebo vlastní mapa oddílů – rozhodnout před M7. (2026-11-18)
 - [ ] Při dočasném bootu (M3) nastavit bootargs jen v RAM (setenv bez saveenv): jádro OpenWrt přebírá příkazový řádek od původního U-Bootu (root=/dev/nfs, mtdparts=nand_mtd); podle analýzy je neškodný, na hardwaru neověřeno. Pod OpenWrt s původním U-Bootem nepoužívat fw_setenv. (2026-11-18)
 - [ ] Do návrhu backendu: nepovolit sdílení na nepřipojené cestě (zápis by šel do NAND), po změně konfigurace volat sync před hlášením úspěchu, pole a disky adresovat podle UUID – zjištěno v simulaci. (2026-11-18)

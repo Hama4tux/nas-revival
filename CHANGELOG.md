@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-18
+- Přidán skript pro spuštění čtecí diagnostiky přes Telnet NASu (přihlašovací údaje bere ze secret.env a nikam je nevypisuje). Diagnostika zatím neproběhla, protože NAS po výpadku napájení nenaběhl.
 - Build OpenWrt 25.12.6 pro NSA310 se dá zopakovat jedním skriptem: stažení s ověřením podpisu OpenWrt, Image Builder s balíčky pro NAS (RAID, SMART, SMB, SFTP, ventilátor ADT7476) a vlastními opravami.
 - Simulace na pracovní stanici ve třech vrstvách: rozbor image (device tree, jádro, mapa NAND), programy pro NAS na emulovaném procesoru ARMv5TE a celý OpenWrt v QEMU s 256 MB RAM a 3TB diskem včetně restartu a vytržení napájení.
 - Opraveny dvě chyby, které simulace odhalila: datový RAID se po startu nepřipojil (mdadm startoval až po fstab) a ukázkový záznam v konfiguraci mdadm bránil sestavení pole.
