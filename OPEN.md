@@ -5,6 +5,7 @@
 - Další krok: pořídit USB–TTL adaptér (3,3 V) a dočasně spustit standardní initramfs OpenWrt NSA310b z RAM (M3). Bez UART to nejde, protože původní jádro nemá kexec.
 
 ## Čeká na rozhodnutí
+- [ ] Vlastník objednal USB–TTL adaptér CP2102. Až přijde, otevřít kryt a zjistit, jestli je konektor konzole osazený kolíky. Pájet vlastník nebude: když kolíky chybí, zkusit kontakt bez pájení (kolíková lišta zasunutá šikmo do otvorů); jinak rozhodnout o přímém flashi NAND ze stock Linuxu, který nemá žádnou cestu záchrany. (2026-11-19)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
