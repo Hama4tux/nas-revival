@@ -70,3 +70,23 @@ Offline banner: **U-Boot 1.1.4 (Feb 22 2011 - 10:31:35), Marvell version 3.4.19*
 ### Address discrepancy
 
 The saved environment has `kernel_addr=480000` in a `nand read.e` command. Interpreted as hexadecimal, this is `0x480000`. The saved kernel `mtdparts` explicitly lists contiguous partitions of the sizes above, placing `kernel_1` at `0xC80000` and `etc` at `0x280000`–`0xC80000`. These views disagree. Do not silently correct either, assume the export is active, or use either as a boot/flash instruction. Model ID and CPU core name do not identify the fan-controller/PCB variant.
+
+## Read-only probe results — 2026-11-19
+
+`scripts/openwrt/probe-readonly.sh` ran once over the stock root Telnet (owner-approved 2026-11-18). Raw output stays in Git-ignored `output/`; only these sanitized conclusions are recorded.
+
+| Property | Probe evidence | Conclusion |
+| --- | --- | --- |
+| SoC and clock | `Soc: 88F6281 A1 LE`, `Tclk 200000000 and SysClk 400000000`, BogoMIPS 1199 | Kirkwood 88F6281 A1 at ~1.2 GHz, as every NSA310 DT assumes |
+| Fan/temperature | i2c `0-002e name=lm85 driver=lm85`, `hwmon0 name=lm85`, dmesg `lm85 0-002e: Starting monitoring` | **LM85** (matches OpenWrt NSA310b and Linux NSA310a). The ADT7476 initramfs variant is not needed |
+| Other i2c | `0-0051 pcf8563` (RTC), `0-004a i2s_i2c` | RTC present at 0x51; not bound by the stock kernel |
+| Ethernet | PCI `10ec:8168`, dmesg `RTL8168D/8111D`, stock driver `r8168`, interface `egiga0` | Realtek PCIe as expected by OpenWrt `r8169` |
+| NAND | Samsung 128 MiB 3.3 V 8-bit (ID 0xec/0xf1); 9 cmdline partitions; erase 128 KiB, page 2 KiB, OOB 64 | Same map as the saved `mtdparts`: `kernel_1` starts at 0xC80000 |
+| Kernel cmdline | `console=ttyS0,115200 mtdparts=nand_mtd:... root=/dev/nfs rw init=/init` | Confirms what the OpenWrt kernel would inherit with `CMDLINE_FROM_BOOTLOADER` |
+| kexec | No `/proc/config.gz`; `sys_kexec_load` and `compat_sys_kexec_load` are weak (`W`) symbols at one address; no kexec binary | Only the `cond_syscall` stub: **the stock kernel has no kexec**. The no-UART kexec path is closed |
+| U-Boot env | `fw_printenv` not present | `kernel_addr` discrepancy still unresolved; needs UART |
+| Storage | Seagate ST3000VX000-9YW1; `sda1` ~487 MiB, `sda2` 2.73 TiB; `md0` **linear** over `sda2` only (super 1.2) | Not RAID1. Disk health still unchecked |
+| USB | Marvell Orion EHCI, internal Genesys `05e3:0608` hub | USB host works under stock firmware |
+| Telnet | Port 23 opened ~1.5 min after the network came up, after a cold power-on | Boot hook `telnetd_boot` on md0 confirmed |
+
+The SoC, the fan chip and the Ethernet all match the OpenWrt NSA310b profile, so the next gate is the **stock NSA310b initramfs** via UART (M3).

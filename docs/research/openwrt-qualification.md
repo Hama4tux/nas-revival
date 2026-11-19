@@ -1,6 +1,6 @@
 # OpenWrt qualification: read-only probe
 
-Status 2026-11-16: prepared, **not yet run on the NAS**. Running it requires the owner's approval for each run.
+Status 2026-11-19: **run once** (owner-approved). Result: SoC 88F6281 A1, fan chip LM85, Ethernet RTL8111D (r8169) all match the OpenWrt NSA310b profile; the stock kernel has no kexec. Details in the [hardware evidence](../hardware/zyxel-nsa310.md#read-only-probe-results--2026-11-19). Each further run still requires the owner's approval.
 
 [`scripts/openwrt/probe-readonly.sh`](../../scripts/openwrt/probe-readonly.sh) runs on the stock firmware through the existing root Telnet shell. It only reads `/proc`, `/sys`, `dmesg` and (if present) `fw_printenv`. It does no mounts, writes, module loads, i2c/SMART transactions or network changes, and it redacts MAC addresses and serial numbers. `tests/test_openwrt_probe.py` enforces this statically. Keep the output private (`output/` is Git-ignored) and transfer only sanitized conclusions into the [hardware evidence](../hardware/zyxel-nsa310.md).
 

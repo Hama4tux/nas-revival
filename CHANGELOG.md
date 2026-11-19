@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-19
+- Na NASu proběhla čtecí diagnostika přes Telnet. Zjištěno: procesor Marvell 88F6281 A1 (1,2 GHz), čip ventilátoru LM85, síťová karta Realtek RTL8111D. Všechny tři odpovídají profilu OpenWrt NSA310b, takže stačí standardní image OpenWrt a varianta pro ADT7476 není potřeba.
+- Původní jádro NASu nepodporuje kexec, takže nový systém nejde spustit bez sériového kabelu (UART).
+- Telnet po zapnutí NASu naběhl sám. Datový disk md0 je jednoduchý svazek (linear) na jednom disku, ne RAID1.
+
 ## 2026-11-18
 - Přidán skript pro spuštění čtecí diagnostiky přes Telnet NASu (přihlašovací údaje bere ze secret.env a nikam je nevypisuje). Diagnostika zatím neproběhla, protože NAS po výpadku napájení nenaběhl.
 - Build OpenWrt 25.12.6 pro NSA310 se dá zopakovat jedním skriptem: stažení s ověřením podpisu OpenWrt, Image Builder s balíčky pro NAS (RAID, SMART, SMB, SFTP, ventilátor ADT7476) a vlastními opravami.
