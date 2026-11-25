@@ -2,7 +2,7 @@
 
 ## Stav (2026-11-25)
 - Stav: Debian 13 (jádro 6.12.119) běží z USB flashky přes původní U-Boot (jen v RAM, NAND beze změny); SSH s klíčem, opravené DNS, nainstalovaný firmware-realtek, nové heslo roota a zelená LED SYS.
-- Další krok: při příštím bootu ověřit tovární MAC a načtení firmwaru síťovky; pak jádro s LED triggery, disk, Samba a trvalý boot z USB.
+- Další krok: vyjasnit nedetekovaný vnitřní disk; při příštím restartu se sériovou konzolí aktivovat připravené jádro s LED a ověřit MAC a firmware síťovky; pak Samba a trvalý boot z USB.
 
 ## Čeká na rozhodnutí
 - [ ] Zastavit odpočet U-Bootu (cca 3 s) a přečíst prostředí (printenv) jen pro čtení, žádný saveenv – podklad pro boot Debianu z USB. (2026-11-25)
@@ -11,7 +11,8 @@
 ## Nedodělané
 - [ ] Původní U-Boot najde USB flashku jen při prvním `usb start` po zapnutí a jen v předním portu; výzva je `NSA310>>`, odpočet zastaví mezery/Ctrl+C posílané hned od banneru. (2026-11-25)
 - [ ] Síťovka r8169: firmware-realtek nainstalován a tovární MAC nastavena souborem /etc/systemd/network/10-nsa310-mac.link; obojí se projeví až po dalším bootu (vyžaduje sériovou konzoli kvůli U-Bootu) – ověřit firmware v dmesg a novou adresu z DHCP (IP se může změnit). (2026-11-25)
-- [ ] LED: jádro má jen triggery timer/heartbeat/default-on, takže HDD/USB/eSATA a LED síťového portu nesvítí; do konfigurace jádra přidat LEDS_TRIGGER_DISK, USB_LEDS_TRIGGER_USBPORT, LEDS_TRIGGER_NETDEV a R8169_LEDS a namapovat LED. (2026-11-25)
+- [ ] LED: jádro 6.12.119 s triggery disk/netdev/usbport/panic a R8169_LEDS je sestavené (build-debian/build-kernel.sh, původní jádro v build-debian/prev-6.12.119-noled) a na USB připravené jako /boot/uImage.led a /root/modules-6.12.119-led.tar.gz, zatím neaktivní; při restartu se sériovou konzolí přehodit uImage i moduly naráz a pak přiřadit LED (hdd → ata1, esata → ata2, usb → usbport). (2026-11-25)
+- [ ] Debian nevidí vnitřní disk (ata1 i ata2: SATA link down), přestože původní firmware 2026-11-19 sda2/md0 viděl; device tree NSA310a nemá řízení napájení disku – ověřit u vlastníka, jestli je disk zapojený, případně dohledat, jak ho původní firmware zapíná. (2026-11-25)
 - [ ] Build rootfs (mmdebstrap) převzal resolv.conf stavebního počítače (127.0.0.53 bez resolved) – v receptu doinstalovat systemd-resolved nebo zapsat správný resolv.conf; na NASu opraveno ručně. (2026-11-25)
 - [ ] AGENTS.md (sekce Tento projekt) stále zakazuje přístup k živému NASu a popisuje fázi OpenWrt; po přechodu na Debian ho přepsat podle skutečného postupu. (2026-11-25)
 - [ ] Debian 13 armel nemá oficiální jádro Kirkwood: jádro (mainline LTS 6.12) aktualizujeme sami – zautomatizovat build a hlídat nové verze 6.12.x. (2026-11-25)
