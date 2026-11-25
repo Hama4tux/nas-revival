@@ -10,7 +10,7 @@
 
 
 ## Nedodělané
-- [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť a Systém): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
+- [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť, Systém a Úložiště – u Úložiště, že / a /srv/data nejsou označené „jen pro čtení“): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
 - [ ] Disk ST1000LM014: APM nastaveno ručně na 254 (bez parkování hlav, 35 015 cyklů při 6 869 h); platí jen do restartu – trvale ho bude nastavovat krok W1.5 (uspávání a APM z GUI). (2026-11-25)
 - [ ] `timedatectl show-timesync` na NASu končí chybou „Connection timed out“ (synchronizace přitom běží), proto stránka NTP neukazuje aktuální server – zjistit proč. (2026-11-25)
 - [ ] Rollback sítě po restartu NASu během čekající změny zatím neověřen (ověřen jen vypršením 180 s) – vyzkoušet při nejbližším plánovaném restartu. (2026-11-25)
