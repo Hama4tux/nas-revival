@@ -1,12 +1,17 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: NAS bootuje Debian 13 sám i po studeném startu (slot A → slot B → původní firmware); systém a data na vnitřním disku 1 TB; jádro jde zapisovat do NAND i z Linuxu.
-- Další krok: nasadit webové GUI (přehled, hotové na pracovní stanici) na NAS; pak Samba a NFS pro zálohy z Proxmoxu; postup aktualizace jádra z GUI.
+- Stav: Debian 13 běží sám z NAND slotů, webové GUI ke čtení je nasazené; hotový audit a plán M0 – architektura, roadmapa M0–M6 s backlogem M1, matice funkcí a naměřený výchozí stav v docs/.
+- Další krok: M1 Core & Storage podle docs/ROADMAP.md – dokončit helper (síť/DNS/NTP), pak registr operací helperu s auditem, transakce konfigurace, profily hardwaru, přehled úložiště, SMART detail a uspávání disku.
 
 ## Čeká na rozhodnutí
 - [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
+
+- [ ] Uspávání datového disku: systém, swap, žurnál i data jsou na jednom disku a v klidu se zapisuje asi 8 KiB/s (měřeno), takže disk neusne. Rozhodnout: bez uspávání / omezit zápisy (žurnál v RAM nebo dávkově, noatime) / systém na USB flashku – ADR 0007 v docs/ARCHITECTURE.md. (2026-11-25)
+- [ ] Souhlas s instalací balíčku hdparm na NAS – potřebný pro uspávání disku a nastavení APM (M1-10). (2026-11-25)
+- [ ] Webové účty pro více uživatelů (ADR 0004): účet = linuxový uživatel, heslo se uloží jako hash pro Linux, Sambu i web, protože program bez cgo neumí ověřit hash z /etc/shadow – potvrdit tento přístup před M2. (2026-11-25)
+- [ ] LLMNR (port 5355, systemd-resolved) je otevřené do celé sítě – vypnout, pokud se nepoužívá. (2026-11-25)
 
 ## Nedodělané
 - [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
@@ -23,15 +28,13 @@
 - [ ] Disk 2,5" sedí v šachtě pro 3,5" bez rámečku a 2026-11-25 při manipulaci krátce vypadl – pořídit redukci 2,5"→3,5" a disk upevnit. (2026-11-25)
 - [ ] Tlačítko COPY: vyzkoušet skutečnou zálohu s běžnou flashkou FAT32 (zatím ověřeno jen přeskočení záchranné flashky a červená LED). (2026-11-25)
 - [ ] Tlačítko COPY: jádro neumí exFAT ani NTFS (běžné na flashkách nad 32 GB a externích discích) – přidat moduly exfat a ntfs3 do jádra; vyžaduje nové jádro a zápis do slotu A. (2026-11-25)
-- [ ] Projektová část AGENTS.md („Tento projekt“) je zastaralá – pořád zakazuje přístup k NASu a popisuje fázi OpenWrt; přepsat podle fáze Debian. (2026-11-25)
 - [ ] Ventilátor: po pár dnech provozu ověřit teplotu disku při minimálních otáčkách (LM85 disk nevidí); kdyby šla nad ~50 °C, snížit práh v deploy/debian/nsa310-fan. (2026-11-25)
 - [ ] Při chybějícím nebo vadném disku jádro čeká na kořen donekonečna (rootwait) – zvážit nouzový kořen (USB flashka) nebo timeout. (2026-11-25)
 - [ ] Starý kořen na USB flashce (oddíl rootfs) je zamrzlá kopie z 2026-11-25 jako záloha; neaktualizuje se. (2026-11-25)
 - [ ] LED eSATA a COPY zatím nic neukazují a HDD bliká při činnosti kteréhokoli disku (i USB flashky); pro LED jednotlivých SATA portů je potřeba dohledat volbu jádra (per-port trigger ata1/ata2 v 6.12 chybí). Přiřazení tří LED síťového portu (link, aktivita, gigabit) ověřit pohledem. (2026-11-25)
 - [ ] Build rootfs (mmdebstrap) převzal resolv.conf stavebního počítače (127.0.0.53 bez resolved) – v receptu doinstalovat systemd-resolved nebo zapsat správný resolv.conf; na NASu opraveno ručně. (2026-11-25)
-- [ ] AGENTS.md (sekce Tento projekt) stále zakazuje přístup k živému NASu a popisuje fázi OpenWrt; po přechodu na Debian ho přepsat podle skutečného postupu. (2026-11-25)
 - [ ] Debian 13 armel nemá oficiální jádro Kirkwood: jádro (mainline LTS 6.12) aktualizujeme sami – zautomatizovat build a hlídat nové verze 6.12.x. (2026-11-25)
-- [ ] Vlastník zvolil Debian 13 místo OpenWrt (2026-11-25): přepsat ADR 0001 a roadmapu (kořen na USB/disku, komunitní jádro Kirkwood, konec armel po Debianu 13) a nejdřív Debian vyzkoušet z USB přes původní U-Boot bez saveenv a bez zápisu do NAND. (2026-11-25)
+- [ ] Přepsat ADR 0001 podle rozhodnutí pro Debian 13 (vlastní jádro 6.12 ve slotech NAND, konec armel po Debianu 13); roadmapa, architektura a README už jsou přepsané. (2026-11-25)
 - [ ] NAS se po výpadku napájení nezapne sám (nutné tlačítko) – zohlednit u napájení z Delty a v plánu obnovy. (2026-11-18)
 - [ ] Instalace OpenWrt do NAND vyžaduje samostatný plán: oddíl ubi v OpenWrt (od 0x140000) přepíše prostředí U-Bootu i všechny oddíly výrobce a uboot_env v OpenWrt (0xC0000) leží uvnitř oddílu původního U-Bootu; buď nový U-Boot z OpenWrt, nebo vlastní mapa oddílů – rozhodnout před M7. (2026-11-18)
 - [ ] Při dočasném bootu (M3) nastavit bootargs jen v RAM (setenv bez saveenv): jádro OpenWrt přebírá příkazový řádek od původního U-Bootu (root=/dev/nfs, mtdparts=nand_mtd); podle analýzy je neškodný, na hardwaru neověřeno. Pod OpenWrt s původním U-Bootem nepoužívat fw_setenv. (2026-11-18)
@@ -48,6 +51,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Audit a plán M0: 10 dokumentů v docs/ (architektura, roadmapa s backlogem M1, matice funkcí, kompatibilita HW, výkonový rozpočet s měřením na NASu, bezpečnostní model, návrh API, navigace UI, obnova, testovací plán) a čtecí měřicí skript scripts/measure/snapshot.sh. (2026-11-25)
 - Nový vzhled webového GUI podle návrhu (tmavý výchozí, světlý přepínačem): boční menu, stav systému, dlaždice zdrojů, úložiště se SMART, graf sítě, poslední události; ověřeno s ukázkovými daty. (2026-11-25)
 - Tlačítko COPY zálohuje USB flashku do /srv/data/usb-zalohy (služby nsa310-button a nsa310-copy). (2026-11-25)
 - Ventilátor řídí automaticky čip LM85 (služba nsa310-fan), už nejede pořád naplno. (2026-11-25)

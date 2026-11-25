@@ -2,9 +2,9 @@
 
 Give unsupported NAS hardware a useful, maintainable second life with a small Linux system and a modern local administration interface.
 
-**Status: OpenWrt qualification — 2026-11-16. Stage 1 (chroot userspace on the stock kernel) is shelved; no firmware, backend or frontend is implemented and nothing has been deployed to the NAS.** The first target is the original **ZyXEL NSA310 A203**; precise board-profile qualification remains incomplete. An OpenWrt image named NSA310b is not evidence that it is safe for this unit.
+**Status 2026-11-25: Debian 13 armel runs on the ZyXEL NSA310** with our own 6.12 LTS kernel in two NAND slots (stock firmware kept as last fallback), the system on the internal disk, automatic fan control, LEDs and the COPY button. A read-only web administration (Go backend + static React UI) is deployed; write operations through a privileged helper are in development. Plan: [ROADMAP](docs/ROADMAP.md), current state: [FEATURE_MATRIX](docs/FEATURE_MATRIX.md).
 
-The [Stage 1 guide](docs/research/stage1-userspace.md) (shelved) prepared a Buildroot/uClibc-ng chroot with key-only SSH beside the stock firmware. Its first full build failed: uClibc-ng 1.0.59 conflicts with the 2.6.31.8 `linux/socket.h` glibc guard. Because OpenWrt brings its own kernel and userspace and root Telnet already gives read access, the owner stopped Stage 1 instead of patching legacy headers.
+The earlier OpenWrt qualification and the shelved Stage 1 chroot ([guide](docs/research/stage1-userspace.md)) are kept as research history.
 
 ## Goals
 
@@ -18,26 +18,33 @@ The [Stage 1 guide](docs/research/stage1-userspace.md) (shelved) prepared a Buil
 
 This is a distribution integration project, not a rewrite of the kernel or a patch to the vendor web interface. We will reuse maintained upstream drivers and services. Additional devices need their own evidence and recovery qualification.
 
-## First technical decision
+## Technical base
 
-Investigate **OpenWrt first**, with **Buildroot as the fallback** and Debian ARMEL as a time-limited experiment. OpenWrt 25.12.6 publishes a Kirkwood NSA310b profile; Linux has distinct NSA310 device descriptions. Debian 13 is the last ARMEL release. These are upstream facts, not successful tests on our unit. See the [ADR](docs/adr/0001-base-distribution.md) and [dated source review](docs/research/upstream-support.md).
-
-The proposed OpenWrt backend uses uhttpd, rpcd/ubus and small ucode modules with narrowly scoped privileged operations. React/TypeScript/Vite is an optional workstation build stack; only static assets would run on the NAS. No Node.js or containers are required on the target. Neither choice is a measured implementation yet.
+The owner chose **Debian 13 armel** over OpenWrt on 2026-11-25 (boot details in [debian/boot.md](docs/debian/boot.md)); [ADR 0001](docs/adr/0001-base-distribution.md) still describes the OpenWrt proposal and is to be rewritten. The web stack is [ADR 0002](docs/adr/0002-web-ui-stack-debian.md): one static Go binary for ARMv5 serving the API and a React/TypeScript/Vite UI built on the workstation; no Node.js, containers or database server on the NAS. Debian 13 is the last armel release, so the kernel is maintained by this project.
 
 ## Read next
 
 | Document | Purpose |
 | --- | --- |
-| [Architecture](docs/architecture/overview.md) | Boundaries, service model, updates and resource targets |
+| [Architecture](docs/ARCHITECTURE.md) | Running system, process model, modules, config manager, HAL |
+| [Roadmap](docs/ROADMAP.md) | Milestones M0–M6 and the M1 backlog |
+| [Feature matrix](docs/FEATURE_MATRIX.md) | Every feature with priority, state and acceptance criteria |
+| [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) | Verified capabilities per device profile |
+| [Performance budget](docs/PERFORMANCE_BUDGET.md) | Targets vs. dated measurements on the NAS |
+| [Security model](docs/SECURITY_MODEL.md) | Trust boundaries, privileged helper, auth, web security |
+| [API design](docs/API_DESIGN.md) | API conventions and planned resources |
+| [UI navigation](docs/UI_NAVIGATION.md) | Apps, dashboard widgets, UI rules |
+| [Recovery](docs/RECOVERY.md) | Failure scenarios and how to get the NAS back |
+| [Test plan](docs/TEST_PLAN.md) | Test levels, module gates, scenario catalogue |
+| [Architecture (OpenWrt era)](docs/architecture/overview.md) | Historical design, superseded by ARCHITECTURE.md |
 | [Technology selection](docs/architecture/technology-selection.md) | Base system and backend tradeoffs |
 | [Hardware abstraction](docs/architecture/hardware-abstraction.md) | Capability API and Linux interfaces |
 | [NSA310 evidence](docs/hardware/zyxel-nsa310.md) | Reported, source-verified and unknown properties |
 | [Threat model](docs/security/threat-model.md) | Authentication, privileges, storage and supply chain |
-| [Recovery plan](docs/recovery/recovery-plan.md) | Future NAND backup, UART and temporary boot gates |
+| [Recovery plan (OpenWrt era)](docs/recovery/recovery-plan.md) | Historical NAND backup and UART gates |
 | [First experiment](docs/research/phase-1-experiment.md) | Workstation-only investigation; no device access |
 | [Web UI stack (ADR 0002)](docs/adr/0002-web-ui-stack-debian.md) | Go backend, React UI, privileges and auth on Debian |
 | [API v1](docs/api/v1.md) | Administration API contract |
-| [Roadmap](docs/roadmap.md) | Milestones and acceptance criteria |
 | [Open items](OPEN.md) | Decisions, blockers and unverified work |
 | [Bootstrap validation](docs/research/bootstrap-validation.md) | Checks performed and their limitations |
 | [OpenWrt qualification](docs/research/openwrt-qualification.md) | Read-only hardware probe and what it decides |
