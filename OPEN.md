@@ -2,12 +2,16 @@
 
 ## Stav (2026-11-25)
 - Stav: NAS bootuje Debian 13 sám i po studeném startu (slot A → slot B → původní firmware); systém a data na vnitřním disku 1 TB; jádro jde zapisovat do NAND i z Linuxu.
-- Další krok: Samba na /srv/data; pak postup aktualizace jádra z GUI.
+- Další krok: nasadit webové GUI (přehled, hotové na pracovní stanici) na NAS; pak Samba a NFS pro zálohy z Proxmoxu; postup aktualizace jádra z GUI.
 
 ## Čeká na rozhodnutí
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
+- [ ] Nasadit webové rozhraní na NAS (deploy/debian/README.md, port 8443): změřit paměť, ověřit čidla LM85, SMART pod omezeným uživatelem a stav služeb; zatím vyzkoušeno jen na pracovní stanici. (2026-11-25)
+- [ ] Webové rozhraní zatím nikdo neviděl na telefonu (zmenšení okna v testu nefungovalo) – zkontrolovat rozložení na mobilu. (2026-11-25)
+- [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
+- [ ] Další obrazovky GUI: Samba sdílení a uživatelé, pak NFS – zápisové operace přes úzký privilegovaný pomocník (ADR 0002). (2026-11-25)
 - [ ] Aktualizace jádra z GUI: zápis z Linuxu je ověřený (ECC sedí s U-Bootem); zbývá navrhnout postup (nové jádro do slotu A, předchozí do slotu B, kontrola zpětným čtením) a jednou ho vyzkoušet s konzolí po ruce. (2026-11-25)
 - [ ] Dlouhý test SMART nového disku: první běh přerušilo vypnutí ze zásuvky, spuštěn znovu (konec kolem 19:10 2026-11-25) – zkontrolovat výsledek (smartctl -l selftest). (2026-11-25)
 - [ ] Při chybějícím nebo vadném disku jádro čeká na kořen donekonečna (rootwait) – zvážit nouzový kořen (USB flashka) nebo timeout. (2026-11-25)
@@ -33,6 +37,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Webové GUI – čtecí přehled: Go backend (ARMv5) a React rozhraní, přihlášení, testy prošly, ověřeno v prohlížeči na pracovní stanici. (2026-11-25)
 - Zápis jádra do NAND z Linuxu ověřen: ECC jádra (Hamming 1 bit/256 B, OOB 40–63) bajt po bajtu odpovídá původnímu U-Bootu, přepis slotu B z Linuxu dal shodný obsah NAND včetně OOB. (2026-11-25)
 - Studený start ověřen: po vypnutí ze zásuvky a zapnutí NAS sám naběhl do Debianu (jádro 6.12.119, kořen a data na vnitřním disku). (2026-11-25)
 - Trvalý boot bez obsluhy: jádro Debianu ve dvou slotech NAND (kernel_2, rootfs2), řetězec slot A → slot B → původní firmware uložen saveenv a ověřen restartem. (2026-11-25)

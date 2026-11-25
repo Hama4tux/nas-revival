@@ -1,0 +1,35 @@
+[Unit]
+Description=NAS Revival web administration
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nas-revival -listen :8443 -config /etc/nas-revival -state /var/lib/nas-revival
+User=nas-revival
+Group=nas-revival
+# Read-only overview: SMART needs raw disk access, nothing else is privileged.
+SupplementaryGroups=disk
+AmbientCapabilities=CAP_SYS_RAWIO
+CapabilityBoundingSet=CAP_SYS_RAWIO
+StateDirectory=nas-revival
+StateDirectoryMode=0700
+# 256 MiB RAM: keep the Go heap small; argon2 needs 16 MiB per login.
+Environment=GOMEMLIMIT=40MiB GOGC=50
+MemoryMax=96M
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6 AF_NETLINK
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

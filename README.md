@@ -35,6 +35,8 @@ The proposed OpenWrt backend uses uhttpd, rpcd/ubus and small ucode modules with
 | [Threat model](docs/security/threat-model.md) | Authentication, privileges, storage and supply chain |
 | [Recovery plan](docs/recovery/recovery-plan.md) | Future NAND backup, UART and temporary boot gates |
 | [First experiment](docs/research/phase-1-experiment.md) | Workstation-only investigation; no device access |
+| [Web UI stack (ADR 0002)](docs/adr/0002-web-ui-stack-debian.md) | Go backend, React UI, privileges and auth on Debian |
+| [API v1](docs/api/v1.md) | Administration API contract |
 | [Roadmap](docs/roadmap.md) | Milestones and acceptance criteria |
 | [Open items](OPEN.md) | Decisions, blockers and unverified work |
 | [Bootstrap validation](docs/research/bootstrap-validation.md) | Checks performed and their limitations |

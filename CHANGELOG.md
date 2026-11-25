@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-25
+- Začalo webové rozhraní pro správu NASu: přihlášení a přehled stavu (systém, procesor, paměť, teploty a ventilátor, síť, disky a jejich zaplnění, SMART, služby). Backend je jeden program v Go pro procesor NASu, rozhraní je v Reactu a obnovuje se každých 5 s. Zatím je jen ke čtení a na NAS ještě nebylo nasazeno.
 - Ověřeno, že jádro jde do NAND zapisovat i z běžícího Debianu (zabezpečení ECC je stejné jako u původního U-Bootu) – základ pro budoucí aktualizace jádra z webového rozhraní. NAS také sám naběhl po vypnutí ze zásuvky.
 - NAS bootuje Debian sám, bez sériové konzole: jádro je v NAND ve dvou slotech (aktuální a záložní) a když oba selžou, naběhne původní firmware ZyXEL. Změněno jen prostředí U-Bootu a záložní oddíly původního firmwaru, U-Boot a hlavní kopie firmwaru zůstaly netknuté.
 - Debian běží z nového vnitřního disku 1 TB: 30 GB systém, 1 GB swap a zbytek pro data (/srv/data). Jádro zůstává na USB flashce, protože původní U-Boot neumí číst disk. Původní 3TB disk byl podle SMART vadný a byl vyřazen.

@@ -1,0 +1,183 @@
+// Command nas-revival serves the NAS administration UI and API over HTTPS.
+//
+//	nas-revival [-listen :8443] [-config /etc/nas-revival] [-state /var/lib/nas-revival]
+//	nas-revival set-password [-config /etc/nas-revival] [-user admin]
+package main
+
+import (
+	"bufio"
+	"context"
+	"crypto/tls"
+	"errors"
+	"flag"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"strings"
+	"syscall"
+	"time"
+
+	"golang.org/x/term"
+
+	"nas-revival/backend/internal/api"
+	"nas-revival/backend/internal/auth"
+	"nas-revival/backend/internal/hal"
+	"nas-revival/backend/internal/smart"
+	"nas-revival/backend/internal/system"
+	"nas-revival/backend/internal/web"
+)
+
+func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	var err error
+	if len(os.Args) > 1 && os.Args[1] == "set-password" {
+		err = setPassword(os.Args[2:])
+	} else {
+		err = serve(os.Args[1:])
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "nas-revival:", err)
+		os.Exit(1)
+	}
+}
+
+func serve(args []string) error {
+	fl := flag.NewFlagSet("nas-revival", flag.ContinueOnError)
+	listen := fl.String("listen", ":8443", "HTTPS listen address")
+	configDir := fl.String("config", "/etc/nas-revival", "configuration directory (admin.json)")
+	stateDir := fl.String("state", "/var/lib/nas-revival", "state directory (generated TLS certificate)")
+	root := fl.String("root", "/", "file-system root for procfs/sysfs (testing only)")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+
+	creds, err := auth.LoadCredentials(filepath.Join(*configDir, "admin.json"))
+	if err != nil {
+		return fmt.Errorf("load administrator (run 'nas-revival set-password' first): %w", err)
+	}
+	verifier, err := auth.NewVerifier(creds)
+	if err != nil {
+		return err
+	}
+	cert, err := loadOrCreateCert(filepath.Join(*stateDir, "tls"))
+	if err != nil {
+		return fmt.Errorf("tls certificate: %w", err)
+	}
+
+	reader := hal.Reader{Root: *root}
+	srv := &api.Server{
+		Verifier: verifier,
+		Sessions: auth.NewSessions(),
+		Limiter:  auth.NewLimiter(),
+		Overview: system.NewCollector(*root, system.NewServiceChecker(system.DefaultUnits)),
+		Smart: &smart.Service{
+			Run:     smart.ExecRunner,
+			Devices: func() []string { return smartDevices(reader) },
+			TTL:     10 * time.Minute,
+			Now:     time.Now,
+		},
+		UI: web.Handler(web.Dist()),
+	}
+
+	hs := &http.Server{
+		Addr:              *listen,
+		Handler:           srv.Handler(),
+		TLSConfig:         &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{cert}},
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    16 << 10,
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	errc := make(chan error, 1)
+	go func() {
+		slog.Info("listening", "addr", *listen)
+		errc <- hs.ListenAndServeTLS("", "")
+	}()
+	select {
+	case err := <-errc:
+		return err
+	case <-ctx.Done():
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := hs.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+	return nil
+}
+
+// smartDevices returns fixed disks only; USB sticks usually have no SMART.
+func smartDevices(r hal.Reader) []string {
+	ds, err := r.Disks()
+	if err != nil {
+		return nil
+	}
+	var out []string
+	for _, d := range ds {
+		if !d.Removable && strings.HasPrefix(d.Name, "sd") {
+			out = append(out, d.Name)
+		}
+	}
+	return out
+}
+
+func setPassword(args []string) error {
+	fl := flag.NewFlagSet("set-password", flag.ContinueOnError)
+	configDir := fl.String("config", "/etc/nas-revival", "configuration directory")
+	user := fl.String("user", "admin", "administrator user name")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	pw, err := readPassword()
+	if err != nil {
+		return err
+	}
+	if len(pw) < 12 {
+		return errors.New("password must have at least 12 characters")
+	}
+	hash, err := auth.HashPassword(pw)
+	if err != nil {
+		return err
+	}
+	path := filepath.Join(*configDir, "admin.json")
+	if err := auth.SaveCredentials(path, auth.Credentials{Username: *user, Hash: hash}); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "password saved to %s; restart the service to apply\n", path)
+	return nil
+}
+
+// readPassword asks twice on a terminal, or reads one line from a pipe.
+func readPassword() (string, error) {
+	fd := int(os.Stdin.Fd())
+	if !term.IsTerminal(fd) {
+		line, err := bufio.NewReader(os.Stdin).ReadString('\n')
+		if err != nil && line == "" {
+			return "", errors.New("no password on stdin")
+		}
+		return strings.TrimRight(line, "\r\n"), nil
+	}
+	fmt.Fprint(os.Stderr, "New password: ")
+	a, err := term.ReadPassword(fd)
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprint(os.Stderr, "Repeat password: ")
+	b, err := term.ReadPassword(fd)
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", err
+	}
+	if string(a) != string(b) {
+		return "", errors.New("passwords do not match")
+	}
+	return string(a), nil
+}

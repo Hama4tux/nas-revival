@@ -39,3 +39,6 @@ secret.env
 *.local.*
 *.key
 *.pem
+
+# Frontend mock-mode switch (no secrets, only VITE_MOCK=1)
+!/frontend/.env.mock
