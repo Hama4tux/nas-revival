@@ -3,7 +3,7 @@ import { api, setUnauthorizedHandler } from './api/client';
 import type { SessionInfo } from './api/types';
 import { Login } from './components/Login';
 import { Overview } from './components/Overview';
-import { Shell } from './components/Shell';
+import { Shell, type HostSummary } from './components/Shell';
 import { cs } from './i18n/cs';
 
 type Auth = 'checking' | 'out' | 'in';
@@ -11,7 +11,7 @@ type Auth = 'checking' | 'out' | 'in';
 export function App() {
   const [auth, setAuth] = useState<Auth>('checking');
   const [loggingOut, setLoggingOut] = useState(false);
-  const [hostname, setHostname] = useState<string | null>(null);
+  const [host, setHost] = useState<HostSummary | null>(null);
   const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export function App() {
     setLoggingOut(true);
     try { await api('/session', { method: 'DELETE' }); } catch { /* cookie may already be gone */ }
     setLoggingOut(false);
-    setHostname(null);
+    setHost(null);
     setAuth('out');
   }
 
@@ -43,8 +43,9 @@ export function App() {
   }
   if (auth === 'out') return <Login onSuccess={() => void check()} />;
   return (
-    <Shell hostname={hostname} username={username} onLogout={() => void logout()} loggingOut={loggingOut}>
-      <Overview onHostname={setHostname} />
+    <Shell host={host} username={username} onLogout={() => void logout()} loggingOut={loggingOut}
+      title={cs.overview.title} subtitle={cs.overview.subtitle}>
+      <Overview onHost={setHost} />
     </Shell>
   );
 }

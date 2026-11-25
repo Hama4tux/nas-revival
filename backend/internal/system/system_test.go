@@ -115,26 +115,42 @@ func TestCollectFailsWithoutProc(t *testing.T) {
 func TestServiceChecker(t *testing.T) {
 	var gotArgs []string
 	sc := &ServiceChecker{
-		Units: []Unit{{"ssh.service", "SSH"}, {"smbd.service", "Samba"}, {"bad.service", "Bad"}, {"nfs-server.service", "NFS"}},
+		Units: []Unit{{"ssh.service", "SSH"}, {"smbd.service", "Samba"}, {"bad.service", "Bad"}, {"nfs-server.service", "NFS"},
+			{"leds.service", "LED"}, {"stopped.service", "Stopped"}},
 		Run: func(_ context.Context, args ...string) ([]byte, error) {
 			gotArgs = args
-			return []byte("Id=ssh.service\nLoadState=loaded\nActiveState=active\n\n" +
+			return []byte("Id=ssh.service\nLoadState=loaded\nActiveState=active\nType=notify\nResult=success\nStateChangeTimestamp=@1764082752\n\n" +
 				"Id=smbd.service\nLoadState=not-found\nActiveState=inactive\n\n" +
-				"Id=bad.service\nLoadState=loaded\nActiveState=failed\n\n" +
-				"Id=nfs-server.service\nLoadState=loaded\nActiveState=activating\n"), nil
+				"Id=bad.service\nLoadState=loaded\nActiveState=failed\nType=simple\nResult=exit-code\nStateChangeTimestamp=@1764082000\n\n" +
+				"Id=nfs-server.service\nLoadState=loaded\nActiveState=activating\nStateChangeTimestamp=\n\n" +
+				"Id=leds.service\nLoadState=loaded\nActiveState=inactive\nType=oneshot\nResult=success\nStateChangeTimestamp=@1764081000\n\n" +
+				"Id=stopped.service\nLoadState=loaded\nActiveState=inactive\nType=simple\nResult=success\nStateChangeTimestamp=n/a\n"), nil
 		},
 	}
 	got := sc.Check(context.Background())
-	want := []Service{{"ssh.service", "SSH", "active"}, {"bad.service", "Bad", "failed"}, {"nfs-server.service", "NFS", "unknown"}}
+	type row struct {
+		name, state string
+		since       int64 // 0 = nil
+	}
+	want := []row{{"ssh.service", "active", 1764082752}, {"bad.service", "failed", 1764082000},
+		{"nfs-server.service", "unknown", 0}, {"leds.service", "done", 1764081000}, {"stopped.service", "inactive", 0}}
 	if len(got) != len(want) {
 		t.Fatalf("got %+v", got)
 	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("%d: got %+v want %+v", i, got[i], want[i])
+	for i, w := range want {
+		g := got[i]
+		var since int64
+		if g.Since != nil {
+			since = g.Since.Unix()
+			if g.Since.Location() != time.UTC {
+				t.Fatalf("%d: since must be UTC", i)
+			}
+		}
+		if g.Name != w.name || g.State != w.state || since != w.since {
+			t.Fatalf("%d: got %+v want %+v", i, g, w)
 		}
 	}
-	if gotArgs[0] != "show" || gotArgs[2] != "--" {
+	if gotArgs[0] != "show" || gotArgs[3] != "--" {
 		t.Fatalf("unit names must follow --: %v", gotArgs)
 	}
 }

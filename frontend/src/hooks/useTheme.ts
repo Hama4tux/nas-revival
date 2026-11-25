@@ -12,16 +12,12 @@ function stored(): Theme | null {
   } catch { /* storage unavailable */ }
   return mem;
 }
-const systemDark = () => window.matchMedia('(prefers-color-scheme: dark)').matches;
-const current = (): Theme => stored() ?? (systemDark() ? 'dark' : 'light');
+// Dark is the primary look; light only when the user picks it with the toggle.
+const current = (): Theme => stored() ?? 'dark';
 const apply = () => document.documentElement.classList.toggle('dark', current() === 'dark');
 
 export function initTheme(): void {
   apply();
-  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-    apply();
-    listeners.forEach((l) => l());
-  });
 }
 
 export function useTheme() {

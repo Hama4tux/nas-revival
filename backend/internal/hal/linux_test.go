@@ -209,3 +209,28 @@ func TestMounts(t *testing.T) {
 		}
 	}
 }
+
+func TestMountsResolveDevRoot(t *testing.T) {
+	files := map[string]string{}
+	for k, v := range nsa310Base {
+		files[k] = v
+	}
+	files["proc/self/mounts"] = "/dev/root / ext4 rw,relatime 0 0\n/dev/sda3 /srv/data ext4 rw 0 0\n"
+	files["proc/self/mountinfo"] = "22 1 8:2 / / rw,relatime shared:1 - ext4 /dev/root rw\n" +
+		"30 22 8:3 / /srv/data rw,relatime shared:9 - ext4 /dev/sda3 rw\n"
+	files["sys/dev/block/8:2/uevent"] = "MAJOR=8\nMINOR=2\nDEVNAME=sda2\nDEVTYPE=partition\n"
+	ms, err := fixture(t, files).Mounts()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ms) != 2 || ms[0].Device != "/dev/sda2" || ms[1].Device != "/dev/sda3" {
+		t.Fatalf("mounts %+v", ms)
+	}
+
+	// Unresolvable alias stays as reported.
+	delete(files, "sys/dev/block/8:2/uevent")
+	ms, err = fixture(t, files).Mounts()
+	if err != nil || ms[0].Device != "/dev/root" {
+		t.Fatalf("mounts %+v err %v", ms, err)
+	}
+}

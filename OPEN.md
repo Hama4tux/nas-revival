@@ -10,9 +10,10 @@
 
 ## Nedodělané
 - [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
-- [ ] GUI: u SMART ukazovat běžící samotest (průběh v %) a výsledek posledního testu; služba nsa310-leds je jednorázová, takže se ukazuje jako „Zastaveno“ – zobrazit ji jako hotovou (oneshot). (2026-11-25)
+- [ ] GUI: u SMART ukazovat běžící samotest (průběh v %) a výsledek posledního testu. (2026-11-25)
+- [ ] Nový vzhled GUI (commit „Web UI: redesign…“) je sestavený v output/webui, ale na NAS ještě nenasazený (NAS byl vypnutý) – nasadit a zkontrolovat s živými daty, hlavně přiřazení / k disku sda (převod /dev/root) a Poslední události. (2026-11-25)
 - [ ] Disk ST1000LM014 (SSHD) má 35 003 parkování hlav při 6 866 h provozu – zvážit nastavení APM/odstavení hlav (hdparm -B) a sledovat atribut 193 v GUI. (2026-11-25)
-- [ ] Webové rozhraní zatím nikdo neviděl na telefonu (zmenšení okna v testu nefungovalo) – zkontrolovat rozložení na mobilu. (2026-11-25)
+- [ ] Rozložení na mobilu ověřeno jen v prohlížeči na šířce 390 px s ukázkovými daty – zkontrolovat na skutečném telefonu. (2026-11-25)
 - [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
 - [ ] Další obrazovky GUI: Samba sdílení a uživatelé, pak NFS – zápisové operace přes úzký privilegovaný pomocník (ADR 0002). (2026-11-25)
 - [ ] Aktualizace jádra z webu (podklad pro backend, který staví druhý agent): zápis z Linuxu je ověřený (ECC sedí s U-Bootem, postup v docs/debian/boot.md). Strategie: slot B drží poslední funkční jádro; při upgradu nejdřív zkopírovat A → B, pak nové jádro do A, každý zápis ověřit zpětným čtením (sha256, corrected_bits/ecc_failures) a nikdy nezapisovat oba sloty najednou. První upgrade tímto postupem udělat s konzolí po ruce. (2026-11-25)
@@ -46,6 +47,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Nový vzhled webového GUI podle návrhu (tmavý výchozí, světlý přepínačem): boční menu, stav systému, dlaždice zdrojů, úložiště se SMART, graf sítě, poslední události; ověřeno s ukázkovými daty. (2026-11-25)
 - Tlačítko COPY zálohuje USB flashku do /srv/data/usb-zalohy (služby nsa310-button a nsa310-copy). (2026-11-25)
 - Ventilátor řídí automaticky čip LM85 (služba nsa310-fan), už nejede pořád naplno. (2026-11-25)
 - Webové GUI nasazeno na NAS (port 8443, uživatel nas-revival, 24–42 MB RAM); SMART i stav služeb fungují pod omezeným uživatelem. (2026-11-25)

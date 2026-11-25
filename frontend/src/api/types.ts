@@ -1,6 +1,6 @@
 export interface SessionInfo { username: string; expiresAt: string }
 export type SensorStatus = 'ok' | 'unknown' | 'unsupported' | 'fault';
-export type ServiceState = 'active' | 'inactive' | 'failed' | 'unknown';
+export type ServiceState = 'active' | 'inactive' | 'failed' | 'done' | 'unknown';
 
 export interface Overview {
   generatedAt: string;
@@ -24,7 +24,7 @@ export interface Overview {
       mount: string; device: string; fsType: string; totalBytes: number; usedBytes: number; availableBytes: number;
     }[];
   };
-  services: { name: string; label: string; state: ServiceState }[];
+  services: { name: string; label: string; state: ServiceState; since?: string | null }[];
 }
 
 export interface Smart {

@@ -19,14 +19,35 @@ export const cs = {
   shell: {
     logout: 'Odhlásit', loggingOut: 'Odhlašuji…', mainNav: 'Hlavní navigace', soon: 'Připravujeme',
     host: 'Hostitel', menu: 'Hlavní nabídka', menuTitle: 'Aplikace', closeMenu: 'Zavřít nabídku',
-    userMenu: 'Uživatelské menu', user: 'Uživatel',
+    userMenu: 'Uživatelské menu', user: 'Uživatel', soonTitle: 'Připravujeme – zatím není k dispozici',
   },
   nav: {
     overview: 'Přehled', storage: 'Úložiště', shares: 'Sdílení', users: 'Uživatelé',
     services: 'Služby', network: 'Síť', logs: 'Logy', system: 'Systém',
   },
+  /** Longer labels for the desktop sidebar. */
+  navLong: {
+    overview: 'Přehled', storage: 'Úložiště', services: 'Služby', shares: 'Sdílení (SMB/NFS)',
+    users: 'Uživatelé a oprávnění', network: 'Síť', system: 'Systém', logs: 'Logy a události',
+  } as Record<string, string>,
   overview: {
     title: 'Přehled',
+    subtitle: 'Stav NASu, využití zdrojů, úložiště a služeb',
+    heroOk: 'Systém je v pořádku', heroWarning: 'Systém vyžaduje pozornost', heroProblem: 'Systém má problém',
+    heroOkDetail: 'Všechny sledované služby a hodnoty jsou v normě.',
+    hottest: 'Teplota', detail: 'Detail', manage: 'Spravovat', showLogs: 'Zobrazit logy',
+    systemDisk: 'Systém', dataDisk: 'Data', removableDisk: 'Výměnný disk', otherVolumes: 'Další svazky', noVolumes: 'Bez připojeného svazku',
+    events: 'Poslední události', noEvents: 'Zatím žádné události',
+    event: {
+      boot: (l: string) => `Systém ${l} byl spuštěn`,
+      active: (l: string) => `Služba ${l} byla spuštěna`,
+      inactive: (l: string) => `Služba ${l} byla zastavena`,
+      failed: (l: string) => `Služba ${l} selhala`,
+      done: (l: string) => `Úloha ${l} doběhla`,
+      unknown: (l: string) => `Služba ${l} změnila stav`,
+    } as Record<string, (l: string) => string>,
+    sysInfo: 'Informace o systému', uiVersion: 'Verze UI', ip: 'IP adresa', fan: 'Ventilátor',
+    smartShort: 'SMART',
     healthTitle: 'Stav systému', healthOk: 'V pořádku', healthWarning: 'Varování', healthProblem: 'Problém',
     healthOkDetail: 'Všechny sledované hodnoty jsou v normě.',
     reasons: {
@@ -62,7 +83,7 @@ export const cs = {
     reallocated: 'Přemapované sektory', pending: 'Čekající sektory', checkedAt: 'Zkontrolováno',
     health: { passed: 'V pořádku', failed: 'Selhání', unknown: 'Neznámé' } as Record<string, string>,
     services: 'Služby', noServices: 'Žádné sledované služby',
-    serviceState: { active: 'Běží', inactive: 'Zastaveno', failed: 'Chyba', unknown: 'Neznámé' } as Record<string, string>,
+    serviceState: { active: 'Běží', inactive: 'Vypnuto', failed: 'Chyba', done: 'Hotovo', unknown: 'Neznámé' } as Record<string, string>,
     ariaUsage: (label: string, p: number) => `${label}: ${Math.round(p)} %`,
     hours: 'h',
   },

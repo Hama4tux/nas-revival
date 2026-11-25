@@ -14,6 +14,8 @@ const err = (status: number, code: string, message: string, h?: Record<string, s
 const wave = (period: number, amp: number, base: number) =>
   base + amp * Math.sin((Date.now() - start) / 1000 / period);
 
+const ago = (s: number) => new Date(start - s * 1000).toISOString();
+
 function overview(): Overview {
   const t = (Date.now() - start) / 1000;
   const first = t < 6;
@@ -49,19 +51,24 @@ function overview(): Overview {
     ],
     storage: {
       disks: [
-        { name: 'sda', model: 'ST1000LM014', sizeBytes: 1000204886016, rotational: true, removable: false },
+        { name: 'sda', model: 'ST1000LM014-SSHD-8GB', sizeBytes: 1000204886016, rotational: true, removable: false },
+        { name: 'sdb', model: 'Cruzer Fit', sizeBytes: 15376318464, rotational: false, removable: true },
       ],
       filesystems: [
-        { mount: '/', device: '/dev/sda1', fsType: 'ext4', totalBytes: 8e9, usedBytes: 3.1e9, availableBytes: 4.9e9 },
-        { mount: '/srv/data', device: '/dev/sda3', fsType: 'ext4', totalBytes: 950e9, usedBytes: 700e9, availableBytes: 250e9 },
+        { mount: '/', device: '/dev/sda2', fsType: 'ext4', totalBytes: 31.5e9, usedBytes: 0.54e9, availableBytes: 30e9 },
+        { mount: '/srv/data', device: '/dev/sda3', fsType: 'ext4', totalBytes: 966e9, usedBytes: 2.2e6, availableBytes: 966e9 },
+        { mount: '/media/usb', device: '/dev/sdb1', fsType: 'vfat', totalBytes: 15.3e9, usedBytes: 13.9e9, availableBytes: 1.4e9 },
       ],
     },
     services: [
-      { name: 'ssh.service', label: 'SSH', state: 'active' },
-      { name: 'smbd.service', label: 'Samba', state: 'active' },
-      { name: 'nfs-server.service', label: 'NFS', state: 'inactive' },
-      { name: 'minidlna.service', label: 'DLNA', state: 'inactive' },
-      { name: 'cron.service', label: 'Cron', state: 'unknown' },
+      { name: 'ssh.service', label: 'SSH', state: 'active', since: ago(3 * 86400 + 5400) },
+      { name: 'smbd.service', label: 'Samba', state: 'active', since: ago(2 * 3600) },
+      { name: 'nfs-server.service', label: 'NFS', state: 'inactive', since: null },
+      { name: 'systemd-resolved.service', label: 'DNS', state: 'active', since: ago(3 * 86400 + 5395) },
+      { name: 'nsa310-leds.service', label: 'LED', state: 'done', since: ago(3 * 86400 + 5390) },
+      { name: 'nsa310-fan.service', label: 'Ventilátor', state: 'active', since: ago(3 * 86400 + 5390) },
+      { name: 'nsa310-button.service', label: 'Tlačítko COPY', state: 'failed', since: ago(25 * 60) },
+      { name: 'cron.service', label: 'Plánovač', state: 'unknown', since: null },
     ],
   };
 }
@@ -69,7 +76,7 @@ function overview(): Overview {
 const smart = (): Smart => ({
   checkedAt: new Date().toISOString(),
   disks: [
-    { name: 'sda', model: 'ST1000LM014', health: 'passed', temperatureCelsius: 38, powerOnHours: 1200, reallocatedSectors: 0, pendingSectors: 0, standby: false },
+    { name: 'sda', model: 'ST1000LM014-SSHD-8GB', health: 'passed', temperatureCelsius: 41, powerOnHours: 6866, reallocatedSectors: 0, pendingSectors: 0, standby: false },
   ],
 });
 

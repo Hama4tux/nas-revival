@@ -9,6 +9,7 @@ export default {
         background: c('background'), foreground: c('foreground'),
         card: c('card'), muted: c('muted'), 'muted-foreground': c('muted-foreground'),
         border: c('border'), primary: c('primary'), 'primary-foreground': c('primary-foreground'),
+        accent: c('accent'), sidebar: c('sidebar'),
         success: c('success'), warning: c('warning'), danger: c('danger'), ring: c('ring'),
       },
       fontFamily: {

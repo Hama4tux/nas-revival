@@ -412,9 +412,49 @@ func (r Reader) Mounts() ([]Mount, error) {
 			continue
 		}
 		seen[point] = true
-		out = append(out, Mount{Device: unescapeMount(fs[0]), Point: point, FSType: fs[2]})
+		dev := unescapeMount(fs[0])
+		if dev == "/dev/root" {
+			if real := r.resolveDevRoot(point); real != "" {
+				dev = real
+			}
+		}
+		out = append(out, Mount{Device: dev, Point: point, FSType: fs[2]})
 	}
 	return out, s.Err()
+}
+
+// resolveDevRoot maps the kernel's "/dev/root" alias (root= given on the
+// command line) to the real partition, using the mount's major:minor from
+// /proc/self/mountinfo and DEVNAME from /sys/dev/block/<maj:min>/uevent.
+// Returns "" when it cannot be resolved.
+func (r Reader) resolveDevRoot(point string) string {
+	f, err := os.Open(r.path("proc/self/mountinfo"))
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		fs := strings.Fields(s.Text())
+		if len(fs) < 5 || unescapeMount(fs[4]) != point {
+			continue
+		}
+		mm := fs[2]
+		if _, _, ok := strings.Cut(mm, ":"); !ok || strings.ContainsAny(mm, "/.") {
+			return ""
+		}
+		b, err := os.ReadFile(r.path(filepath.Join("sys/dev/block", mm, "uevent")))
+		if err != nil {
+			return ""
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			if name, ok := strings.CutPrefix(line, "DEVNAME="); ok && name != "" && !strings.ContainsAny(name, "/.") {
+				return "/dev/" + strings.TrimSpace(name)
+			}
+		}
+		return ""
+	}
+	return ""
 }
 
 // unescapeMount decodes the octal escapes (\040 etc.) used in /proc/mounts.

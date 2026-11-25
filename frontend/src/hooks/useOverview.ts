@@ -5,6 +5,7 @@ import { bytesRate, type NetSample } from '../lib/netrate';
 import { isStale, pushSample } from '../lib/stale';
 
 export interface NetRate { rx: number | null; tx: number | null }
+export interface NetHistory { rx: number[]; tx: number[] }
 
 const POLL_MS = 5000;
 const SMART_MS = 60_000;
@@ -38,7 +39,7 @@ export function useOverview() {
   const [smart, setSmart] = useState<Smart | null>(null);
   const [smartError, setSmartError] = useState(false);
   const [netRates, setNetRates] = useState<Record<string, NetRate>>({});
-  const [netHistory, setNetHistory] = useState<Record<string, number[]>>({});
+  const [netHistory, setNetHistory] = useState<Record<string, NetHistory>>({});
   const prevNet = useRef<Record<string, NetSample>>({});
   const busy = useRef(false);
 
@@ -64,9 +65,10 @@ export function useOverview() {
       prevNet.current = next;
       setNetRates(rates);
       setNetHistory((h) => {
-        const out: Record<string, number[]> = {};
+        const out: Record<string, NetHistory> = {};
         for (const [name, r] of Object.entries(rates)) {
-          out[name] = r.rx == null && r.tx == null ? (h[name] ?? []) : pushSample(h[name] ?? [], (r.rx ?? 0) + (r.tx ?? 0));
+          const prev = h[name] ?? { rx: [], tx: [] };
+          out[name] = r.rx == null || r.tx == null ? prev : { rx: pushSample(prev.rx, r.rx), tx: pushSample(prev.tx, r.tx) };
         }
         return out;
       });

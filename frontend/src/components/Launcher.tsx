@@ -1,18 +1,8 @@
-import { Activity, FolderOpen, HardDrive, LayoutDashboard, Network, ScrollText, Settings, Users, X, type LucideIcon } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { cs } from '../i18n/cs';
 import { cn } from '../lib/utils';
-
-const apps: { key: keyof typeof cs.nav; icon: LucideIcon; ready: boolean; tone: string }[] = [
-  { key: 'overview', icon: LayoutDashboard, ready: true, tone: 'from-sky-400 to-blue-600' },
-  { key: 'storage', icon: HardDrive, ready: false, tone: 'from-emerald-400 to-teal-600' },
-  { key: 'shares', icon: FolderOpen, ready: false, tone: 'from-amber-400 to-orange-600' },
-  { key: 'users', icon: Users, ready: false, tone: 'from-violet-400 to-purple-600' },
-  { key: 'services', icon: Activity, ready: false, tone: 'from-rose-400 to-pink-600' },
-  { key: 'network', icon: Network, ready: false, tone: 'from-cyan-400 to-sky-600' },
-  { key: 'logs', icon: ScrollText, ready: false, tone: 'from-slate-400 to-slate-600' },
-  { key: 'system', icon: Settings, ready: false, tone: 'from-indigo-400 to-blue-700' },
-];
+import { apps } from './nav';
 
 const FOCUSABLE = 'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
@@ -34,7 +24,7 @@ export function Launcher({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 top-11 z-40" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="fixed inset-0 top-14 z-40 lg:hidden" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div
         ref={ref} role="dialog" aria-modal="true" aria-label={cs.shell.menuTitle} onKeyDown={onKeyDown}
         className="pop glass h-full overflow-y-auto bg-card/90 p-5 backdrop-blur-xl sm:m-2 sm:h-auto sm:max-h-[calc(100vh-4rem)] sm:w-[26rem] sm:rounded-2xl"

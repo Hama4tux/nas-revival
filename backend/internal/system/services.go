@@ -6,6 +6,7 @@ import (
 	"context"
 	"log/slog"
 	"os/exec"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -14,6 +15,8 @@ type Service struct {
 	Name  string `json:"name"`
 	Label string `json:"label"`
 	State string `json:"state"`
+	// Since is when the unit last changed its active state (nil if unknown).
+	Since *time.Time `json:"since"`
 }
 
 // Unit is an allowlisted systemd unit shown on the dashboard.
@@ -59,7 +62,7 @@ func (s *ServiceChecker) Check(ctx context.Context) []Service {
 	if len(s.Units) == 0 {
 		return out
 	}
-	args := []string{"show", "--property=Id,LoadState,ActiveState", "--"}
+	args := []string{"show", "--timestamp=unix", "--property=Id,LoadState,ActiveState,Type,Result,StateChangeTimestamp", "--"}
 	for _, u := range s.Units {
 		args = append(args, u.Name)
 	}
@@ -90,7 +93,12 @@ func (s *ServiceChecker) Check(ctx context.Context) []Service {
 		if b["LoadState"] == "not-found" {
 			continue
 		}
-		out = append(out, Service{Name: u.Name, Label: u.Label, State: mapActiveState(b["ActiveState"])})
+		state := mapActiveState(b["ActiveState"])
+		// A oneshot unit that ran and exited cleanly is finished, not stopped.
+		if state == "inactive" && b["Type"] == "oneshot" && b["Result"] == "success" {
+			state = "done"
+		}
+		out = append(out, Service{Name: u.Name, Label: u.Label, State: state, Since: parseUnixTimestamp(b["StateChangeTimestamp"])})
 	}
 	return out
 }
@@ -129,4 +137,15 @@ func mapActiveState(s string) string {
 	default:
 		return "unknown"
 	}
+}
+
+// parseUnixTimestamp parses systemctl's "--timestamp=unix" form ("@1764082752").
+// Empty or zero values mean the unit never changed state since boot.
+func parseUnixTimestamp(v string) *time.Time {
+	sec, err := strconv.ParseInt(strings.TrimPrefix(v, "@"), 10, 64)
+	if err != nil || sec <= 0 || !strings.HasPrefix(v, "@") {
+		return nil
+	}
+	t := time.Unix(sec, 0).UTC()
+	return &t
 }

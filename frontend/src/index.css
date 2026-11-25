@@ -3,24 +3,30 @@
 @tailwind utilities;
 
 :root {
-  --background: 210 40% 96%; --foreground: 222 30% 12%;
-  --card: 0 0% 100%; --muted: 214 28% 90%; --muted-foreground: 220 12% 32%;
-  --border: 214 25% 80%; --primary: 214 85% 40%; --primary-foreground: 0 0% 100%;
-  --success: 142 70% 26%; --warning: 30 95% 31%; --danger: 0 72% 40%; --ring: 214 85% 40%;
-  --desk: linear-gradient(135deg, #dbeafe 0%, #cdeef3 48%, #e3f1fb 100%);
+  --background: 214 32% 96%; --foreground: 220 30% 14%;
+  --card: 0 0% 100%; --muted: 214 30% 93%; --muted-foreground: 218 12% 38%;
+  --border: 214 24% 86%; --primary: 214 84% 44%; --primary-foreground: 0 0% 100%;
+  --accent: 199 89% 42%;
+  --success: 142 70% 32%; --warning: 30 95% 36%; --danger: 0 72% 44%; --ring: 214 84% 44%;
+  --sidebar: 0 0% 100%;
+  --desk: linear-gradient(180deg, #f5f8fc 0%, #eef3f9 100%);
 }
 .dark {
-  --background: 222 28% 9%; --foreground: 210 20% 94%;
-  --card: 218 28% 14%; --muted: 218 22% 22%; --muted-foreground: 215 16% 74%;
-  --border: 218 20% 28%; --primary: 213 94% 68%; --primary-foreground: 222 30% 10%;
-  --success: 142 60% 58%; --warning: 38 92% 60%; --danger: 0 84% 70%; --ring: 213 94% 68%;
-  --desk: linear-gradient(135deg, #0b1424 0%, #0e2433 52%, #0c1b2c 100%);
+  --background: 204 45% 6%; --foreground: 190 20% 94%;
+  --card: 200 38% 10%; --muted: 199 30% 16%; --muted-foreground: 195 13% 68%;
+  --border: 192 30% 19%; --primary: 172 66% 50%; --primary-foreground: 200 50% 8%;
+  --accent: 199 89% 64%;
+  --success: 142 64% 52%; --warning: 38 92% 60%; --danger: 0 84% 68%; --ring: 172 66% 50%;
+  --sidebar: 203 44% 8%;
+  --desk: radial-gradient(1200px 600px at -10% 110%, rgba(20, 184, 166, .16), transparent 60%),
+          radial-gradient(900px 500px at 110% -10%, rgba(14, 165, 233, .10), transparent 60%),
+          linear-gradient(180deg, #0a141b 0%, #08121a 100%);
 }
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
 body { @apply text-foreground antialiased; background: var(--desk) fixed; background-color: hsl(var(--background)); min-height: 100vh; }
 :focus-visible { @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background; }
-.glass { @apply border border-white/50 bg-card/80 shadow-lg shadow-slate-900/5 backdrop-blur-md dark:border-white/10; }
+.glass { @apply border border-border/80 bg-card shadow-sm shadow-slate-900/5 dark:border-border dark:bg-card/80 dark:shadow-black/30 dark:backdrop-blur-md; }
 @keyframes pop { from { opacity: 0; transform: translateY(-6px) scale(.98); } to { opacity: 1; transform: none; } }
 .pop { animation: pop .14s ease-out; }
 @media (prefers-reduced-motion: reduce) {
