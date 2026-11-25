@@ -10,7 +10,8 @@
 
 ## Nedodělané
 - [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
-- [ ] Webové rozhraní běží na NASu (https://<NAS>:8443, 24 MB RAM po startu, 42 MB po přihlášení); po prvním přihlášení ověřit SMART a stav služeb pod omezeným uživatelem nas-revival. (2026-11-25)
+- [ ] GUI: u SMART ukazovat běžící samotest (průběh v %) a výsledek posledního testu; služba nsa310-leds je jednorázová, takže se ukazuje jako „Zastaveno“ – zobrazit ji jako hotovou (oneshot). (2026-11-25)
+- [ ] Disk ST1000LM014 (SSHD) má 35 003 parkování hlav při 6 866 h provozu – zvážit nastavení APM/odstavení hlav (hdparm -B) a sledovat atribut 193 v GUI. (2026-11-25)
 - [ ] Webové rozhraní zatím nikdo neviděl na telefonu (zmenšení okna v testu nefungovalo) – zkontrolovat rozložení na mobilu. (2026-11-25)
 - [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
 - [ ] Další obrazovky GUI: Samba sdílení a uživatelé, pak NFS – zápisové operace přes úzký privilegovaný pomocník (ADR 0002). (2026-11-25)
@@ -41,6 +42,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Webové GUI nasazeno na NAS (port 8443, uživatel nas-revival, 24–42 MB RAM); SMART i stav služeb fungují pod omezeným uživatelem. (2026-11-25)
 - Webové GUI – čtecí přehled: Go backend (ARMv5) a React rozhraní, přihlášení, testy prošly, ověřeno v prohlížeči na pracovní stanici. (2026-11-25)
 - Zápis jádra do NAND z Linuxu ověřen: ECC jádra (Hamming 1 bit/256 B, OOB 40–63) bajt po bajtu odpovídá původnímu U-Bootu, přepis slotu B z Linuxu dal shodný obsah NAND včetně OOB. (2026-11-25)
 - Studený start ověřen: po vypnutí ze zásuvky a zapnutí NAS sám naběhl do Debianu (jádro 6.12.119, kořen a data na vnitřním disku). (2026-11-25)
