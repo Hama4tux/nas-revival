@@ -90,7 +90,7 @@ export const cs = {
   },
   pages: {
     network: { title: 'Síť', subtitle: 'IP adresa, brána a DNS servery' },
-    system: { title: 'Systém', subtitle: 'Čas, synchronizace NTP a certifikát HTTPS' },
+    system: { title: 'Systém', subtitle: 'Informace o zařízení, čas, NTP a certifikát HTTPS' },
   },
   pending: {
     title: 'Změna sítě čeká na potvrzení',
@@ -129,6 +129,17 @@ export const cs = {
     } as Record<string, string>,
   },
   sys: {
+    info: 'Informace o systému', version: 'Verze NAS Revival', debian: 'Debian', arch: 'Architektura',
+    cpu: 'Procesor', cores: (n: number) => `${n} ${n === 1 ? 'jádro' : n < 5 ? 'jádra' : 'jader'}`, memory: 'Paměť',
+    bootTime: 'Poslední start', lastUpdate: 'Poslední změna balíčků', profile: 'Hardwarový profil',
+    ports: (sata: number | null, usb: number | null) => `SATA ${sata ?? '?'} · USB ${usb ?? '?'}`,
+    hardware: 'Funkce hardwaru',
+    capStatus: { verified: 'Ověřeno', unverified: 'Neověřeno', unsupported: 'Nepodporováno' } as Record<string, string>,
+    caps: {
+      temperatures: 'Teplotní čidla', fanSpeed: 'Otáčky ventilátoru', fanControl: 'Řízení ventilátoru', leds: 'LED',
+      copyButton: 'Tlačítko COPY', smart: 'SMART', diskStandby: 'Uspávání disku', kernelSlots: 'Dva sloty jádra v NAND',
+      rtcWake: 'Zapnutí podle hodin (RTC)', wakeOnLan: 'Wake-on-LAN', autoPowerOn: 'Zapnutí po výpadku proudu', raid: 'RAID',
+    } as Record<string, string>,
     time: 'Čas a NTP', cert: 'Certifikát HTTPS',
     synced: 'Synchronizováno', notSynced: 'Nesynchronizováno', syncState: 'Stav',
     server: 'Aktuální server', timezone: 'Časové pásmo', nasTime: 'Čas na NASu', loadError: 'Údaje se nepodařilo načíst.',

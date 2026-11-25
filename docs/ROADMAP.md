@@ -40,8 +40,8 @@ with the gate in the last column; measurements with `scripts/measure/snapshot.sh
 | M1-01 | Measurement script and baseline | — | `scripts/measure/snapshot.sh` (read-only) | **done in M0**; baseline in PERFORMANCE_BUDGET |
 | M1-02 | Helper op registry + audit records | CFG-01, LOG-10 | `internal/helper`: op table with role, validator, audit fields; journald audit with `NAS_REVIVAL_AUDIT=1` | unknown op → error; each op = one audit record; fuzz tests for validators |
 | M1-03 | Config transaction, snapshots, drift | CFG-02, CFG-03, CFG-04 | generalize `atomicfile` + network backup into `internal/config` | kill -9 during apply leaves consistent files; drift shown after manual edit |
-| M1-04 | Device profiles + capabilities API | HAL-10, CORE-11 | `devices/*/profile.json` embedded; `GET /system/capabilities` | NSA310 detected by DT; unknown DT → generic read-only; UI hides unsupported |
-| M1-05 | System info | CORE-10 | `GET /system/info` (version, Debian, arch, boot time, last update) | values match commands on NAS |
+| M1-04 | Device profiles + capabilities API | HAL-10, CORE-11 | **done 2026-11-25** (profiles in `internal/system/profile.go`); `GET /system/capabilities` | NSA310 detected by DT; unknown DT → generic read-only; UI hides unsupported |
+| M1-05 | System info | CORE-10 | **done 2026-11-25**; `GET /system/info` (version, Debian, arch, boot time, last update) | values match commands on NAS |
 | M1-06 | Reboot / shutdown with preflight | CORE-12, CORE-13, CORE-14 | helper ops `power.reboot`, `power.shutdown`; lock files `/run/nas-revival/locks/*` | blocked during SMART test/backup with reason; confirmation token; NAS comes back (reboot test with owner consent) |
 | M1-07 | Shared collector + health | MON-01, UI-01 | move overview to one snapshot goroutine; health = ok/warn/crit/unknown with problem list and `checkedAt` | 3 browsers ≈ CPU of 1; idle collector at 60 s when nobody watches |
 | M1-08 | Storage inventory (read-only) | STOR-10, STOR-11, STOR-12, PWR-05 | `lsblk -J -b -O`, `mountinfo`, by-id; system disk flag; new Storage app | identity survives USB re-plug; `/srv/data` and bind mounts correct; system disk warning shown |

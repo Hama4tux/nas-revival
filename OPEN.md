@@ -2,7 +2,7 @@
 
 ## Stav (2026-11-25)
 - Stav: Debian 13 běží sám z NAND slotů; webové GUI s nastavením sítě, DNS, NTP a certifikátu je nasazené (root helper, rollback sítě ověřen). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W1.2 informace o systému a schopnosti hardwaru, pak W1.3 přehled úložiště, W1.4 SMART detail a W1.5 uspávání a APM disku.
+- Další krok: W1.3 přehled úložiště (stabilní ID disků, oddíly, systémový disk), W1.4 SMART detail se samotesty, W1.5 uspávání a APM disku.
 
 ## Čeká na rozhodnutí
 - [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)

@@ -52,8 +52,8 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 
 | ID | Module | Feature | P | State | HW | SW deps | Res | Security risk | Acceptance criteria | Deps |
 |---|---|---|---|---|---|---|---|---|---|---|
-| CORE-10 | System Core | NAS Revival version, Debian version, arch, boot time, last update time | P0 | Planned | — | dpkg log, build info | L | none | values match `dpkg`, `/proc/stat btime` | — |
-| CORE-11 | System Core | Hardware capability detection endpoint | P0 | Planned | — | profile | L | none | UI hides unsupported features | HAL-10 |
+| CORE-10 | System Core | NAS Revival version, Debian version, arch, boot time, last update time | P0 | Implemented | — | dpkg log, build info | L | none | values match `dpkg`, `/proc/stat btime` | — |
+| CORE-11 | System Core | Hardware capability detection endpoint | P0 | Implemented | — | profile | L | none | UI hides unsupported features | HAL-10 |
 | CORE-12 | System Core | Reboot and shutdown with confirmation | P0 | Planned | — | systemctl | L | DoS by authorized user | typed confirmation; audit entry; `sync` before | PRIV-01 |
 | CORE-13 | System Core | Preflight before power ops: running SMART test, backup, apt, copy | P0 | Planned | — | flock files | L | data loss | blocked with reason list; "force" needs second confirmation | CORE-12, TASK-* |
 | CORE-14 | System Core | Shutdown progress / reason page (UI keeps polling until gone) | P1 | Planned | — | — | L | none | UI shows "shutting down" and "offline" states | CORE-12 |
@@ -62,7 +62,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | CFG-03 | Config | Bounded history (20 snapshots / 2 MiB) | P0 | Planned | — | — | L | disk fill | 21st snapshot evicts oldest | CFG-02 |
 | CFG-04 | Config | Drift detection (sha256 manifest) | P1 | Planned | — | — | L | silent overwrite of manual edits | manual edit shown as drift; save requires takeover | CFG-02 |
 | CFG-05 | Config | Export / import archive with schema migration | P1 | Planned | — | — | M | malicious archive, secret leak | size/depth limits; secrets only in encrypted export | CFG-02 |
-| HAL-10 | HAL | Device profiles: NSA310, generic ARM, generic Linux | P0 | Planned | — | DT/DMI | L | wrong profile → wrong actuator | unknown board = read-only generic profile | — |
+| HAL-10 | HAL | Device profiles: NSA310, generic ARM, generic Linux | P0 | Implemented | — | DT/DMI | L | wrong profile → wrong actuator | unknown board = read-only generic profile | — |
 
 ### Storage (M1)
 

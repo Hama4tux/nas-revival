@@ -41,6 +41,8 @@ type Server struct {
 	Network NetworkSettings
 	Time    TimeSettings
 	TLS     TLSSettings
+	// System serves /system/info and /system/capabilities; nil answers 503.
+	System SystemSource
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }
@@ -53,6 +55,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("GET /api/v1/overview", s.requireSession(s.overview))
 	api.HandleFunc("GET /api/v1/smart", s.requireSession(s.smart))
 	s.registerSettings(api)
+	s.registerSystem(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

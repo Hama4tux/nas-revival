@@ -1,7 +1,8 @@
-import { Clock, FileUp, RefreshCw, ShieldCheck } from 'lucide-react';
+import { Clock, Cpu, FileUp, RefreshCw, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { TimeSettings, TlsInfo } from '../api/types';
+import type { SystemCapabilities, SystemInfo, TimeSettings, TlsInfo } from '../api/types';
+import { formatBytes, formatUptime } from '../lib/format';
 import { cs } from '../i18n/cs';
 import { validateNtp } from '../lib/netvalidate';
 import { Badge } from './ui/badge';
@@ -29,6 +30,68 @@ function apiMessage(e: unknown): string {
 }
 
 const LoadError = () => <p role="alert" className="text-sm text-danger">{t.loadError}</p>;
+
+/* ---------- system info and hardware capabilities ---------- */
+
+const capVariant = { verified: 'success', unverified: 'warning', unsupported: 'neutral' } as const;
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between gap-3 py-1 text-sm">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="text-right font-medium break-all">{value}</dd>
+    </div>
+  );
+}
+
+function InfoWidget() {
+  const [info, setInfo] = useState<SystemInfo | null>(null);
+  const [caps, setCaps] = useState<SystemCapabilities | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let alive = true;
+    Promise.all([api<SystemInfo>('/system/info'), api<SystemCapabilities>('/system/capabilities')])
+      .then(([i, c]) => { if (alive) { setInfo(i); setCaps(c); } })
+      .catch(() => { if (alive) setFailed(true); });
+    return () => { alive = false; };
+  }, []);
+
+  return (
+    <Widget id="sys-info" title={t.info} icon={<Cpu />} className="lg:col-span-5">
+      {!info || !caps ? (
+        failed ? <LoadError /> : <div aria-busy="true" aria-label={cs.common.loading}><Skeleton className="h-32 w-full" /></div>
+      ) : (
+        <div className="grid gap-6 md:grid-cols-2">
+          <dl className="divide-y divide-border">
+            <Row label={cs.overview.board} value={info.boardModel ?? dash} />
+            <Row label={cs.overview.hostname} value={info.hostname} />
+            <Row label={t.version} value={info.version} />
+            <Row label={t.debian} value={info.debianVersion ?? info.os} />
+            <Row label={cs.overview.kernel} value={info.kernel} />
+            <Row label={t.cpu} value={`${info.cpuModel} · ${t.cores(info.cores)} · ${info.architecture}`} />
+            <Row label={t.memory} value={formatBytes(info.memTotalBytes)} />
+            <Row label={t.bootTime} value={info.bootTime ? dt(info.bootTime) : dash} />
+            <Row label={cs.overview.uptime} value={formatUptime(info.uptimeSeconds)} />
+            <Row label={t.lastUpdate} value={info.lastPackageChange ? dt(info.lastPackageChange) : dash} />
+          </dl>
+          <div>
+            <p className="text-sm text-muted-foreground">{t.profile}</p>
+            <p className="font-medium">{caps.profileName} <span className="text-sm text-muted-foreground">({t.ports(caps.sataBays, caps.usbPorts)})</span></p>
+            <p className="mt-4 mb-1 text-sm text-muted-foreground">{t.hardware}</p>
+            <ul className="divide-y divide-border">
+              {caps.capabilities.map((c) => (
+                <li key={c.id} className="flex items-center justify-between gap-3 py-1 text-sm">
+                  <span>{t.caps[c.id] ?? c.id}</span>
+                  <Badge variant={capVariant[c.status]}>{t.capStatus[c.status]}</Badge>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </Widget>
+  );
+}
 
 /* ---------- time and NTP ---------- */
 
@@ -257,6 +320,7 @@ function CertWidget() {
 export function SystemPage() {
   return (
     <div className="grid items-start gap-4 lg:grid-cols-5">
+      <InfoWidget />
       <TimeWidget />
       <CertWidget />
     </div>

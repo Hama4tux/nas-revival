@@ -89,6 +89,7 @@ func serve(args []string) error {
 		TLS: certs,
 	}
 	hc := &helper.Client{Socket: *helperSock}
+	srv.System = systemSource{root: *root, profile: system.DetectProfile(*root)}
 	srv.Network, srv.Time = hc, hc
 
 	hs := &http.Server{
@@ -224,3 +225,15 @@ func runHelper(args []string) error {
 		Time: &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
 	})
 }
+
+// version is set at build time (-ldflags "-X main.version=…", scripts/webui/build.sh).
+var version = "dev"
+
+// systemSource reads /system/info live; the profile is detected once at start.
+type systemSource struct {
+	root    string
+	profile system.Profile
+}
+
+func (s systemSource) Info() (system.Info, error)        { return system.SystemInfo(s.root, version) }
+func (s systemSource) Capabilities() system.Capabilities { return system.CapabilitiesOf(s.profile) }

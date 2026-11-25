@@ -63,6 +63,20 @@ const isHost = (s: string) => s.length <= 253 && s.split('.').every((l) => /^[A-
 
 function settings(path: string, method: string, body: unknown): Response | null {
   settle();
+  if (path === '/system/info' && method === 'GET') {
+    return json(200, {
+      version: 'mock', hostname: 'nas', boardModel: 'ZyXEL NSA310', os: 'Debian GNU/Linux 13 (trixie)', debianVersion: '13.8',
+      kernel: '6.12.119', architecture: 'armv5tel', cpuModel: 'Feroceon 88FR131 rev 1 (v5l)', cores: 1, memTotalBytes: 252043264,
+      bootTime: new Date(Date.now() - 3 * 3600e3).toISOString(), uptimeSeconds: 3 * 3600, lastPackageChange: new Date(Date.now() - 3600e3).toISOString(),
+    });
+  }
+  if (path === '/system/capabilities' && method === 'GET') {
+    const caps: [string, string][] = [['temperatures', 'verified'], ['fanSpeed', 'verified'], ['fanControl', 'verified'], ['leds', 'verified'],
+      ['copyButton', 'verified'], ['smart', 'verified'], ['diskStandby', 'unverified'], ['kernelSlots', 'verified'], ['rtcWake', 'unverified'],
+      ['wakeOnLan', 'unverified'], ['autoPowerOn', 'unsupported'], ['raid', 'unsupported']];
+    return json(200, { profileId: 'zyxel-nsa310', profileName: 'ZyXEL NSA310', sataBays: 1, usbPorts: 2,
+      capabilities: caps.map(([id, status]) => ({ id, status })) });
+  }
   if (path === '/settings/network' && method === 'GET') return json(200, netBody());
   if (path === '/settings/network' && method === 'PUT') return putNetwork(body as NetConfig);
   if (path === '/settings/network/confirm' && method === 'POST') {
@@ -199,7 +213,7 @@ export function installMock(): void {
     if (!loggedIn) return err(401, 'unauthorized', 'Login required');
     if (path === '/overview') return json(200, overview());
     if (path === '/smart') return json(200, smart());
-    if (path.startsWith('/settings/')) {
+    if (path.startsWith('/settings/') || path.startsWith('/system/')) {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = settings(path, method, body);

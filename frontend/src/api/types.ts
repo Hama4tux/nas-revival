@@ -56,3 +56,31 @@ export interface TlsInfo {
   subject: string; issuer: string; selfSigned: boolean; dnsNames: string[]; ipAddresses: string[];
   notBefore: string; notAfter: string; sha256: string; keyType: string;
 }
+
+/** GET /system/info */
+export interface SystemInfo {
+  version: string;
+  hostname: string;
+  boardModel: string | null;
+  os: string;
+  debianVersion: string | null;
+  kernel: string;
+  architecture: string;
+  cpuModel: string;
+  cores: number;
+  memTotalBytes: number;
+  bootTime: string | null;
+  uptimeSeconds: number;
+  lastPackageChange: string | null;
+}
+
+export type CapabilityStatus = 'verified' | 'unverified' | 'unsupported';
+
+/** GET /system/capabilities */
+export interface SystemCapabilities {
+  profileId: string;
+  profileName: string;
+  sataBays: number | null;
+  usbPorts: number | null;
+  capabilities: { id: string; status: CapabilityStatus }[];
+}
