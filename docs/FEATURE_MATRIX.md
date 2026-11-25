@@ -41,10 +41,10 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | SEC-03 | Security | Login rate limit 5 / 5 min per client | P0 | Tested | — | — | L | DoS by lockout | 429 + Retry-After | SEC-02 |
 | SEC-04 | Security | CSRF header + security headers (CSP, nosniff, frame deny) | P0 | Tested | — | — | L | cross-site writes | non-GET without header = 403 | SEC-02 |
 | SEC-05 | Privilege | Web runs unprivileged in systemd sandbox | P0 | Tested | — | systemd | L | sandbox escape | runs as `nas-revival`, only CAP_SYS_RAWIO | — |
-| PRIV-01 | Privilege | Root helper on Unix socket, peer uid check, typed ops (ADR 0003) | P0 | In development | — | — | L | root code reachable from web | only uid nas-revival accepted; unknown op rejected; fuzzed validators | SEC-05 |
-| NET-02 | Network | IP mode / static address / gateway / DNS with 180 s confirm-or-rollback | P1 | In development | — | systemd-networkd | L | admin lockout | unconfirmed change reverts, also after reboot | PRIV-01 |
-| NET-03 | Network | NTP servers | P1 | In development | — | timesyncd | L | wrong time breaks TLS | restart timesyncd, status shown | PRIV-01 |
-| SEC-06 | Security | TLS certificate upload / regenerate without restart | P1 | In development | — | — | L | key leak | key never returned by API | SEC-01 |
+| PRIV-01 | Privilege | Root helper on Unix socket, peer uid check, typed ops (ADR 0003) | P0 | Tested | — | — | L | root code reachable from web | only uid nas-revival accepted; unknown op rejected; fuzzed validators | SEC-05 |
+| NET-02 | Network | IP mode / static address / gateway / DNS with 180 s confirm-or-rollback | P1 | Implemented | — | systemd-networkd | L | admin lockout | unconfirmed change reverts, also after reboot | PRIV-01 |
+| NET-03 | Network | NTP servers | P1 | Implemented | — | timesyncd | L | wrong time breaks TLS | restart timesyncd, status shown | PRIV-01 |
+| SEC-06 | Security | TLS certificate upload / regenerate without restart | P1 | Implemented | — | — | L | key leak | key never returned by API | SEC-01 |
 
 ## 2. Planned
 

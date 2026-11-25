@@ -1,27 +1,24 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: Debian 13 běží sám z NAND slotů, webové GUI ke čtení je nasazené; hotový audit a plán M0 – architektura, roadmapa M0–M6 s backlogem M1, matice funkcí a naměřený výchozí stav v docs/.
-- Další krok: M1 Core & Storage podle docs/ROADMAP.md – dokončit helper (síť/DNS/NTP), pak registr operací helperu s auditem, transakce konfigurace, profily hardwaru, přehled úložiště, SMART detail a uspávání disku.
+- Stav: Debian 13 běží sám z NAND slotů; webové GUI s nastavením sítě, DNS, NTP a certifikátu je nasazené (root helper, rollback sítě ověřen). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
+- Další krok: W1.2 informace o systému a schopnosti hardwaru, pak W1.3 přehled úložiště, W1.4 SMART detail a W1.5 uspávání a APM disku.
 
 ## Čeká na rozhodnutí
 - [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
-- [ ] Uspávání datového disku: systém, swap, žurnál i data jsou na jednom disku a v klidu se zapisuje asi 8 KiB/s (měřeno), takže disk neusne. Rozhodnout: bez uspávání / omezit zápisy (žurnál v RAM nebo dávkově, noatime) / systém na USB flashku – ADR 0007 v docs/ARCHITECTURE.md. (2026-11-25)
-- [ ] Souhlas s instalací balíčku hdparm na NAS – potřebný pro uspávání disku a nastavení APM (M1-10). (2026-11-25)
-- [ ] Webové účty pro více uživatelů (ADR 0004): účet = linuxový uživatel, heslo se uloží jako hash pro Linux, Sambu i web, protože program bez cgo neumí ověřit hash z /etc/shadow – potvrdit tento přístup před M2. (2026-11-25)
-- [ ] LLMNR (port 5355, systemd-resolved) je otevřené do celé sítě – vypnout, pokud se nepoužívá. (2026-11-25)
 
 ## Nedodělané
+- [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť a Systém): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
+- [ ] Disk ST1000LM014: APM nastaveno ručně na 254 (bez parkování hlav, 35 015 cyklů při 6 869 h); platí jen do restartu – trvale ho bude nastavovat krok W1.5 (uspávání a APM z GUI). (2026-11-25)
+- [ ] `timedatectl show-timesync` na NASu končí chybou „Connection timed out“ (synchronizace přitom běží), proto stránka NTP neukazuje aktuální server – zjistit proč. (2026-11-25)
+- [ ] Rollback sítě po restartu NASu během čekající změny zatím neověřen (ověřen jen vypršením 180 s) – vyzkoušet při nejbližším plánovaném restartu. (2026-11-25)
 - [ ] NAS má od 2026-11-25 statickou IP (systemd-networkd, mimo repo) – ověřit, že adresa je mimo DHCP rozsah routeru nebo má rezervaci; na stejné adrese dřív běželo jiné zařízení (starý SSH klíč v known_hosts), zkontrolovat, že už neexistuje. (2026-11-25)
 - [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
 - [ ] GUI: u SMART ukazovat běžící samotest (průběh v %) a výsledek posledního testu. (2026-11-25)
-- [ ] Nový vzhled GUI (commit „Web UI: redesign…“) je sestavený v output/webui, ale na NAS ještě nenasazený (NAS byl vypnutý) – nasadit a zkontrolovat s živými daty, hlavně přiřazení / k disku sda (převod /dev/root) a Poslední události. (2026-11-25)
-- [ ] Disk ST1000LM014 (SSHD) má 35 003 parkování hlav při 6 866 h provozu – zvážit nastavení APM/odstavení hlav (hdparm -B) a sledovat atribut 193 v GUI. (2026-11-25)
 - [ ] Rozložení na mobilu ověřeno jen v prohlížeči na šířce 390 px s ukázkovými daty – zkontrolovat na skutečném telefonu. (2026-11-25)
 - [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
-- [ ] Další obrazovky GUI: Samba sdílení a uživatelé, pak NFS – zápisové operace přes úzký privilegovaný pomocník (ADR 0002). (2026-11-25)
 - [ ] Aktualizace jádra z webu (podklad pro backend, který staví druhý agent): zápis z Linuxu je ověřený (ECC sedí s U-Bootem, postup v docs/debian/boot.md). Strategie: slot B drží poslední funkční jádro; při upgradu nejdřív zkopírovat A → B, pak nové jádro do A, každý zápis ověřit zpětným čtením (sha256, corrected_bits/ecc_failures) a nikdy nezapisovat oba sloty najednou. První upgrade tímto postupem udělat s konzolí po ruce. (2026-11-25)
 - [ ] Značka slotu pro aktualizaci jádra: příkazy slotA/slotB v U-Bootu mají přidat do bootargs značku (např. nsa_slot=A/B); web smí kopírovat A → B jen když /proc/cmdline ukazuje nsa_slot=A, jinak běží záloha a upgrade musí odmítnout. Vyžaduje jednu úpravu prostředí U-Bootu přes konzoli (saveenv). (2026-11-25)
 - [ ] Zkušební jednorázový start nového jádra: U-Boot přepne na slot B jen když jádro z A nejde načíst, ne když nové jádro zamrzne nebo spadne – navrhnout „boot once“ (nové jádro se spustí jednou, po potvrzení zdraví z Linuxu se stane výchozím, jinak další start ze slotu B), vč. ověření bezpečného zápisu prostředí U-Bootu z Linuxu (fw_setenv, mtd1). Do té doby je při vadném jádře nutná konzole. (2026-11-25)
@@ -52,6 +49,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Root helper pro nastavení sítě, DNS, NTP a certifikátu nasazen; ověřeno odmítnutí cizích uživatelů, neznámých operací i podstrčených hodnot a návrat neověřené změny po 180 s. Vypnuto LLMNR, žurnál zapisuje po 15 min (max. 64 MB), nainstalován hdparm. (2026-11-25)
 - Audit a plán M0: 10 dokumentů v docs/ (architektura, roadmapa s backlogem M1, matice funkcí, kompatibilita HW, výkonový rozpočet s měřením na NASu, bezpečnostní model, návrh API, navigace UI, obnova, testovací plán) a čtecí měřicí skript scripts/measure/snapshot.sh. (2026-11-25)
 - Nový vzhled webového GUI podle návrhu (tmavý výchozí, světlý přepínačem): boční menu, stav systému, dlaždice zdrojů, úložiště se SMART, graf sítě, poslední události; ověřeno s ukázkovými daty. (2026-11-25)
 - Tlačítko COPY zálohuje USB flashku do /srv/data/usb-zalohy (služby nsa310-button a nsa310-copy). (2026-11-25)

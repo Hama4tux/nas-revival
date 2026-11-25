@@ -4,15 +4,24 @@ Deployed to the NAS on 2026-11-25 (about 24 MiB RSS after start). Build on the w
 `scripts/webui/build.sh` (output in `output/webui/`), then on the NAS as root:
 
 ```sh
-apt install smartmontools            # optional, for the SMART card
+apt install smartmontools hdparm     # SMART card; disk power state and APM
 useradd --system --no-create-home --shell /usr/sbin/nologin nas-revival
 install -m 0755 nas-revival-armv5 /usr/local/bin/nas-revival
-install -m 0644 nas-revival.service /etc/systemd/system/
+install -m 0644 nas-revival.service nas-revival-helper.service /etc/systemd/system/
 install -d -m 0700 -o nas-revival -g nas-revival /etc/nas-revival
 nas-revival set-password -config /etc/nas-revival     # at least 12 characters
 chown nas-revival:nas-revival /etc/nas-revival/admin.json
-systemctl daemon-reload && systemctl enable --now nas-revival
+systemctl daemon-reload && systemctl enable --now nas-revival-helper nas-revival
 ```
+
+The helper (`nas-revival helper`, ADR 0003) runs as root and lets the web UI change IP, DNS, NTP:
+socket `/run/nas-revival-helper/helper.sock` (0660 root:nas-revival, only uid `nas-revival` is served),
+it writes only `/etc/systemd/network/20-wired.network` and `/etc/systemd/timesyncd.conf.d/50-nas-revival.conf`.
+A network change must be confirmed within 180 s from the new address, otherwise the previous file
+is restored (also after a helper restart or reboot). Defaults: interface `enp1s0` (`-iface`),
+state `/var/lib/nas-revival-helper`. If the web UI shows "helper_unavailable", check
+`systemctl status nas-revival-helper`. The TLS certificate is handled by the web service itself
+(Settings, or `cert.pem`/`key.pem` in `/var/lib/nas-revival/tls`).
 
 Fan control (independent of the web UI; the LM85 regulates the fan itself once configured):
 
@@ -43,3 +52,12 @@ There is one administrator account, independent of Linux and Samba users.
 
 To verify on the device: memory use, `systemctl show` inside the sandbox, and whether
 `smartctl` works with only `CAP_SYS_RAWIO` and group `disk`.
+
+Base system tuning (owner decision 2026-11-25, ADR 0007):
+
+```sh
+install -d /etc/systemd/resolved.conf.d /etc/systemd/journald.conf.d
+install -m 0644 50-nas-revival-resolved.conf /etc/systemd/resolved.conf.d/50-nas-revival.conf   # LLMNR off
+install -m 0644 50-nas-revival-journald.conf /etc/systemd/journald.conf.d/50-nas-revival.conf   # 15 min sync, 64M cap
+systemctl restart systemd-resolved systemd-journald
+```

@@ -13,7 +13,7 @@ recorded as ADRs in [adr/](adr/).
 | Kernel | mainline 6.12.119 LTS, own build, `kirkwood-nsa310a.dtb` appended | in use; updated manually |
 | OS | Debian 13.8 armel, systemd, root on internal disk `sda1` (ext4, 30 GB), swap `sda2` (1 GB), data `sda3` → `/srv/data` | in use |
 | Web | `nas-revival` – one static Go binary (`GOARM=5`), HTTPS :8443, embedded React UI, API v1 | deployed, read-only overview + SMART |
-| Privileged | `nas-revival helper` – same binary, root, Unix socket, typed ops for network/DNS/NTP ([ADR 0003](adr/0003-privileged-helper-settings.md)) | **in development** (uncommitted work of another agent, not active on the NAS) |
+| Privileged | `nas-revival helper` – same binary, root, Unix socket, typed ops for network/DNS/NTP ([ADR 0003](adr/0003-privileged-helper-settings.md)) | deployed 2026-11-25 (`nas-revival-helper.service`) |
 | Board services | `nsa310-leds`, `nsa310-fan` (LM85 automatic mode), `nsa310-button` + `nsa310-copy` (COPY button backup) | in use, [deploy/debian](../deploy/debian/README.md) |
 | System services | ssh, systemd-networkd/resolved/timesyncd, smartmontools, cron, journald (persistent) | in use |
 | Not installed | samba, nfs-kernel-server, hdparm, avahi, acl, quota | – |
@@ -141,8 +141,8 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
   are applied by `nas-revival task disk-power` at boot and on udev add events (hdparm `-S`, `-B`).
 - **Known constraint on the NSA310 today:** root, swap, journal and data are on the same physical
   disk; the idle system writes about 0.2 MiB per 30 s (measured), so the disk cannot stay asleep.
-  The UI must say so. Options (owner decision, [OPEN.md](../OPEN.md)): volatile or batched journal,
-  `commit=`/`noatime` tuning, moving the root to the USB stick, or accepting no spin-down.
+  The UI must say so. Decision ([ADR 0007](adr/0007-disk-power-and-system-writes.md)): reduce
+  writes first (`noatime`, batched journal), measure, root stays on the disk for now.
 
 ## 8. Users, permissions and authentication
 
@@ -153,7 +153,7 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
 - Passwords: one change updates the Linux shadow hash (`chpasswd` via stdin), the Samba hash
   (`smbpasswd -s`) and the web login hash (argon2id in `/etc/nas-revival/credentials.json`, keyed by
   Linux username). The web cannot verify yescrypt from `/etc/shadow` without cgo/PAM, so it keeps
-  its own hash of the same password – one identity, not parallel virtual users ([ADR 0004 proposed](#9-decisions-to-record)).
+  its own hash of the same password – one identity, not parallel virtual users ([ADR 0004](adr/0004-multi-user-auth-linux-users.md)).
 - argon2id costs 16 MiB per verification: logins are serialized (semaphore of 1) and rate-limited
   before hashing.
 
@@ -164,10 +164,10 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
 | 0001 | Base distribution (OpenWrt) | superseded by owner decision 2026-11-25 (Debian 13) – rewrite pending |
 | 0002 | Web stack on Debian | accepted |
 | 0003 | Privileged helper (network/DNS/NTP) | accepted, in development |
-| 0004 | Multi-user web auth tied to Linux users, roles via groups | proposed (this document §8) |
+| 0004 | Multi-user web auth tied to Linux users, roles via groups | accepted 2026-11-25 ([ADR](adr/0004-multi-user-auth-linux-users.md)) |
 | 0005 | Config Manager: registry, fragments, snapshots, drift | proposed (§4) |
 | 0006 | Scheduling via systemd timers + `nas-revival task` | proposed (§2) |
-| 0007 | Disk power and system-disk write reduction | proposed, needs owner decision (§7) |
+| 0007 | Disk power and system-disk write reduction | accepted 2026-11-25 ([ADR](adr/0007-disk-power-and-system-writes.md)) |
 
 ## 10. Build and deployment
 

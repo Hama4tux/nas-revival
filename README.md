@@ -28,6 +28,7 @@ The owner chose **Debian 13 armel** over OpenWrt on 2026-11-25 (boot details in 
 | --- | --- |
 | [Architecture](docs/ARCHITECTURE.md) | Running system, process model, modules, config manager, HAL |
 | [Roadmap](docs/ROADMAP.md) | Milestones M0–M6 and the M1 backlog |
+| [Web roadmap](docs/WEB_ROADMAP.md) | Web UI and API steps W0–W6 with definition of done |
 | [Feature matrix](docs/FEATURE_MATRIX.md) | Every feature with priority, state and acceptance criteria |
 | [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) | Verified capabilities per device profile |
 | [Performance budget](docs/PERFORMANCE_BUDGET.md) | Targets vs. dated measurements on the NAS |

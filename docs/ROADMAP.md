@@ -2,7 +2,7 @@
 
 Authoritative plan since 2026-11-25 (replaces the OpenWrt-era `roadmap.md`; that history is in git
 and in [research/](research/)). Open questions and blockers live only in [OPEN.md](../OPEN.md).
-Feature states: [FEATURE_MATRIX](FEATURE_MATRIX.md). Gates: [TEST_PLAN](TEST_PLAN.md) and
+Feature states: [FEATURE_MATRIX](FEATURE_MATRIX.md). Web UI steps: [WEB_ROADMAP](WEB_ROADMAP.md). Gates: [TEST_PLAN](TEST_PLAN.md) and
 [PERFORMANCE_BUDGET](PERFORMANCE_BUDGET.md).
 
 **Goal:** a stable, safe, fast and really usable NAS system for hardware with 240 MiB RAM – not the
@@ -12,8 +12,7 @@ largest feature count. Every milestone ends with measurements on the NAS, not wo
 
 Done before this plan (Debian phase, 2026-11-25): own kernel 6.12 in two NAND slots with stock
 fallback, Debian 13 armel on the internal disk, LM85 fan automatic mode, LEDs, COPY button backup,
-read-only web UI (overview, SMART) as one Go binary + static React. In development by another agent:
-root helper with network/DNS/NTP/TLS settings ([ADR 0003](adr/0003-privileged-helper-settings.md)).
+read-only web UI (overview, SMART) as one Go binary + static React; root helper with network/DNS/NTP/TLS settings ([ADR 0003](adr/0003-privileged-helper-settings.md)) – taken over and deployed 2026-11-25.
 
 | Milestone | Content | State |
 |---|---|---|
@@ -37,7 +36,7 @@ with the gate in the last column; measurements with `scripts/measure/snapshot.sh
 
 | # | Item | Matrix IDs | Scope | Acceptance gate |
 |---|---|---|---|---|
-| M1-00 | Finish and deploy helper (network/DNS/NTP/TLS) | PRIV-01, NET-02/03, SEC-06 | in progress by other agent | 180 s rollback verified on NAS incl. reboot during pending change |
+| M1-00 | Finish and deploy helper (network/DNS/NTP/TLS) | PRIV-01, NET-02/03, SEC-06 | **deployed 2026-11-25**; helper-level rollback verified | remaining: UI flow with live login, rollback after reboot during pending change |
 | M1-01 | Measurement script and baseline | — | `scripts/measure/snapshot.sh` (read-only) | **done in M0**; baseline in PERFORMANCE_BUDGET |
 | M1-02 | Helper op registry + audit records | CFG-01, LOG-10 | `internal/helper`: op table with role, validator, audit fields; journald audit with `NAS_REVIVAL_AUDIT=1` | unknown op → error; each op = one audit record; fuzz tests for validators |
 | M1-03 | Config transaction, snapshots, drift | CFG-02, CFG-03, CFG-04 | generalize `atomicfile` + network backup into `internal/config` | kill -9 during apply leaves consistent files; drift shown after manual edit |
