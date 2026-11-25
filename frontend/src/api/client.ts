@@ -4,6 +4,7 @@ export class ApiError extends Error {
     public code: string,
     message: string,
     public retryAfter: number | null = null,
+    public field: string | null = null,
   ) {
     super(message);
   }
@@ -46,15 +47,17 @@ export async function api<T>(
 
   let code = 'error';
   let message = res.statusText;
+  let field: string | null = null;
   try {
-    const j = (await res.json()) as { error?: { code?: string; message?: string } };
+    const j = (await res.json()) as { error?: { code?: string; message?: string; field?: string } };
     code = j.error?.code ?? code;
     message = j.error?.message ?? message;
+    field = j.error?.field ?? null;
   } catch {
     /* non-JSON error body */
   }
   const ra = Number(res.headers.get('Retry-After'));
-  const err = new ApiError(res.status, code, message, Number.isFinite(ra) && ra > 0 ? ra : null);
+  const err = new ApiError(res.status, code, message, Number.isFinite(ra) && ra > 0 ? ra : null, field);
   if (res.status === 401 && !opts.quiet401) onUnauthorized();
   throw err;
 }

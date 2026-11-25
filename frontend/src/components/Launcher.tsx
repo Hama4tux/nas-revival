@@ -3,10 +3,11 @@ import { useEffect, useRef } from 'react';
 import { cs } from '../i18n/cs';
 import { cn } from '../lib/utils';
 import { apps } from './nav';
+import type { Route } from '../hooks/useRoute';
 
 const FOCUSABLE = 'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
-export function Launcher({ onClose }: { onClose: () => void }) {
+export function Launcher({ onClose, route }: { onClose: () => void; route: Route }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,21 +38,29 @@ export function Launcher({ onClose }: { onClose: () => void }) {
           </button>
         </div>
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {apps.map(({ key, icon: Icon, ready, tone }) => (
-            <li key={key}>
-              <button
-                type="button" disabled={!ready} aria-current={ready ? 'page' : undefined} onClick={ready ? onClose : undefined}
-                className={cn('relative flex w-full flex-col items-center gap-1.5 rounded-xl p-2 text-center text-xs font-medium',
-                  ready ? 'hover:bg-muted' : 'cursor-not-allowed')}
-              >
+          {apps.map(({ key, icon: Icon, ready, tone, href }) => {
+            const inner = (
+              <>
                 <span className={cn('flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md', tone, !ready && 'opacity-45 saturate-50')}>
                   <Icon className="h-7 w-7" aria-hidden />
                 </span>
                 <span className={ready ? '' : 'text-muted-foreground'}>{cs.nav[key]}</span>
                 {!ready && <span className="rounded-full bg-muted px-1.5 py-px text-[10px] leading-tight text-muted-foreground">{cs.shell.soon}</span>}
-              </button>
-            </li>
-          ))}
+              </>
+            );
+            const cls = cn('relative flex w-full flex-col items-center gap-1.5 rounded-xl p-2 text-center text-xs font-medium',
+              ready ? 'hover:bg-muted' : 'cursor-not-allowed', ready && key === route && 'bg-primary/15 ring-1 ring-inset ring-primary/30');
+            return (
+              <li key={key}>
+                {ready ? (
+                  <a href={href} aria-current={key === route ? 'page' : undefined} className={cls}
+                    onClick={() => { if (key === route) onClose(); }}>{inner}</a>
+                ) : (
+                  <button type="button" disabled className={cls}>{inner}</button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       </div>
     </div>

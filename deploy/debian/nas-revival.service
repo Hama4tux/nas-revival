@@ -1,7 +1,7 @@
 [Unit]
 Description=NAS Revival web administration
-After=network-online.target
-Wants=network-online.target
+After=network-online.target nas-revival-helper.service
+Wants=network-online.target nas-revival-helper.service
 
 [Service]
 Type=simple

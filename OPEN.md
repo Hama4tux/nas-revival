@@ -14,6 +14,7 @@
 - [ ] LLMNR (port 5355, systemd-resolved) je otevřené do celé sítě – vypnout, pokud se nepoužívá. (2026-11-25)
 
 ## Nedodělané
+- [ ] NAS má od 2026-11-25 statickou IP (systemd-networkd, mimo repo) – ověřit, že adresa je mimo DHCP rozsah routeru nebo má rezervaci; na stejné adrese dřív běželo jiné zařízení (starý SSH klíč v known_hosts), zkontrolovat, že už neexistuje. (2026-11-25)
 - [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
 - [ ] GUI: u SMART ukazovat běžící samotest (průběh v %) a výsledek posledního testu. (2026-11-25)
 - [ ] Nový vzhled GUI (commit „Web UI: redesign…“) je sestavený v output/webui, ale na NAS ještě nenasazený (NAS byl vypnutý) – nasadit a zkontrolovat s živými daty, hlavně přiřazení / k disku sda (převod /dev/root) a Poslední události. (2026-11-25)

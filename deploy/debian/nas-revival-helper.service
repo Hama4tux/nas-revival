@@ -1,0 +1,49 @@
+[Unit]
+Description=NAS Revival privileged helper (network, DNS, NTP settings)
+Documentation=file:///usr/share/doc/nas-revival/adr-0003
+# Started before the web UI so its socket exists; the web UI only Wants= it.
+Before=nas-revival.service
+After=systemd-networkd.service systemd-resolved.service systemd-timesyncd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nas-revival helper -socket /run/nas-revival-helper/helper.sock -user nas-revival -iface enp1s0
+# systemd creates /run/nas-revival-helper (0750 root:root); the helper chowns the
+# directory and the socket (0660) to group nas-revival, and checks SO_PEERCRED.
+RuntimeDirectory=nas-revival-helper
+RuntimeDirectoryMode=0750
+# pending.json + backup of 20-wired.network for the 180 s rollback.
+StateDirectory=nas-revival-helper
+StateDirectoryMode=0700
+# /etc/systemd is read-only under ProtectSystem=strict. A missing ReadWritePaths entry
+# fails the namespace setup of every process (even "+" ones), so the drop-in directory is
+# optional ("-"): the "+" mkdir runs unsandboxed first, and the main process then gets it.
+ExecStartPre=+/usr/bin/mkdir -p -m 0755 /etc/systemd/timesyncd.conf.d
+ReadWritePaths=/etc/systemd/network -/etc/systemd/timesyncd.conf.d
+Environment=GOMEMLIMIT=16MiB GOGC=50
+MemoryMax=48M
+# Hardening. The helper stays root because it writes /etc/systemd/network and talks
+# to networkd/timesyncd/resolved over D-Bus (AF_UNIX); `ip` needs AF_NETLINK.
+# CapabilityBoundingSet is deliberately not set: networkctl/systemctl/resolvectl go
+# through D-Bus and polkit treats root as authorised, but a too tight set breaks
+# them in ways that are hard to see. NoNewPrivileges and the syscall/FS limits remain.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX AF_NETLINK
+RestrictNamespaces=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+UMask=0077
+# If the helper dies during a pending change, the marker in StateDirectory makes the
+# next start roll back (or re-arm the remaining time).
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

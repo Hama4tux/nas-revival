@@ -36,3 +36,23 @@ export interface Smart {
     reallocatedSectors: number | null; pendingSectors: number | null; standby: boolean;
   }[];
 }
+
+export interface NetConfig {
+  mode: 'dhcp' | 'static';
+  address: string | null; prefixLength: number | null; gateway: string | null;
+  dns: string[]; useDhcpDns: boolean;
+}
+export interface NetworkSettings {
+  interface: string;
+  config: NetConfig;
+  current: { addresses: string[]; gateway: string | null; dns: string[] };
+  pending: { deadline: string; previous: NetConfig; next: NetConfig } | null;
+}
+export interface TimeSettings {
+  ntpServers: string[]; defaultServers: boolean; synchronized: boolean;
+  serverName: string | null; serverAddress: string | null; timezone: string; now: string;
+}
+export interface TlsInfo {
+  subject: string; issuer: string; selfSigned: boolean; dnsNames: string[]; ipAddresses: string[];
+  notBefore: string; notAfter: string; sha256: string; keyType: string;
+}

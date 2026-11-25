@@ -1,10 +1,102 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Overview, Smart } from '../api/types';
+import type { NetConfig, NetworkSettings, Overview, Smart, TimeSettings, TlsInfo } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
 let fails = 0;
+
+/* ---------- settings state (module-level, lives until page reload) ---------- */
+const HOST_ADDR = '192.0.2.10';
+let netConfig: NetConfig = { mode: 'dhcp', address: null, prefixLength: null, gateway: null, dns: [], useDhcpDns: true };
+let netCurrent = { addresses: [`${HOST_ADDR}/24`], gateway: '192.0.2.1' as string | null, dns: ['192.0.2.1'] };
+let netPending: { deadline: number; previous: NetConfig; next: NetConfig; prevCurrent: typeof netCurrent } | null = null;
+let ntp: string[] = [];
+const DEFAULT_NTP = ['0.debian.pool.ntp.org', '1.debian.pool.ntp.org'];
+const day = 86400e3;
+const makeCert = (selfSigned: boolean, notBefore: number, notAfter: number): TlsInfo => ({
+  subject: selfSigned ? 'CN=nas' : 'CN=nas.example.org', issuer: selfSigned ? 'CN=nas' : 'CN=Mock CA',
+  selfSigned, dnsNames: ['nas'], ipAddresses: [HOST_ADDR], notBefore: new Date(notBefore).toISOString(),
+  notAfter: new Date(notAfter).toISOString(),
+  sha256: Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0').toUpperCase()).join(':'),
+  keyType: 'ECDSA P-256',
+});
+let tls = makeCert(true, Date.now() - 100 * day, Date.now() + 725 * day);
+
+/** Auto-rollback once the deadline passed (the real helper does this with a timer). */
+function settle() {
+  if (netPending && Date.now() >= netPending.deadline) {
+    netConfig = netPending.previous; netCurrent = netPending.prevCurrent; netPending = null;
+  }
+}
+const netBody = (): NetworkSettings => ({
+  interface: 'enp1s0', config: netConfig, current: netCurrent,
+  pending: netPending && { deadline: new Date(netPending.deadline).toISOString(), previous: netPending.previous, next: netPending.next },
+});
+const bad = (field: string, message: string) => json(400, { error: { code: 'invalid', message, field } });
+const ip4 = (s: unknown): number | null => {
+  const m = typeof s === 'string' ? /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s) : null;
+  return m && m.slice(1).every((x) => Number(x) < 256) ? m.slice(1).reduce((a, x) => a * 256 + Number(x), 0) : null;
+};
+
+function putNetwork(c: NetConfig): Response {
+  if (netPending) return err(409, 'change_pending', 'Jiná změna čeká na potvrzení.');
+  if (c.mode === 'static') {
+    const a = ip4(c.address), g = ip4(c.gateway), p = c.prefixLength;
+    if (a == null) return bad('address', 'Neplatná IPv4 adresa.');
+    if (p == null || p < 8 || p > 30) return bad('prefixLength', 'Délka prefixu musí být 8 až 30.');
+    const mask = (0xffffffff << (32 - p)) >>> 0;
+    if (g == null) return bad('gateway', 'Neplatná brána.');
+    if (((a & mask) >>> 0) !== ((g & mask) >>> 0)) return bad('gateway', 'Brána neleží ve stejné podsíti jako adresa.');
+    if (!c.dns.length) return bad('dns', 'Zadejte alespoň jeden DNS server.');
+  }
+  const previous = netConfig, prevCurrent = netCurrent;
+  netConfig = c;
+  netCurrent = c.mode === 'static'
+    ? { addresses: [`${c.address}/${c.prefixLength}`], gateway: c.gateway, dns: c.dns }
+    : { addresses: ['192.0.2.77/24'], gateway: '192.0.2.1', dns: c.useDhcpDns ? ['192.0.2.1'] : c.dns };
+  netPending = { deadline: Date.now() + 180e3, previous, next: c, prevCurrent };
+  return json(202, netBody());
+}
+
+const isHost = (s: string) => s.length <= 253 && s.split('.').every((l) => /^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(l));
+
+function settings(path: string, method: string, body: unknown): Response | null {
+  settle();
+  if (path === '/settings/network' && method === 'GET') return json(200, netBody());
+  if (path === '/settings/network' && method === 'PUT') return putNetwork(body as NetConfig);
+  if (path === '/settings/network/confirm' && method === 'POST') {
+    if (!netPending) return err(409, 'nothing_pending', 'Není co potvrzovat.');
+    netPending = null;
+    return json(200, netBody());
+  }
+  const timeBody = (): TimeSettings => ({
+    ntpServers: ntp.length ? ntp : DEFAULT_NTP, defaultServers: ntp.length === 0, synchronized: true,
+    serverName: (ntp[0] ?? DEFAULT_NTP[0])!, serverAddress: '192.0.2.123', timezone: 'Europe/Prague', now: new Date().toISOString(),
+  });
+  if (path === '/settings/time' && method === 'GET') return json(200, timeBody());
+  if (path === '/settings/time' && method === 'PUT') {
+    const l = (body as { ntpServers?: string[] }).ntpServers;
+    if (!Array.isArray(l) || l.length > 4) return bad('ntpServers', 'Nejvýše 4 NTP servery.');
+    if (l.some((x) => !isHost(x) && ip4(x) == null)) return bad('ntpServers', 'Neplatný název hostitele nebo IP adresa.');
+    ntp = l;
+    return json(200, timeBody());
+  }
+  if (path === '/settings/tls' && method === 'GET') return json(200, tls);
+  if (path === '/settings/tls' && method === 'PUT') {
+    const b = body as { certificate?: string; privateKey?: string };
+    if (!b.certificate?.includes('BEGIN CERTIFICATE')) return bad('certificate', 'Certifikát není platný PEM.');
+    if (!b.privateKey?.includes('PRIVATE KEY')) return bad('privateKey', 'Soukromý klíč není platný PEM.');
+    if (b.privateKey.includes('MISMATCH')) return bad('privateKey', 'Soukromý klíč neodpovídá certifikátu.');
+    tls = makeCert(false, Date.now() - 10 * day, Date.now() + 20 * day); // short validity shows the warning
+    return json(200, tls);
+  }
+  if (path === '/settings/tls/generate' && method === 'POST') {
+    tls = makeCert(true, Date.now(), Date.now() + 825 * day);
+    return json(200, tls);
+  }
+  return null;
+}
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
@@ -107,6 +199,12 @@ export function installMock(): void {
     if (!loggedIn) return err(401, 'unauthorized', 'Login required');
     if (path === '/overview') return json(200, overview());
     if (path === '/smart') return json(200, smart());
+    if (path.startsWith('/settings/')) {
+      let body: unknown = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = settings(path, method, body);
+      if (r) return r;
+    }
     return err(404, 'not_found', 'Not found');
   };
 }

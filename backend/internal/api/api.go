@@ -37,6 +37,10 @@ type Server struct {
 	Limiter  *auth.Limiter
 	Overview OverviewSource
 	Smart    SmartSource
+	// Settings backends; a nil one answers 503.
+	Network NetworkSettings
+	Time    TimeSettings
+	TLS     TLSSettings
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }
@@ -48,6 +52,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("DELETE /api/v1/session", s.requireSession(s.logout))
 	api.HandleFunc("GET /api/v1/overview", s.requireSession(s.overview))
 	api.HandleFunc("GET /api/v1/smart", s.requireSession(s.smart))
+	s.registerSettings(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

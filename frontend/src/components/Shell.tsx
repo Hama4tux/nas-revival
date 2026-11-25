@@ -6,6 +6,7 @@ import { cn } from '../lib/utils';
 import { Launcher } from './Launcher';
 import { NasArt } from './NasArt';
 import { apps } from './nav';
+import type { Route } from '../hooks/useRoute';
 
 export interface HostSummary { hostname: string; boardModel: string; os: string }
 
@@ -65,17 +66,18 @@ function Brand({ host }: { host: HostSummary | null }) {
   );
 }
 
-function Sidebar({ host }: { host: HostSummary | null }) {
+function Sidebar({ host, route }: { host: HostSummary | null; route: Route }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-sidebar/95 px-4 py-5 backdrop-blur lg:flex">
       <div className="px-1"><Brand host={host} /></div>
       <nav aria-label={cs.shell.mainNav} className="mt-7">
         <ul className="space-y-1">
-          {apps.map(({ key, icon: Icon, ready }) => (
+          {apps.map(({ key, icon: Icon, ready, href }) => (
             <li key={key}>
               {ready ? (
-                <a href="#main" aria-current="page"
-                  className="flex items-center gap-3 rounded-lg bg-primary/15 px-3 py-2.5 text-sm font-semibold text-foreground ring-1 ring-inset ring-primary/30">
+                <a href={href} aria-current={key === route ? 'page' : undefined}
+                  className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm',
+                    key === route ? 'bg-primary/15 font-semibold text-foreground ring-1 ring-inset ring-primary/30' : 'font-medium hover:bg-muted')}>
                   <Icon className="h-5 w-5 text-primary" aria-hidden />{cs.navLong[key]}
                 </a>
               ) : (
@@ -103,14 +105,24 @@ function Sidebar({ host }: { host: HostSummary | null }) {
   );
 }
 
-export function Shell({ host, username, onLogout, loggingOut, title, subtitle, children }: {
+export function Shell({ host, username, onLogout, loggingOut, title, subtitle, route, banner, children }: {
   host: HostSummary | null; username: string | null; onLogout: () => void; loggingOut: boolean;
-  title: string; subtitle: string; children: ReactNode;
+  title: string; subtitle: string; route: Route; banner?: ReactNode; children: ReactNode;
 }) {
   const { theme, toggle } = useTheme();
   const [menu, setMenu] = useState(false);
   const menuBtn = useRef<HTMLButtonElement>(null);
   const close = () => { setMenu(false); menuBtn.current?.focus(); };
+  const main = useRef<HTMLElement>(null);
+  const first = useRef(true);
+
+  // Move focus to the content after navigating (not on first load); close the launcher.
+  useEffect(() => {
+    setMenu(false);
+    if (first.current) { first.current = false; return; }
+    main.current?.focus();
+    window.scrollTo(0, 0);
+  }, [route]);
 
   const actions = (
     <>
@@ -123,10 +135,10 @@ export function Shell({ host, username, onLogout, loggingOut, title, subtitle, c
 
   return (
     <div className="min-h-screen lg:pl-64">
-      <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[60] focus:rounded focus:bg-card focus:p-2">
+      <a href="#main" onClick={(e) => { e.preventDefault(); main.current?.focus(); }} className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[60] focus:rounded focus:bg-card focus:p-2">
         {cs.common.skipToContent}
       </a>
-      <Sidebar host={host} />
+      <Sidebar host={host} route={route} />
       {/* Phone / tablet: compact top bar with the app launcher instead of the sidebar. */}
       <header className="sticky top-0 z-50 flex h-14 items-center gap-2 border-b border-border bg-sidebar/90 px-3 backdrop-blur-md lg:hidden">
         <button ref={menuBtn} type="button" className={iconBtn} aria-haspopup="dialog" aria-expanded={menu}
@@ -136,7 +148,8 @@ export function Shell({ host, username, onLogout, loggingOut, title, subtitle, c
         <span className="min-w-0 truncate font-semibold">{cs.product}</span>
         <div className="ml-auto flex items-center gap-1">{actions}</div>
       </header>
-      {menu && <Launcher onClose={close} />}
+      {menu && <Launcher route={route} onClose={close} />}
+      {banner}
       <div className="mx-auto max-w-[1440px] px-4 pb-8 pt-5 sm:px-6 lg:pt-7">
         <div className="mb-5 flex items-start gap-4">
           <div className="min-w-0">
@@ -145,7 +158,7 @@ export function Shell({ host, username, onLogout, loggingOut, title, subtitle, c
           </div>
           <div className={cn('ml-auto hidden items-center gap-1 lg:flex')}>{actions}</div>
         </div>
-        <main id="main" tabIndex={-1}>{children}</main>
+        <main id="main" ref={main} tabIndex={-1} className="outline-none focus-visible:ring-0">{children}</main>
       </div>
     </div>
   );
