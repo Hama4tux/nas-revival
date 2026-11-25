@@ -1,17 +1,18 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: Debian 13 s vlastním jádrem 6.12.119 (LED triggery) běží z USB přes původní U-Boot (jen v RAM, NAND beze změny); tovární MAC, firmware síťovky, vnitřní 3TB disk i LED SYS/USB/HDD/síť fungují, boot přes konzoli ověřen.
-- Další krok: náhradní disk místo selhávajícího 3TB, na něm systém (~30 GB) a data; pak Samba a trvalý boot bez ruční obsluhy U-Bootu.
+- Stav: Debian 13 (vlastní jádro 6.12.119) běží z vnitřního disku 1 TB (systém 30 GB, swap 1 GB, data 900 GB v /srv/data); jádro se načítá z USB flashky přes původní U-Boot ručně z konzole, NAND beze změny.
+- Další krok: Samba na /srv/data, pak trvalý boot bez ruční obsluhy U-Bootu (vyžaduje rozhodnutí o zápisu prostředí U-Bootu).
 
 ## Čeká na rozhodnutí
-- [ ] Vlastník chce boot systému z disku (oddíl ~30 GB pro systém, zbytek data): vybrat náhradní disk; jádro zůstane na USB flashce (původní U-Boot 1.1.4 nejspíš neumí SATA ani GPT nad 2 TB), kořen a data na disku. (2026-11-25)
 - [ ] Zastavit odpočet U-Bootu (cca 3 s) a přečíst prostředí (printenv) jen pro čtení, žádný saveenv – podklad pro boot Debianu z USB. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
+- [ ] Boot zatím jen ručně přes konzoli (scripts/debian/uboot-boot.py z notebooku s adaptérem); po výpadku proudu NAS nenaběhne do Debianu, ale do původního firmwaru z NAND. Trvalé řešení = změna bootcmd v prostředí U-Bootu (saveenv do NAND) – samostatně schválit. (2026-11-25)
+- [ ] Dlouhý test SMART (smartctl -t long) nového disku ST1000LM014 zatím neproběhl; krátký test prošel, 0 přemapovaných sektorů. (2026-11-25)
+- [ ] Starý kořen na USB flashce (oddíl rootfs) je zamrzlá kopie z 2026-11-25 jako záloha; neaktualizuje se. (2026-11-25)
 - [ ] LED eSATA a COPY zatím nic neukazují a HDD bliká při činnosti kteréhokoli disku (i USB flashky); pro LED jednotlivých SATA portů je potřeba dohledat volbu jádra (per-port trigger ata1/ata2 v 6.12 chybí). Přiřazení tří LED síťového portu (link, aktivita, gigabit) ověřit pohledem. (2026-11-25)
-- [ ] Vnitřní disk ST3000VX000 (3 TB, 13 264 h) je ve špatném stavu: 64 736 přemapovaných sektorů (normalizovaně 51, práh 36) a poslední krátký self-test skončil chybou čtení; na systém ani data se nehodí – vlastník rozhodne o náhradním disku. (2026-11-25)
 - [ ] Původní U-Boot najde USB flashku jen při prvním `usb start` po zapnutí a jen v předním portu; výzva je `NSA310>>`, odpočet zastaví mezery/Ctrl+C posílané hned od banneru. (2026-11-25)
 - [ ] Build rootfs (mmdebstrap) převzal resolv.conf stavebního počítače (127.0.0.53 bez resolved) – v receptu doinstalovat systemd-resolved nebo zapsat správný resolv.conf; na NASu opraveno ručně. (2026-11-25)
 - [ ] AGENTS.md (sekce Tento projekt) stále zakazuje přístup k živému NASu a popisuje fázi OpenWrt; po přechodu na Debian ho přepsat podle skutečného postupu. (2026-11-25)
@@ -21,10 +22,8 @@
 - [ ] Instalace OpenWrt do NAND vyžaduje samostatný plán: oddíl ubi v OpenWrt (od 0x140000) přepíše prostředí U-Bootu i všechny oddíly výrobce a uboot_env v OpenWrt (0xC0000) leží uvnitř oddílu původního U-Bootu; buď nový U-Boot z OpenWrt, nebo vlastní mapa oddílů – rozhodnout před M7. (2026-11-18)
 - [ ] Při dočasném bootu (M3) nastavit bootargs jen v RAM (setenv bez saveenv): jádro OpenWrt přebírá příkazový řádek od původního U-Bootu (root=/dev/nfs, mtdparts=nand_mtd); podle analýzy je neškodný, na hardwaru neověřeno. Pod OpenWrt s původním U-Bootem nepoužívat fw_setenv. (2026-11-18)
 - [ ] Do návrhu backendu: nepovolit sdílení na nepřipojené cestě (zápis by šel do NAND), po změně konfigurace volat sync před hlášením úspěchu, pole a disky adresovat podle UUID – zjištěno v simulaci. (2026-11-18)
-- [ ] Datový svazek md0 je jednoduchý (linear) na jediném disku sda2, ne RAID1; při přechodu na OpenWrt rozhodnout, jestli ho založit znovu (je prázdný). (2026-11-19)
 - [ ] Při bootu OpenWrt (M3) ověřit, že se modul lm85 naváže na čip na i2c 0x2e a ventilátor reaguje na teplotu; ve stock firmware je LM85 potvrzený. (2026-11-19)
 - [ ] Telnet je nešifrovaný (naběhne sám po zapnutí přes háček na md0, ověřeno 2026-11-19); v OpenWrt ho nahradit SSH s klíčem. (2026-11-16)
-- [ ] Ověřit zdraví disku pod /dev/md0 (SMART, vadné sektory); vlastník potvrdil, že svazek je prázdný po formátu a lze ho volně použít, zdraví disku tím ale ověřené není. (2026-11-16)
 - [ ] Doověřit PCB revizi desky (procesor, takt, síťový čip a čip ventilátoru už potvrdila diagnostika 2026-11-19). (2026-11-16)
 - [ ] Zjistit skutečné USB/FAT32 chování bootloaderu, podporu kernelu a DT/ATAG handoff a návrat při selhání; statické záznamy příkazů nejsou funkční test. (2026-11-16)
 - [ ] Doplnit původní nástroj a volby zálohování, ECC/OOB a bad-block politiku a kvalifikovat obnovu; devět ověřených hashů a oddělení OOB nepotvrzují obnovitelnost a analýza ECC neopravovala. (2026-11-16)
@@ -35,6 +34,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Systém přesunut na nový vnitřní disk 1 TB (30 GB systém, 1 GB swap, zbytek data), boot s kořenem na disku ověřen; vadný 3TB disk vyřazen. (2026-11-25)
 - Debian na NASu s jádrem s LED triggery: ověřený boot z USB přes konzoli, tovární MAC, firmware síťovky, vnitřní disk viditelný, LED nastavuje služba nsa310-leds. (2026-11-25)
 - Debian na NASu: opravené DNS (systemd-resolved), firmware-realtek, nové heslo roota (v secret.env), LED SYS svítí. (2026-11-25)
 - První boot Debianu 13 (jádro 6.12.119, nsa310a DTB) z USB na NASu, přihlášení root na konzoli. (2026-11-25)

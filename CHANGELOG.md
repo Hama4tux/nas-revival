@@ -1,6 +1,8 @@
 # Changelog
 
 ## 2026-11-25
+- Debian běží z nového vnitřního disku 1 TB: 30 GB systém, 1 GB swap a zbytek pro data (/srv/data). Jádro zůstává na USB flashce, protože původní U-Boot neumí číst disk. Původní 3TB disk byl podle SMART vadný a byl vyřazen.
+- Nové jádro rozsvěcí LED podle činnosti (SYS, HDD, USB, síťový port); skript scripts/debian/uboot-boot.py spustí Debian přes sériovou konzoli.
 - Debian 13 s jádrem 6.12.119 poprvé naběhl na NASu z USB flashky přes původní U-Boot, bez zápisu do NAND; funguje síť, SSH s klíčem a čidlo LM85.
 - Na NASu opraven překlad jmen (DNS), doinstalován firmware síťové karty, nastavena tovární MAC adresa (projeví se po dalším startu) a zelená LED SYS se rozsvítí po startu systému.
 
