@@ -219,6 +219,36 @@ export const cs = {
       197: 'Čekající sektory', 198: 'Neopravitelné offline', 199: 'Chyby CRC (kabel)',
     } as Record<number, string>,
   },
+  power: {
+    open: 'Napájení a uspávání', close: 'Skrýt napájení', title: 'Napájení disku', refresh: 'Obnovit',
+    loadError: 'Stav napájení disku nelze načíst.', checkedAt: (s: string) => `Zjištěno ${s}`,
+    state: { active: 'Vzhůru', standby: 'Spí', sleeping: 'Hluboký spánek', unknown: 'Stav neznámý' } as Record<string, string>,
+    apm: 'APM v disku', apmUnsupported: 'disk APM nepodporuje', apmUnknown: 'zjistí se, až bude disk vzhůru',
+    apmKind: {
+      max: 'bez parkování hlav, disk se sám neuspí', park: 'disk smí parkovat hlavy', spindown: 'disk se smí sám uspat',
+      off: 'správa napájení vypnutá',
+    } as Record<string, string>,
+    profile: 'Profil', profiles: { performance: 'Výkon', balanced: 'Vyvážený', eco: 'Úsporný', custom: 'Vlastní' } as Record<string, string>,
+    profileValues: (standby: string, apm: number | null) => `uspat po: ${standby} · APM ${apm ?? 'beze změny'}`,
+    defaultNote: 'Disk zatím běží na výchozím profilu, který NAS nastavuje při každém startu. Uložením se nastavení zapíše natrvalo.',
+    systemBalanced: 'Na systémovém disku vyvážený profil disk neuspává – systém by ho hned znovu probudil.',
+    standbyLabel: 'Uspat po nečinnosti', apmLabel: 'Úroveň APM',
+    apmHint: '1–127 disk se smí sám uspat, 128–253 smí parkovat hlavy, 254 bez parkování, 255 vypnuto. Prázdné = nechat nastavení disku.',
+    apmInvalid: 'Zadejte celé číslo 1–255, nebo pole nechte prázdné.',
+    save: 'Uložit nastavení', saving: 'Ukládám…', saved: 'Nastavení napájení bylo uloženo a použito.',
+    unchanged: 'Beze změny.',
+    confirmTitle: 'Uspávat systémový disk?',
+    confirmBody: (standby: string) =>
+      `Na tomto disku běží systém, swap a žurnál. Disk se uspí po ${standby} nečinnosti, ale systém ho brzy znovu probudí. ` +
+      'Časté uspávání a probouzení disk opotřebovává (počet roztočení a parkování hlav v SMART).',
+    confirm: 'Přesto uspávat',
+    standbyNow: 'Uspat teď', standbyTitle: 'Uspat disk hned?',
+    standbyBody: (system: boolean) =>
+      'Disk se zastaví. Při dalším přístupu se sám roztočí, což trvá několik sekund.' +
+      (system ? ' Systémový disk se probudí téměř hned.' : ''),
+    standbyDone: 'Disk byl uspán.', standbyAlready: 'Disk už spal.',
+    sending: 'Odesílám…',
+  },
   errors: {
     generic: 'Operace se nezdařila.', helperDown: 'Služba pro změnu nastavení není dostupná.',
     conflictPending: 'Jiná změna sítě už čeká na potvrzení.',

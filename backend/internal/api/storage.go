@@ -31,6 +31,7 @@ func (s *Server) registerStorage(api *http.ServeMux) {
 	api.HandleFunc("GET /api/v1/storage", s.requireSession(s.storage))
 	api.HandleFunc("GET /api/v1/storage/disks/{id}/smart", s.requireSession(s.diskSmart))
 	api.HandleFunc("POST /api/v1/storage/disks/{id}/smart/test", s.requireSession(s.diskSmartTest))
+	s.registerDiskPower(api)
 }
 
 func (s *Server) storage(w http.ResponseWriter, r *http.Request) {
@@ -49,6 +50,12 @@ func (s *Server) storage(w http.ResponseWriter, r *http.Request) {
 
 // smartDisk resolves {id} to a SMART-capable disk or writes the error.
 func (s *Server) smartDisk(w http.ResponseWriter, r *http.Request) (storage.Disk, bool) {
+	return s.internalDisk(w, r, "smart_unsupported", "Disk nepodporuje SMART.")
+}
+
+// internalDisk resolves {id} to an internal SATA disk (the ones smartctl and
+// hdparm address directly) or writes the error.
+func (s *Server) internalDisk(w http.ResponseWriter, r *http.Request, code, msg string) (storage.Disk, bool) {
 	if s.Storage == nil {
 		writeError(w, http.StatusServiceUnavailable, "unavailable", "Informace o úložišti nejsou dostupné.")
 		return storage.Disk{}, false
@@ -65,7 +72,7 @@ func (s *Server) smartDisk(w http.ResponseWriter, r *http.Request) (storage.Disk
 		return storage.Disk{}, false
 	}
 	if !d.SMART {
-		writeError(w, http.StatusNotFound, "smart_unsupported", "Disk nepodporuje SMART.")
+		writeError(w, http.StatusNotFound, code, msg)
 		return storage.Disk{}, false
 	}
 	return d, true

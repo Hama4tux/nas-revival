@@ -48,6 +48,9 @@ type Server struct {
 	// SmartDetail and SmartTests serve /storage/disks/{id}/smart; nil answers 503.
 	SmartDetail SmartDetailSource
 	SmartTests  SmartTester
+	// DiskPower and DiskPowerSet serve /storage/disks/{id}/power; nil answers 503.
+	DiskPower    DiskPowerSource
+	DiskPowerSet DiskPowerSetter
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }

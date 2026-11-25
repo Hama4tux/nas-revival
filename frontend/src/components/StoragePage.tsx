@@ -1,10 +1,11 @@
-import { Activity, AlertTriangle, ChevronDown, HardDrive, RefreshCw, Usb } from 'lucide-react';
+import { Activity, AlertTriangle, ChevronDown, HardDrive, Moon, RefreshCw, Usb } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { StorageDisk, StoragePartition, StorageReport } from '../api/types';
 import { cs } from '../i18n/cs';
 import { formatBytes, ratioPercent } from '../lib/format';
 import { diskTitle, diskWarnings, unpartitionedBytes } from '../lib/storage';
+import { PowerPanel } from './PowerPanel';
 import { SmartPanel } from './SmartPanel';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -66,7 +67,9 @@ function DiskCard({ d }: { d: StorageDisk }) {
   const free = unpartitionedBytes(d);
   const Icon = d.bus === 'usb' ? Usb : HardDrive;
   const [smartOpen, setSmartOpen] = useState(false);
+  const [powerOpen, setPowerOpen] = useState(false);
   const smartId = `smart-${d.name}`;
+  const powerId = `power-${d.name}`;
   return (
     <Widget id={`disk-${d.name}`} title={diskTitle(d)} icon={<Icon />}
       right={<div className="flex flex-wrap justify-end gap-1">
@@ -113,6 +116,13 @@ function DiskCard({ d }: { d: StorageDisk }) {
             <ChevronDown className={`h-4 w-4 transition-transform ${smartOpen ? 'rotate-180' : ''}`} aria-hidden />
           </Button>
           {smartOpen && <div id={smartId} className="mt-3"><SmartPanel diskId={d.id} /></div>}
+          <Button type="button" variant="ghost" size="sm" aria-expanded={powerOpen} aria-controls={powerId}
+            onClick={() => setPowerOpen((v) => !v)}>
+            <Moon className="h-4 w-4" aria-hidden />
+            {powerOpen ? cs.power.close : cs.power.open}
+            <ChevronDown className={`h-4 w-4 transition-transform ${powerOpen ? 'rotate-180' : ''}`} aria-hidden />
+          </Button>
+          {powerOpen && <div id={powerId} className="mt-3"><PowerPanel diskId={d.id} /></div>}
         </div>
       )}
     </Widget>

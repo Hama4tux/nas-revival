@@ -79,9 +79,9 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | SMART-11 | SMART | Self-test short/long: start, progress %, last result | P0 | Implemented | SMART | smartctl -t/-c | M (disk busy) | DoS by repeated tests | one test per disk; progress shown; result in history | PRIV-01 |
 | SMART-12 | SMART | Scheduled tests via timers | P1 | Planned | SMART | systemd timers | L | conflicts with backup | not concurrent with backup (lock) | TASK-01 |
 | SMART-13 | SMART | History of results and temperature, deterioration alerts | P1 | Planned | SMART | — | L | none | increase of 5/197/198 raises warning notification | LOG-10 |
-| PWR-01 | Disk power | Current power state (active/idle/standby) without waking | P0 | Planned | ATA | hdparm -C | L | none | query never spins the disk up (test with standby disk) | PRIV-01 |
-| PWR-02 | Disk power | Standby timeout, APM level, profiles (performance/balanced/eco/custom) | P0 | Planned | ATA APM | hdparm -S/-B | L | wear from frequent spin-ups | settings persist after reboot and re-plug; unsupported APM hidden | CFG-02 |
-| PWR-03 | Disk power | Manual standby / wake | P1 | Planned | ATA | hdparm -y | L | I/O stall | refused while I/O-heavy task holds lock | PWR-01 |
+| PWR-01 | Disk power | Current power state (active/idle/standby) without waking | P0 | Implemented | ATA | hdparm -C | L | none | query never spins the disk up (test with standby disk) | PRIV-01 |
+| PWR-02 | Disk power | Standby timeout, APM level, profiles (performance/balanced/eco/custom) | P0 | Implemented | ATA APM | hdparm -S/-B | L | wear from frequent spin-ups | settings persist after reboot and re-plug; unsupported APM hidden | CFG-02 |
+| PWR-03 | Disk power | Manual standby / wake | P1 | Implemented | ATA | hdparm -y | L | I/O stall | refused while I/O-heavy task holds lock | PWR-01 |
 | PWR-04 | Disk power | Start/stop and load-cycle counters, frequent wake warning | P1 | Planned | SMART | — | L | none | warns when load cycles grow > N/day (attr 193 currently 35 003) | SMART-10 |
 | PWR-05 | Disk power | Warning when system/swap/logs share the data disk | P0 | Implemented | — | — | L | none | shown on NSA310 today | STOR-12 |
 | PWR-06 | Disk power | Reduce system writes (journal mode, noatime, commit) | P1 | Planned | — | journald, fstab | L | lost logs on crash | idle writes measured before/after; owner decision | CFG-02 |

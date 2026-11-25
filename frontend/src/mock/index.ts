@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { NetConfig, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, TimeSettings, TlsInfo } from '../api/types';
+import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, TimeSettings, TlsInfo } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -277,6 +277,45 @@ function smartRoute(path: string, method: string, body: unknown): Response | nul
   return null;
 }
 
+let mockPower: { settings: PowerSettings; stored: boolean; state: DiskPower['state'] } = {
+  settings: { profile: 'balanced', standbyMinutes: 0, apm: 254 }, stored: false, state: 'active',
+};
+
+function powerRoute(path: string, method: string, body: unknown): Response | null {
+  const m = /^\/storage\/disks\/([^/]+)\/(power|standby)$/.exec(path);
+  if (!m) return null;
+  const id = decodeURIComponent(m[1] ?? '');
+  if (id !== 'wwn-0x5000c50000000001') return err(404, 'power_unsupported', 'Disk nepodporuje správu napájení.');
+  const profiles: PowerSettings[] = [{ profile: 'performance', standbyMinutes: 0, apm: 254 },
+    { profile: 'balanced', standbyMinutes: 0, apm: 254 }, { profile: 'eco', standbyMinutes: 20, apm: 128 }];
+  const view = (): DiskPower => ({
+    diskId: id, systemDisk: true, state: mockPower.state, checkedAt: new Date().toISOString(), apmSupported: true,
+    apmLevel: mockPower.settings.apm ?? 254, settings: mockPower.settings, stored: mockPower.stored, profiles,
+    standbyChoices: [0, 10, 20, 30, 60, 120, 180, 240, 300],
+  });
+  if (m[2] === 'standby' && method === 'POST') {
+    const was = mockPower.state === 'standby';
+    mockPower.state = 'standby';
+    setTimeout(() => { mockPower.state = 'active'; }, 8000);
+    return json(200, { diskId: id, wasStandby: was });
+  }
+  if (m[2] !== 'power') return null;
+  if (method === 'GET') return json(200, view());
+  if (method === 'PUT') {
+    const b = body as Partial<PowerSettings> & { confirmSystemDisk?: boolean };
+    const fixed = profiles.find((p) => p.profile === b.profile);
+    const s: PowerSettings | undefined = fixed ?? (b.profile === 'custom'
+      ? { profile: 'custom', standbyMinutes: b.standbyMinutes ?? 0, apm: b.apm ?? null } : undefined);
+    if (!s) return bad('profile', 'Neznámý profil napájení.');
+    if (s.standbyMinutes > 0 && !b.confirmSystemDisk) {
+      return err(409, 'confirm_required', 'Potvrďte uspávání systémového disku.');
+    }
+    mockPower = { ...mockPower, settings: s, stored: true };
+    return json(200, view());
+  }
+  return null;
+}
+
 export function installMock(): void {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
@@ -308,7 +347,7 @@ export function installMock(): void {
     if (path.startsWith('/storage/disks/')) {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
-      const r = smartRoute(path, method, body);
+      const r = smartRoute(path, method, body) ?? powerRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/settings/') || path.startsWith('/system/')) {

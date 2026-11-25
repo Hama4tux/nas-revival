@@ -25,6 +25,7 @@ import (
 
 	"nas-revival/backend/internal/api"
 	"nas-revival/backend/internal/auth"
+	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
 	"nas-revival/backend/internal/smart"
@@ -96,6 +97,8 @@ func serve(args []string) error {
 	// Short TTL: the UI polls progress of a running self-test.
 	srv.SmartDetail = &smart.DetailService{Run: smart.DetailExecRunner, TTL: 5 * time.Second, Now: time.Now}
 	srv.SmartTests = hc
+	srv.DiskPower = &diskpower.Reader{Run: diskpower.ExecRunner, Now: time.Now, ConfigPath: diskpower.DefaultConfigPath}
+	srv.DiskPowerSet = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -220,6 +223,10 @@ func runHelper(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	nm.Recover(ctx)
+	dp := &helper.DiskPowerManager{Resolve: resolvePowerDisk, Disks: powerDisks, Run: helper.ExecRunner,
+		ConfigPath: diskpower.DefaultConfigPath}
+	// Boot task disk-power: hdparm settings do not survive a power cycle.
+	go dp.ApplyAll(ctx)
 	ln, err := helper.Listen(*sock, gid)
 	if err != nil {
 		return err
@@ -229,6 +236,7 @@ func runHelper(args []string) error {
 		Net:   nm,
 		Time:  &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
 		Smart: &helper.SmartManager{Resolve: resolveSmartDisk, Run: helper.ExecRunner},
+		Power: dp,
 	})
 }
 
@@ -236,6 +244,32 @@ func runHelper(args []string) error {
 func resolveSmartDisk(id string) (helper.SmartDisk, bool, error) {
 	d, ok, err := storage.ResolveDisk(hal.Reader{Root: "/"}, id)
 	return helper.SmartDisk{Name: d.Name, Capable: d.SMARTCapable()}, ok, err
+}
+
+// powerDisks lists disks with the system-disk flag the default profile needs.
+func powerDisks() ([]helper.PowerDisk, error) {
+	rep, err := storage.Collector{HAL: hal.Reader{Root: "/"}, StatFS: statFS}.Report()
+	if err != nil {
+		return nil, err
+	}
+	out := make([]helper.PowerDisk, 0, len(rep.Disks))
+	for _, d := range rep.Disks {
+		out = append(out, helper.PowerDisk{ID: d.ID, Name: d.Name, Capable: d.SMART && d.IDStable, System: d.System})
+	}
+	return out, nil
+}
+
+func resolvePowerDisk(id string) (helper.PowerDisk, bool, error) {
+	ds, err := powerDisks()
+	if err != nil {
+		return helper.PowerDisk{}, false, err
+	}
+	for _, d := range ds {
+		if d.ID == id {
+			return d, true, nil
+		}
+	}
+	return helper.PowerDisk{}, false, nil
 }
 
 func statFS(path string) (total, free, avail uint64, err error) {

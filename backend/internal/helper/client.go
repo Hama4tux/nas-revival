@@ -6,6 +6,8 @@ import (
 	"errors"
 	"net"
 	"time"
+
+	"nas-revival/backend/internal/diskpower"
 )
 
 // Client talks to the helper from the web process.
@@ -101,6 +103,25 @@ func (c *Client) SmartTest(ctx context.Context, diskID, typ string) (SmartTestRe
 	long := *c
 	long.Timeout = 45 * time.Second
 	err := long.Call(ctx, "smart.test", map[string]string{"diskId": diskID, "type": typ}, &r)
+	return r, err
+}
+
+// DiskSetPower stores and applies standby timeout and APM. A sleeping disk
+// wakes up for hdparm, hence the longer timeout.
+func (c *Client) DiskSetPower(ctx context.Context, diskID string, s diskpower.Settings) (DiskPowerResult, error) {
+	var r DiskPowerResult
+	long := *c
+	long.Timeout = 45 * time.Second
+	err := long.Call(ctx, "disk.setPower", map[string]any{"diskId": diskID, "settings": s}, &r)
+	return r, err
+}
+
+// DiskStandby spins the disk down now.
+func (c *Client) DiskStandby(ctx context.Context, diskID string) (DiskStandbyResult, error) {
+	var r DiskStandbyResult
+	long := *c
+	long.Timeout = 45 * time.Second
+	err := long.Call(ctx, "disk.standby", map[string]string{"diskId": diskID}, &r)
 	return r, err
 }
 

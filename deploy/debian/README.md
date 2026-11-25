@@ -14,6 +14,10 @@ chown nas-revival:nas-revival /etc/nas-revival/admin.json
 systemctl daemon-reload && systemctl enable --now nas-revival-helper nas-revival
 ```
 
+Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
+helper). The helper applies them to every internal disk at start; a disk without an entry gets the
+balanced profile (APM 254, no standby on the system disk).
+
 The helper (`nas-revival helper`, ADR 0003) runs as root and lets the web UI change IP, DNS, NTP:
 socket `/run/nas-revival-helper/helper.sock` (0660 root:nas-revival, only uid `nas-revival` is served),
 it writes only `/etc/systemd/network/20-wired.network` and `/etc/systemd/timesyncd.conf.d/50-nas-revival.conf`.

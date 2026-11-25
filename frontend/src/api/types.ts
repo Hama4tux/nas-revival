@@ -138,3 +138,13 @@ export interface SmartDetail {
 
 export type SmartTestType = 'short' | 'long';
 export interface SmartTestStarted { diskId: string; type: SmartTestType; estimatedMinutes: number | null }
+
+export type PowerProfile = 'performance' | 'balanced' | 'eco' | 'custom';
+export type PowerState = 'active' | 'standby' | 'sleeping' | 'unknown';
+export interface PowerSettings { profile: PowerProfile; standbyMinutes: number; apm: number | null }
+export interface DiskPower {
+  diskId: string; systemDisk: boolean; state: PowerState; checkedAt: string;
+  apmSupported: boolean | null; apmLevel: number | null;
+  settings: PowerSettings; stored: boolean; profiles: PowerSettings[]; standbyChoices: number[];
+}
+export interface DiskStandbyResult { diskId: string; wasStandby: boolean }

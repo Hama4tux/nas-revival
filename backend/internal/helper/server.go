@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+
+	"nas-revival/backend/internal/diskpower"
 )
 
 const (
@@ -28,6 +30,7 @@ type Dispatcher struct {
 	Net   *Manager
 	Time  *TimeManager
 	Smart *SmartManager
+	Power *DiskPowerManager
 }
 
 type request struct {
@@ -88,6 +91,29 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return nil, err
 		}
 		return d.Smart.Test(ctx, a.DiskID, a.Type)
+	case "disk.setPower":
+		if d.Power == nil {
+			break
+		}
+		var a struct {
+			DiskID   string             `json:"diskId"`
+			Settings diskpower.Settings `json:"settings"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Power.SetPower(ctx, a.DiskID, a.Settings)
+	case "disk.standby":
+		if d.Power == nil {
+			break
+		}
+		var a struct {
+			DiskID string `json:"diskId"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Power.Standby(ctx, a.DiskID)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

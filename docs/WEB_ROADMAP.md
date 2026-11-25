@@ -29,7 +29,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 | W1.2 ✅ 2026-11-25 | Control panel → Info: versions, boot time, last update, board, capabilities | `GET /system/info`, `GET /system/capabilities` | – | CORE-10, CORE-11, HAL-10 |
 | W1.3 ✅ 2026-11-25 | Storage app, Disks tab: stable id, model, serial (admin), FS, partitions, mounts, system disk badge, shared-disk warning | `GET /storage` | – | STOR-10..12, PWR-05 |
 | W1.4 ✅ 2026-11-25 | Disk detail: SMART attributes with highlights, self-test start, progress %, history | `GET /storage/disks/{id}/smart`, `POST …/smart/test` | `smart.test` | SMART-10, SMART-11 |
-| W1.5 | Disk detail → Power: state (active/standby), profile, standby timeout, APM, standby now | `GET/PUT /storage/disks/{id}/power`, `POST …/standby` | `disk.setPower`, `disk.standby`, boot task `disk-power` | PWR-01..04 |
+| W1.5 ✅ 2026-11-25 | Disk detail → Power: state (active/standby), profile, standby timeout, APM, standby now | `GET/PUT /storage/disks/{id}/power`, `POST …/standby` | `disk.setPower`, `disk.standby`, boot task `disk-power` | PWR-01..03 (PWR-04 load-cycle growth warning moved to W3.6) |
 | W1.6 | Quick actions: restart / shut down with preflight dialog and "going down" screen | `POST /system/{reboot,shutdown}/preview`, `POST /system/{reboot,shutdown}` | `power.reboot`, `power.shutdown` | CORE-12..14 |
 | W1.7 | Overview: health with problem list + `checkedAt`, disk power state in storage widget | `GET /overview` (shared collector) | – | MON-01, UI-01 |
 | W1.8 | Config history (Control panel → Configuration): snapshots, drift, rollback | `GET /config/history`, `POST /config/rollback/{n}` | `config.*` | CFG-02..04 |
@@ -53,7 +53,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 W3.1 Resource Monitor (CPU breakdown, RAM/PSI, disk and network I/O, 1 h history) ·
 W3.2 Process list + protected kill · W3.3 Task scheduler (list, run now, history, SMART and cleanup
 tasks) · W3.4 Hardware: temperature history and thresholds, fan profiles, LEDs and night mode ·
-W3.5 Power schedule (scheduled shutdown/restart) · W3.6 Standby history.
+W3.5 Power schedule (scheduled shutdown/restart) · W3.6 Standby history and load-cycle growth warning (PWR-04).
 
 ## W4 – Data management (M4)
 
