@@ -15,7 +15,7 @@ separate Live Ubuntu laptop, not to the dev VM.
 | disk part 1 (30 GB) | ext4 `nasroot` | Debian 13 armel root |
 | disk part 2 (1 GB) | swap `nasswap` | swap (256 MB RAM) |
 | disk part 3 (rest) | ext4 `nasdata` | `/srv/data` (`nofail`) |
-| USB stick (optional) | ext2 `boot` / ext4 `rootfs` | rescue only: kernels and an old frozen root copy |
+| USB stick (optional) | ext2 `boot` / ext4 `rootfs` | rescue only: kernels and an old frozen root copy; `/boot` is mounted with `nofail,x-systemd.device-timeout=10s` so the NAS boots without the stick |
 
 NAND has one factory bad block at 0x2640000 (inside `rootfs1`); `nand read.e`/`write.e` skip bad blocks.
 
