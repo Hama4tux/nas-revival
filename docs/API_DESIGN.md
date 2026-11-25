@@ -43,6 +43,7 @@ endpoint is implemented, it moves into `api/v1.md`.
 | | `POST /storage/disks/{id}/smart/test` `{type: short\|long}` | admin | `smart.test` | M1 |
 | | `GET/PUT /storage/disks/{id}/power` `{profile, standbyMinutes, apm}` | admin | `disk.setPower` | M1 |
 | | `POST /storage/disks/{id}/standby`, `/wake` | admin | `disk.standby` | M1 |
+| | `GET /storage/activity?seconds=` (on demand, blocks for the window) | admin | `disk.activity` | M1 (done W1.9) |
 | | `GET /storage/activity` (on demand, ~10 s sample) | admin | `disk.activity` | M1 |
 | | `POST /storage/volumes/{partuuid}/mount`, `/unmount`, `/eject` | admin | `volume.*` | M1–M4 |
 | Users | `GET/POST /users`, `GET/PATCH/DELETE /users/{name}`, `PUT /users/{name}/password` | admin (self for password) | `user.*` | M2 |

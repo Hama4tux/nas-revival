@@ -18,6 +18,11 @@ Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, wr
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
 balanced profile (APM 254, no standby on the system disk).
 
+Disk activity (W1.9, op `disk.activity`) samples `/proc/diskstats`, jbd2 counters and the files every
+process holds open for writing, waits 10–45 s and searches the mounted file systems of disks that
+did I/O for files changed in the window. Under `ProtectHome=yes` the helper does not see `/home` and
+`/root`, so writes there are counted on the disk but not attributed to a file.
+
 Restart and shutdown (W1.6) go through the helper ops `power.preflight`, `power.reboot` and
 `power.shutdown`: preflight checks running SMART self-tests (sleeping disks are not woken),
 `nsa310-copy.service`, apt/dpkg processes and a pending network change; the helper then calls `sync` and

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/config"
+	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
 )
 
@@ -135,6 +136,15 @@ func (c *Client) DiskStandby(ctx context.Context, diskID string) (DiskStandbyRes
 	long := *c
 	long.Timeout = 45 * time.Second
 	err := long.Call(ctx, "disk.standby", map[string]string{"diskId": diskID}, &r)
+	return r, err
+}
+
+// DiskActivity measures disk activity for seconds; the call waits for it.
+func (c *Client) DiskActivity(ctx context.Context, seconds int) (diskactivity.Result, error) {
+	var r diskactivity.Result
+	long := *c
+	long.Timeout = time.Duration(seconds)*time.Second + 20*time.Second
+	err := long.Call(ctx, "disk.activity", map[string]int{"seconds": seconds}, &r)
 	return r, err
 }
 

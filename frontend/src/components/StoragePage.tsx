@@ -5,6 +5,7 @@ import type { StorageDisk, StoragePartition, StorageReport } from '../api/types'
 import { cs } from '../i18n/cs';
 import { formatBytes, ratioPercent } from '../lib/format';
 import { diskTitle, diskWarnings, unpartitionedBytes } from '../lib/storage';
+import { ActivityPanel } from './ActivityPanel';
 import { PowerPanel } from './PowerPanel';
 import { SmartPanel } from './SmartPanel';
 import { Badge } from './ui/badge';
@@ -156,6 +157,7 @@ export function StoragePage() {
       ) : (
         data.disks.map((d) => <DiskCard key={d.id} d={d} />)
       )}
+      <ActivityPanel storage={data?.disks ?? null} />
     </div>
   );
 }

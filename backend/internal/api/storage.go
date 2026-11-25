@@ -32,6 +32,7 @@ func (s *Server) registerStorage(api *http.ServeMux) {
 	api.HandleFunc("GET /api/v1/storage/disks/{id}/smart", s.requireSession(s.diskSmart))
 	api.HandleFunc("POST /api/v1/storage/disks/{id}/smart/test", s.requireSession(s.diskSmartTest))
 	s.registerDiskPower(api)
+	s.registerDiskActivity(api)
 }
 
 func (s *Server) storage(w http.ResponseWriter, r *http.Request) {

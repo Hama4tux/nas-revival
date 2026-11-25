@@ -150,6 +150,32 @@ const mockLines = (a: string | null, b: string | null): ConfigDiffLine[] => {
     ...y.map((text) => ({ op: x.includes(text) ? ' ' as const : '+' as const, text }))];
 };
 
+function activity(seconds: number) {
+  const dev = (name: string, parent: string, writeOps: number, extra: Record<string, unknown> = {}) => ({
+    name, parent, mount: '', fsType: '', swap: false, journalCommits: null,
+    readOps: 0, readBytes: 0, writeOps, writeBytes: writeOps * 8192, ...extra,
+  });
+  const journal = '/var/log/journal/0123456789abcdef/system.journal';
+  const devices = [
+    dev('sda', '', 4), dev('sda1', 'sda', 4, { mount: '/', fsType: 'ext4', journalCommits: 2 }),
+    dev('sda2', 'sda', 0, { swap: true }), dev('sda3', 'sda', 0, { mount: '/srv/data', fsType: 'ext4', journalCommits: 0 }),
+    dev('sdb', '', 0), dev('sdb1', 'sdb', 0, { mount: '/boot', fsType: 'ext2' }),
+  ];
+  return {
+    startedAt: new Date(Date.now() - seconds * 1000).toISOString(), seconds, processIo: false, devices,
+    swapInPages: 0, swapOutPages: 0,
+    processes: [{ pid: 312, comm: 'systemd-journal', unit: 'systemd-journald.service', readBytes: null, writeBytes: null, files: [journal] }],
+    files: [{ path: journal, device: 'sda1', sizeDelta: 0, processes: ['systemd-journal (312)'] },
+      { path: '/var/lib/smartmontools/attrlog.csv', device: 'sda1', sizeDelta: null, processes: [] }],
+    filesTruncated: false, notScanned: ['/boot'],
+    disks: [
+      { id: 'wwn-0x5000c50000000001', name: 'sda', system: true, ...devices[0], partitions: devices.slice(1, 4),
+        hints: [{ code: 'no_standby' }, { code: 'journald' }, { code: 'shared_data' }] },
+      { id: 'usb-Generic_Flash_Disk-0:0', name: 'sdb', system: false, ...devices[4], partitions: devices.slice(5), hints: [{ code: 'idle' }] },
+    ],
+  };
+}
+
 function configRoute(path: string, method: string): Response | null {
   const latest = mockVersions[mockVersions.length - 1]!;
   if (path === '/config/history' && method === 'GET') {
@@ -420,6 +446,12 @@ export function installMock(): void {
     if (path === '/overview') return json(200, overview());
     if (path === '/smart') return json(200, smart());
     if (path === '/storage') return json(200, storage());
+    if (path === '/storage/activity') {
+      const n = Number(url.searchParams.get('seconds') ?? 15);
+      if (!(n >= 10 && n <= 45)) return err(400, 'invalid', 'Délka měření musí být 10 až 45 sekund.');
+      await new Promise((r) => setTimeout(r, Math.min(n, 5) * 1000));
+      return json(200, activity(n));
+    }
     if (path.startsWith('/storage/disks/')) {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }

@@ -26,6 +26,7 @@ import (
 	"nas-revival/backend/internal/api"
 	"nas-revival/backend/internal/auth"
 	"nas-revival/backend/internal/config"
+	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
@@ -114,6 +115,7 @@ func serve(args []string) error {
 	srv.SmartTests = hc
 	srv.DiskPower = diskPower
 	srv.DiskPowerSet = hc
+	srv.DiskActivity = hc
 	srv.SystemPower = hc
 	srv.Config = hc
 
@@ -273,6 +275,7 @@ func runHelper(args []string) error {
 		Power:    dp,
 		SysPower: sp,
 		Config:   cm,
+		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 	})
 }
 

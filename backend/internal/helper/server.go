@@ -34,6 +34,8 @@ type Dispatcher struct {
 	SysPower *SystemPowerManager
 	// Config keeps the history of the managed files; nil disables it.
 	Config *ConfigManager
+	// Activity measures disk activity on demand; nil disables it.
+	Activity *ActivityManager
 }
 
 type request struct {
@@ -131,6 +133,17 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return nil, err
 		}
 		return d.Power.Standby(ctx, a.DiskID)
+	case "disk.activity":
+		if d.Activity == nil {
+			break
+		}
+		var a struct {
+			Seconds int `json:"seconds"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Activity.Run(ctx, a.Seconds)
 	case "power.preflight":
 		if d.SysPower == nil {
 			break

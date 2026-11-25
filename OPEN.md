@@ -1,10 +1,11 @@
 # Otevřené body
 
-## Stav (2026-11-25)
-- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém, Úložiště se SMART a napájením disku, restart/vypnutí NASu s kontrolou před akcí (W1.6) a přehled, kde zdraví vyhodnocuje NAS (seznam problémů, stav napájení disku, jeden společný sběr dat – W1.7). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W1.9 aktivita disku (proč neusne); mezitím se souhlasem vlastníka vyzkoušet restart z GUI.
+## Stav (2026-11-26)
+- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém s historií konfigurace, Úložiště se SMART, napájením disku a nově měřením aktivity disků (W1.9 – kdo zapisuje a proč disk neusne), restart/vypnutí s kontrolou. Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
+- Další krok: W1 je hotové kromě W1.0/W1.1 – podle měření aktivity rozhodnout o dalším omezení zápisů (ADR 0007), pak W2.1 uživatelé a skupiny; se souhlasem vlastníka vyzkoušet restart z GUI.
 
 ## Čeká na rozhodnutí
+- [ ] Jádro NASu nemá CONFIG_TASK_IO_ACCOUNTING (chybí /proc/<pid>/io), takže měření aktivity neukazuje bajty po procesech, jen soubory otevřené pro zápis. Zapnout ho při příštím sestavení jádra? Vyžaduje zápis do NAND slotu a restart – jen se souhlasem. (2026-11-26)
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
 - [ ] Vyzkoušet vypnutí z GUI – device tree má gpio-poweroff, ale že NSA310 opravdu odpojí napájení (a jde znovu zapnout tlačítkem), není ověřené. (2026-11-25)
 - [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
@@ -12,6 +13,7 @@
 
 
 ## Nedodělané
+- [ ] Aktivita disků (W1.9) ověřená jen přes root helper na NASu – v prohlížeči po přihlášení zkontrolovat Úložiště → „Aktivita disků“ na telefonu (360 px) i desktopu. (2026-11-26)
 - [ ] Historie konfigurace (W1.8) je nasazená, ale změna a návrat byly ověřené jen testy a v mock režimu: v GUI uložit NTP servery, ověřit novou verzi s uživatelem, zobrazit rozdíly a vrátit se na verzi 1 (návrat sítě musí ukázat pruh s potvrzením). (2026-11-25)
 - [ ] Historie konfigurace: uložení nastavení přes ručně změněný soubor se zatím neptá na „převzetí“ (ruční verze se jen uloží do historie) – doplnit potvrzení u PUT síť/NTP/napájení (CFG-04). (2026-11-25)
 - [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť, Systém a Úložiště – u Úložiště, že / a /srv/data nejsou označené „jen pro čtení“, panel SMART s živými daty včetně spuštění testu z GUI a panel Napájení – stav, uložení profilu, potvrzení u systémového disku, „Uspat teď“): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
@@ -57,6 +59,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Aktivita disků na požádání (W1.9): zápisy a čtení po discích a oddílech, změněné soubory a procesy, které je drží otevřené, žurnál ext4, swap a vysvětlení, proč disk neusne; nebudí spící disk, jedno měření naráz. Ověřeno na NASu přes root helper. (2026-11-26)
 - Přehled se zdravím z NASu (W1.7): seznam problémů s časem kontroly, stav napájení disku ve widgetu Úložiště, jeden společný sběr dat pro všechny prohlížeče (5 s / 60 s v klidu); nasazeno na NAS, služba běží, v prohlížeči s přihlášením zatím nezkontrolováno. (2026-11-25)
 - Restart a vypnutí z GUI (W1.6): kontrola před akcí (samotest SMART, COPY, apt/dpkg, nepotvrzená síť), potvrzení názvem NASu a jednorázovým tokenem, vynucení druhým potvrzením, sync a obrazovka „restartuje se / vypíná se“; kontrola ověřena na NASu, samotný restart zatím ne. (2026-11-25)
 - Napájení disku z GUI (W1.5): stav bez probuzení, profily Výkon/Vyvážený/Úsporný/Vlastní (doba do uspání, APM), trvalé uložení v /etc/nas-revival/disks.json a použití při startu, „Uspat teď“; APM 254 na systémovém disku se teď nastavuje sám. Ověřeno na NASu přes root helper. (2026-11-25)

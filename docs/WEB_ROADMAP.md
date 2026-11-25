@@ -33,7 +33,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 | W1.6 ✅ 2026-11-25 | Quick actions: restart / shut down with preflight dialog and "going down" screen | `POST /system/{reboot,shutdown}/preview`, `POST /system/{reboot,shutdown}` | `power.reboot`, `power.shutdown` | CORE-12..14 |
 | W1.7 ✅ 2026-11-25 | Overview: health with problem list + `checkedAt`, disk power state in storage widget | `GET /overview` (shared collector) | – | MON-01, UI-01 |
 | W1.8 ✅ 2026-11-25 | Config history (Control panel → Configuration): snapshots, drift, rollback | `GET /config/history`, `POST /config/rollback/{n}` | `config.*` | CFG-02..04 |
-| W1.9 | Storage → Activity (on demand): per-process disk writes, why the disk does not sleep | `GET /storage/activity` | `disk.activity` | DIAG-01, PWR-06 |
+| W1.9 ✅ 2026-11-26 | Storage → Activity (on demand): per-process disk writes, why the disk does not sleep | `GET /storage/activity` | `disk.activity` | DIAG-01, PWR-06 |
 
 ## W2 – NAS core services (M2)
 

@@ -195,3 +195,22 @@ export interface ConfigRollbackResult {
   rollbackOf: number; restored: ConfigFileId[];
   networkPending: { deadline: string } | null;
 }
+
+/** GET /storage/activity (W1.9): one on-demand measurement. */
+export interface ActivityCounters { readOps: number; readBytes: number; writeOps: number; writeBytes: number }
+export interface ActivityDevice extends ActivityCounters {
+  name: string; parent: string; mount: string; fsType: string; swap: boolean; journalCommits: number | null;
+}
+export interface ActivityHint { code: string; value?: string }
+export interface ActivityDisk extends ActivityCounters {
+  id: string; name: string; system: boolean; partitions: ActivityDevice[]; hints: ActivityHint[];
+}
+export interface ActivityProcess {
+  pid: number; comm: string; unit: string; readBytes: number | null; writeBytes: number | null; files: string[];
+}
+export interface ActivityFile { path: string; device: string; sizeDelta: number | null; processes: string[] }
+export interface DiskActivity {
+  startedAt: string; seconds: number; processIo: boolean; devices: ActivityDevice[];
+  swapInPages: number; swapOutPages: number; processes: ActivityProcess[]; files: ActivityFile[];
+  filesTruncated: boolean; notScanned: string[]; disks: ActivityDisk[];
+}

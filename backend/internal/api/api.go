@@ -53,6 +53,8 @@ type Server struct {
 	// DiskPower and DiskPowerSet serve /storage/disks/{id}/power; nil answers 503.
 	DiskPower    DiskPowerSource
 	DiskPowerSet DiskPowerSetter
+	// DiskActivity serves /storage/activity; nil answers 503.
+	DiskActivity DiskActivityMeasurer
 	// SystemPower serves /system/{reboot,shutdown}; nil answers 503.
 	SystemPower SystemPowerer
 	// Config serves /config/history and /config/rollback; nil answers 503.

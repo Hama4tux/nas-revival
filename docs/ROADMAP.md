@@ -47,7 +47,7 @@ with the gate in the last column; measurements with `scripts/measure/snapshot.sh
 | M1-08 | Storage inventory (read-only) | STOR-10, STOR-11, STOR-12, PWR-05 | **done 2026-11-25** (sysfs + udev database instead of `lsblk`, `internal/storage`); `mountinfo`, by-id; system disk flag; new Storage app | identity survives USB re-plug; `/srv/data` and bind mounts correct; system disk warning shown |
 | M1-09 ✅ 2026-11-25 | SMART detail and self-tests | SMART-10, SMART-11 | attributes table, vendor raw decoding, `smart.test` op, progress, history from the drive's own self-test log (bounded to 21 by the drive) | short test started from UI, progress visible, result in history; no wake of standby disk |
 | M1-10 | Disk power management | PWR-01..PWR-04 | install `hdparm` (owner consent), `disks.json`, boot/udev apply task, profiles | setting survives reboot; `hdparm -C` query does not wake; APM hidden if unsupported |
-| M1-11 | System write audit for spin-down | PWR-06, DIAG-01 | on-demand per-process write sampler; document what writes to sda at idle | report lists top writers; owner decides ADR 0007 |
+| M1-11 | System write audit for spin-down | PWR-06, DIAG-01 | on-demand per-process write sampler (W1.9 done 2026-11-26, attribution by open files – kernel lacks task I/O accounting); document what writes to sda at idle | report lists top writers; owner decides ADR 0007 |
 | M1-12 | M1 performance gate | — | run TEST_PLAN M1 scenarios | budgets met or deviations recorded in PERFORMANCE_BUDGET |
 
 Dependencies: M1-02 → M1-03 → (M1-06, M1-10); M1-04 → M1-08 → M1-09 → M1-10; M1-07 independent.

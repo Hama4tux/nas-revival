@@ -68,7 +68,8 @@ func writeHelperError(w http.ResponseWriter, err error) {
 	switch he.Code {
 	case helper.CodeInvalid:
 		writeInvalid(w, he.Field, he.Message)
-	case helper.CodeChangePending, helper.CodeNothingPending, helper.CodeTestRunning, helper.CodeConfigDrift:
+	case helper.CodeChangePending, helper.CodeNothingPending, helper.CodeTestRunning, helper.CodeConfigDrift,
+		helper.CodeActivityRunning:
 		writeError(w, http.StatusConflict, he.Code, he.Message)
 	case helper.CodeNotFound:
 		writeError(w, http.StatusNotFound, he.Code, he.Message)
