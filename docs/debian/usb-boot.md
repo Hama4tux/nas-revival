@@ -1,15 +1,14 @@
 # Debian 13 from USB via the stock U-Boot (temporary, RAM only)
 
-Status: used on 2026-11-25; no `saveenv`, NAND unchanged. The command sequence below is
-reconstructed from the running system (`/proc/cmdline`, USB layout) and still has to be
-confirmed on the console at the next boot.
+Status: verified on the console on 2026-11-25 (second boot, LED kernel); no `saveenv`, NAND unchanged.
+The serial adapter (CP2102) is attached to the separate Live Ubuntu laptop, not to the dev VM.
 
 USB stick (front port only – the stock U-Boot finds it only on the first `usb start` after power-on):
 
 | Partition | FS | Content |
 |---|---|---|
-| sda1 | ext2, label `boot` | `uImage` (kernel + appended `kirkwood-nsa310a.dtb`), `uImage.noled` = previous kernel |
-| sda2 | ext4, label `rootfs` | Debian 13 armel |
+| sdX1 | ext2, label `boot` | `uImage` (kernel + appended `kirkwood-nsa310a.dtb`), `uImage.noled` = previous kernel |
+| sdX2 | ext4, label `rootfs` | Debian 13 armel |
 
 Console 115200 8N1 on J2, interrupt the ~3 s countdown (`NSA310>>` prompt), then:
 
@@ -22,3 +21,5 @@ bootm 0x2000000
 
 Fallback kernel: load `/uImage.noled` instead; it needs the matching modules, so first rename
 `/lib/modules/6.12.119` ↔ `/lib/modules/6.12.119.noled` (otherwise r8169 does not load).
+
+With the internal disk connected the USB stick is `sdb`; fstab uses `LABEL=`, root uses `PARTUUID=`.

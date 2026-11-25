@@ -1,19 +1,17 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: Debian 13 (jádro 6.12.119) běží z USB flashky přes původní U-Boot (jen v RAM, NAND beze změny); SSH s klíčem, opravené DNS, nainstalovaný firmware-realtek, nové heslo roota a zelená LED SYS.
-- Další krok: vyjasnit nedetekovaný vnitřní disk; při příštím restartu se sériovou konzolí aktivovat připravené jádro s LED a ověřit MAC a firmware síťovky; pak Samba a trvalý boot z USB.
+- Stav: Debian 13 s vlastním jádrem 6.12.119 (LED triggery) běží z USB přes původní U-Boot (jen v RAM, NAND beze změny); tovární MAC, firmware síťovky, vnitřní 3TB disk i LED SYS/USB/HDD/síť fungují, boot přes konzoli ověřen.
+- Další krok: SMART vnitřního disku a datový svazek, Samba, pak trvalý boot z USB bez ruční obsluhy U-Bootu.
 
 ## Čeká na rozhodnutí
 - [ ] Zastavit odpočet U-Bootu (cca 3 s) a přečíst prostředí (printenv) jen pro čtení, žádný saveenv – podklad pro boot Debianu z USB. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
+- [ ] LED eSATA a COPY zatím nic neukazují a HDD bliká při činnosti kteréhokoli disku (i USB flashky); pro LED jednotlivých SATA portů je potřeba dohledat volbu jádra (per-port trigger ata1/ata2 v 6.12 chybí). Přiřazení tří LED síťového portu (link, aktivita, gigabit) ověřit pohledem. (2026-11-25)
+- [ ] Vnitřní disk (3 TB, sda2 = člen md z původního firmwaru) Debian vidí; doinstalovat smartmontools a ověřit SMART, pak rozhodnout o novém svazku. USB flashka je teď sdb, systém se připojuje podle LABEL/PARTUUID. (2026-11-25)
 - [ ] Původní U-Boot najde USB flashku jen při prvním `usb start` po zapnutí a jen v předním portu; výzva je `NSA310>>`, odpočet zastaví mezery/Ctrl+C posílané hned od banneru. (2026-11-25)
-- [ ] Síťovka r8169: firmware-realtek nainstalován a tovární MAC nastavena souborem /etc/systemd/network/10-nsa310-mac.link; obojí se projeví až po dalším bootu (vyžaduje sériovou konzoli kvůli U-Bootu) – ověřit firmware v dmesg a novou adresu z DHCP (IP se může změnit). (2026-11-25)
-- [ ] Jádro s LED (triggery disk/netdev/usbport/panic, R8169_LEDS) je aktivní jako /boot/uImage, původní jako /boot/uImage.noled a moduly v /lib/modules/6.12.119.noled; LED nastavuje služba nsa310-leds. Při dalším bootu ověřit LED a postup v docs/debian/usb-boot.md (rekonstruovaný, neověřený). (2026-11-25)
-- [ ] V Debianu chybí D-Bus (systemctl poweroff hlásil „Failed to connect to system scope bus“) – doinstalovat dbus, jinak nefunguje část systemctl/networkctl. (2026-11-25)
-- [ ] Debian nevidí vnitřní disk (ata1 i ata2: SATA link down), přestože původní firmware 2026-11-19 sda2/md0 viděl; device tree NSA310a nemá řízení napájení disku – ověřit u vlastníka, jestli je disk zapojený, případně dohledat, jak ho původní firmware zapíná. (2026-11-25)
 - [ ] Build rootfs (mmdebstrap) převzal resolv.conf stavebního počítače (127.0.0.53 bez resolved) – v receptu doinstalovat systemd-resolved nebo zapsat správný resolv.conf; na NASu opraveno ručně. (2026-11-25)
 - [ ] AGENTS.md (sekce Tento projekt) stále zakazuje přístup k živému NASu a popisuje fázi OpenWrt; po přechodu na Debian ho přepsat podle skutečného postupu. (2026-11-25)
 - [ ] Debian 13 armel nemá oficiální jádro Kirkwood: jádro (mainline LTS 6.12) aktualizujeme sami – zautomatizovat build a hlídat nové verze 6.12.x. (2026-11-25)
@@ -36,6 +34,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Debian na NASu s jádrem s LED triggery: ověřený boot z USB přes konzoli, tovární MAC, firmware síťovky, vnitřní disk viditelný, LED nastavuje služba nsa310-leds. (2026-11-25)
 - Debian na NASu: opravené DNS (systemd-resolved), firmware-realtek, nové heslo roota (v secret.env), LED SYS svítí. (2026-11-25)
 - První boot Debianu 13 (jádro 6.12.119, nsa310a DTB) z USB na NASu, přihlášení root na konzoli. (2026-11-25)
 - Sestaven Debian 13.8 armel (mmdebstrap) a jádro 6.12.119 pro NSA310a, nahráno na USB flashku. (2026-11-25)
