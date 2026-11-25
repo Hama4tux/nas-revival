@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-25
+- NAS bootuje Debian sám, bez sériové konzole: jádro je v NAND ve dvou slotech (aktuální a záložní) a když oba selžou, naběhne původní firmware ZyXEL. Změněno jen prostředí U-Bootu a záložní oddíly původního firmwaru, U-Boot a hlavní kopie firmwaru zůstaly netknuté.
 - Debian běží z nového vnitřního disku 1 TB: 30 GB systém, 1 GB swap a zbytek pro data (/srv/data). Jádro zůstává na USB flashce, protože původní U-Boot neumí číst disk. Původní 3TB disk byl podle SMART vadný a byl vyřazen.
 - Nové jádro rozsvěcí LED podle činnosti (SYS, HDD, USB, síťový port); skript scripts/debian/uboot-boot.py spustí Debian přes sériovou konzoli.
 - Debian 13 s jádrem 6.12.119 poprvé naběhl na NASu z USB flashky přes původní U-Boot, bez zápisu do NAND; funguje síť, SSH s klíčem a čidlo LM85.
