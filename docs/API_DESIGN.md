@@ -35,7 +35,7 @@ endpoint is implemented, it moves into `api/v1.md`.
 | | `GET /system/health` | viewer | – | M1 (part of overview today) |
 | | `POST /system/reboot/preview`, `POST /system/reboot` | admin | `power.reboot` | M1 |
 | | `POST /system/shutdown/preview`, `POST /system/shutdown` | admin | `power.shutdown` | M1 |
-| Config | `GET /config/history`, `GET /config/drift` | admin | `config.list` | M1 |
+| Config | `GET /config/history` (incl. drift), `GET /config/history/{n}` (diff vs. current) | admin | `config.list`, `config.get` | M1 (done W1.8) |
 | | `POST /config/rollback/{snapshot}` | admin | `config.rollback` | M1 |
 | | `GET /config/export`, `POST /config/import` | admin | `config.export/import` | M4 |
 | Storage | `GET /storage` (disks, partitions, mounts, system flags, dependencies) | viewer | – | M1 |

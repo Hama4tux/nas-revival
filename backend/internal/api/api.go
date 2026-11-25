@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/auth"
+	"nas-revival/backend/internal/helper"
 	"nas-revival/backend/internal/smart"
 	"nas-revival/backend/internal/system"
 )
@@ -54,6 +55,8 @@ type Server struct {
 	DiskPowerSet DiskPowerSetter
 	// SystemPower serves /system/{reboot,shutdown}; nil answers 503.
 	SystemPower SystemPowerer
+	// Config serves /config/history and /config/rollback; nil answers 503.
+	Config      ConfigHistory
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
@@ -70,6 +73,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerSystem(api)
 	s.registerSystemPower(api)
 	s.registerStorage(api)
+	s.registerConfig(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})
@@ -147,6 +151,7 @@ func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxKey{}, sessionCtx{username: user, expires: exp, token: c.Value})
+		ctx = helper.WithUser(ctx, user)
 		next(w, r.WithContext(ctx))
 	}
 }

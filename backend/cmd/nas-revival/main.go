@@ -25,6 +25,7 @@ import (
 
 	"nas-revival/backend/internal/api"
 	"nas-revival/backend/internal/auth"
+	"nas-revival/backend/internal/config"
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
@@ -114,6 +115,7 @@ func serve(args []string) error {
 	srv.DiskPower = diskPower
 	srv.DiskPowerSet = hc
 	srv.SystemPower = hc
+	srv.Config = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -241,6 +243,22 @@ func runHelper(args []string) error {
 	sp := &helper.SystemPowerManager{Disks: powerDisks, Run: helper.ExecRunner, ProcRoot: "/proc",
 		NetPending: nm.HasPending, Sync: syscall.Sync, Delay: 2 * time.Second,
 		After: func(d time.Duration, f func()) { time.AfterFunc(d, f) }}
+	tm := &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner}
+	// Config history (CFG-02..04): the registry of managed files. The TLS key
+	// is owned by the web process and is deliberately not part of it.
+	store := &config.Store{Dir: filepath.Join(*state, "config"),
+		Files: []config.File{
+			{ID: helper.FileNetwork, Path: *netFile},
+			{ID: helper.FileTime, Path: *dropin},
+			{ID: helper.FileDiskPower, Path: diskpower.DefaultConfigPath},
+		},
+		Pending: func(id string) bool { return id == helper.FileNetwork && nm.HasPending() }}
+	var cm *helper.ConfigManager
+	if err := store.Init(); err != nil {
+		slog.Error("helper: config history disabled", "err", err)
+	} else {
+		cm = &helper.ConfigManager{Store: store, Net: nm, Time: tm, Power: dp}
+	}
 	// Boot task disk-power: hdparm settings do not survive a power cycle.
 	go dp.ApplyAll(ctx)
 	ln, err := helper.Listen(*sock, gid)
@@ -250,10 +268,11 @@ func runHelper(args []string) error {
 	slog.Info("helper listening", "socket", *sock, "uid", uid)
 	return helper.Serve(ctx, ln, uid, &helper.Dispatcher{
 		Net:      nm,
-		Time:     &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
+		Time:     tm,
 		Smart:    &helper.SmartManager{Resolve: resolveSmartDisk, Run: helper.ExecRunner},
 		Power:    dp,
 		SysPower: sp,
+		Config:   cm,
 	})
 }
 

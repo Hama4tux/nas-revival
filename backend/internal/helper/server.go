@@ -32,11 +32,15 @@ type Dispatcher struct {
 	Smart    *SmartManager
 	Power    *DiskPowerManager
 	SysPower *SystemPowerManager
+	// Config keeps the history of the managed files; nil disables it.
+	Config *ConfigManager
 }
 
 type request struct {
 	Op   string          `json:"op"`
 	Args json.RawMessage `json:"args"`
+	// User is the web session user, recorded in the config history.
+	User string `json:"user"`
 }
 
 type response struct {
@@ -59,6 +63,7 @@ func decodeArgs(raw json.RawMessage, v any) error {
 
 // Handle runs one operation.
 func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
+	user := cleanUser(req.User)
 	switch req.Op {
 	case "network.get":
 		return d.Net.Get(ctx), nil
@@ -67,9 +72,14 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 		if err := decodeArgs(req.Args, &cfg); err != nil {
 			return nil, err
 		}
+		d.Config.Prepare()
 		return d.Net.Apply(ctx, cfg)
 	case "network.confirm":
-		return d.Net.Confirm(ctx)
+		st, err := d.Net.Confirm(ctx)
+		if err == nil {
+			d.Config.Changed(user, FileNetwork)
+		}
+		return st, err
 	case "time.get":
 		return d.Time.Get(ctx)
 	case "time.apply":
@@ -79,7 +89,10 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 		if err := decodeArgs(req.Args, &a); err != nil {
 			return nil, err
 		}
-		return d.Time.Apply(ctx, a.NTPServers)
+		d.Config.Prepare()
+		st, err := d.Time.Apply(ctx, a.NTPServers)
+		d.Config.Changed(user, FileTime)
+		return st, err
 	case "smart.test":
 		if d.Smart == nil {
 			break
@@ -103,7 +116,10 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 		if err := decodeArgs(req.Args, &a); err != nil {
 			return nil, err
 		}
-		return d.Power.SetPower(ctx, a.DiskID, a.Settings)
+		d.Config.Prepare()
+		r, err := d.Power.SetPower(ctx, a.DiskID, a.Settings)
+		d.Config.Changed(user, FileDiskPower)
+		return r, err
 	case "disk.standby":
 		if d.Power == nil {
 			break
@@ -132,6 +148,29 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return nil, err
 		}
 		return d.SysPower.Do(ctx, req.Op[len("power."):], a.Force, a.User)
+	case "config.list":
+		if d.Config == nil {
+			break
+		}
+		return d.Config.List()
+	case "config.get", "config.rollback":
+		if d.Config == nil {
+			break
+		}
+		var a struct {
+			ID       int  `json:"id"`
+			Takeover bool `json:"takeover"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		if a.ID < 1 {
+			return nil, invalid("id", "Neplatné číslo verze.")
+		}
+		if req.Op == "config.get" {
+			return d.Config.Get(a.ID)
+		}
+		return d.Config.Rollback(ctx, a.ID, a.Takeover, user)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

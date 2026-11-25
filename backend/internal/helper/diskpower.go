@@ -2,11 +2,15 @@ package helper
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io/fs"
 	"log/slog"
+	"os"
 	"strconv"
 	"sync"
 
+	"nas-revival/backend/internal/atomicfile"
 	"nas-revival/backend/internal/diskpower"
 )
 
@@ -165,6 +169,33 @@ func (m *DiskPowerManager) Standby(ctx context.Context, id string) (DiskStandbyR
 func (m *DiskPowerManager) ApplyAll(ctx context.Context) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	m.applyAllLocked(ctx)
+}
+
+// Restore writes an older version of disks.json byte for byte (config
+// rollback) and applies it to every disk; present=false removes the file, so
+// every disk gets its default profile.
+func (m *DiskPowerManager) Restore(ctx context.Context, data []byte, present bool) error {
+	if present {
+		var c diskpower.Config
+		if json.Unmarshal(data, &c) != nil {
+			return invalid("", "Uložená verze nastavení napájení disků není platná.")
+		}
+	}
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if present {
+		if err := atomicfile.Write(m.ConfigPath, data, 0o644); err != nil {
+			return internalErr("Nastavení napájení disků nelze zapsat.")
+		}
+	} else if err := os.Remove(m.ConfigPath); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		return internalErr("Nastavení napájení disků nelze odstranit.")
+	}
+	m.applyAllLocked(ctx)
+	return nil
+}
+
+func (m *DiskPowerManager) applyAllLocked(ctx context.Context) {
 	disks, err := m.Disks()
 	if err != nil {
 		slog.Error("helper: disk-power: disks not listed", "err", err)

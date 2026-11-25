@@ -10,6 +10,8 @@ const (
 	CodeNothingPending    = "nothing_pending"
 	CodeHelperUnavailable = "helper_unavailable"
 	CodeInternal          = "internal"
+	CodeNotFound          = "not_found"
+	CodeConfigDrift       = "config_drift"
 )
 
 // Error is a typed error that travels over the helper protocol.

@@ -2,7 +2,7 @@
 
 ## Stav (2026-11-25)
 - Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém, Úložiště se SMART a napájením disku, restart/vypnutí NASu s kontrolou před akcí (W1.6) a přehled, kde zdraví vyhodnocuje NAS (seznam problémů, stav napájení disku, jeden společný sběr dat – W1.7). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W1.8 historie konfigurace (zálohy, rozdíly, návrat); mezitím se souhlasem vlastníka vyzkoušet restart z GUI.
+- Další krok: W1.9 aktivita disku (proč neusne); mezitím se souhlasem vlastníka vyzkoušet restart z GUI.
 
 ## Čeká na rozhodnutí
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
@@ -12,6 +12,8 @@
 
 
 ## Nedodělané
+- [ ] Historie konfigurace (W1.8) je nasazená, ale změna a návrat byly ověřené jen testy a v mock režimu: v GUI uložit NTP servery, ověřit novou verzi s uživatelem, zobrazit rozdíly a vrátit se na verzi 1 (návrat sítě musí ukázat pruh s potvrzením). (2026-11-25)
+- [ ] Historie konfigurace: uložení nastavení přes ručně změněný soubor se zatím neptá na „převzetí“ (ruční verze se jen uloží do historie) – doplnit potvrzení u PUT síť/NTP/napájení (CFG-04). (2026-11-25)
 - [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť, Systém a Úložiště – u Úložiště, že / a /srv/data nejsou označené „jen pro čtení“, panel SMART s živými daty včetně spuštění testu z GUI a panel Napájení – stav, uložení profilu, potvrzení u systémového disku, „Uspat teď“): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
 - [ ] Napájení disku: že se uložené nastavení (disks.json) po restartu NASu znovu použije, je ověřené jen restartem služby helperu – zkontrolovat při nejbližším plánovaném restartu (`journalctl -u nas-revival-helper | grep disk-power`). (2026-11-25)
 - [ ] Přehled (W1.7): zkontrolovat v prohlížeči souhrn „Zkontrolováno …“, seznam problémů a štítek „Disk běží/spí“ u sda; zobrazení na šířce telefonu ověřeno jen u předchozí verze s testovacími daty. (2026-11-25)

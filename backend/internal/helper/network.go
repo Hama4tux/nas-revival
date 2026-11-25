@@ -122,6 +122,25 @@ func (m *Manager) Apply(ctx context.Context, cfg NetConfig) (NetworkState, error
 	if err != nil {
 		return NetworkState{}, err
 	}
+	return m.applyContent(ctx, cfg, []byte(RenderNetwork(cfg)), true)
+}
+
+// Restore writes an older version of the network file byte for byte (config
+// rollback) with the same confirmation window as Apply. present=false
+// removes the file.
+func (m *Manager) Restore(ctx context.Context, data []byte, present bool) (NetworkState, error) {
+	next := DefaultNetConfig()
+	if present {
+		cfg, err := ValidateNetConfig(ParseNetwork(string(data)))
+		if err != nil {
+			return NetworkState{}, invalid("", "Uložená verze nastavení sítě není platná.")
+		}
+		next = cfg
+	}
+	return m.applyContent(ctx, next, data, present)
+}
+
+func (m *Manager) applyContent(ctx context.Context, next NetConfig, content []byte, present bool) (NetworkState, error) {
 	if err := m.checkIface(m.Iface); err != nil {
 		return NetworkState{}, err
 	}
@@ -140,7 +159,7 @@ func (m *Manager) Apply(ctx context.Context, cfg NetConfig) (NetworkState, error
 	if hadFile {
 		prev = ParseNetwork(string(old))
 	}
-	mk := &marker{Pending: Pending{Deadline: m.Now().Add(m.Window), Previous: prev, Next: cfg}, Iface: m.Iface, HadFile: hadFile}
+	mk := &marker{Pending: Pending{Deadline: m.Now().Add(m.Window), Previous: prev, Next: next}, Iface: m.Iface, HadFile: hadFile}
 	fail := func(msg string) (NetworkState, error) {
 		m.mu.Unlock()
 		return NetworkState{}, internalErr(msg)
@@ -159,7 +178,13 @@ func (m *Manager) Apply(ctx context.Context, cfg NetConfig) (NetworkState, error
 	}
 	m.pending = mk
 	m.arm(m.Window)
-	if err := atomicfile.Write(m.Paths.NetworkFile, []byte(RenderNetwork(cfg)), 0o644); err != nil {
+	var werr error
+	if present {
+		werr = atomicfile.Write(m.Paths.NetworkFile, content, 0o644)
+	} else if err := os.Remove(m.Paths.NetworkFile); err != nil && !errors.Is(err, fs.ErrNotExist) {
+		werr = err
+	}
+	if werr != nil {
 		m.rollbackLocked(ctx)
 		return fail("Nelze zapsat nastavení sítě.")
 	}

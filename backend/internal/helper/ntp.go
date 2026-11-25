@@ -139,7 +139,26 @@ func (t *TimeManager) Apply(ctx context.Context, servers []string) (TimeState, e
 	if err != nil {
 		return TimeState{}, err
 	}
-	if len(servers) == 0 {
+	var data []byte
+	if len(servers) > 0 {
+		data = []byte(RenderTimesyncd(servers))
+	}
+	return t.write(ctx, data, len(servers) > 0)
+}
+
+// Restore writes an older version of the drop-in byte for byte (config
+// rollback); present=false removes it.
+func (t *TimeManager) Restore(ctx context.Context, data []byte, present bool) (TimeState, error) {
+	if present {
+		if _, err := ValidateNTP(ParseTimesyncd(string(data))); err != nil {
+			return TimeState{}, invalid("", "Uložená verze nastavení NTP není platná.")
+		}
+	}
+	return t.write(ctx, data, present)
+}
+
+func (t *TimeManager) write(ctx context.Context, data []byte, present bool) (TimeState, error) {
+	if !present {
 		if err := os.Remove(t.Dropin); err != nil && !errors.Is(err, fs.ErrNotExist) {
 			return TimeState{}, internalErr("Nelze odstranit nastavení NTP.")
 		}
@@ -147,7 +166,7 @@ func (t *TimeManager) Apply(ctx context.Context, servers []string) (TimeState, e
 		if err := os.MkdirAll(filepath.Dir(t.Dropin), 0o755); err != nil {
 			return TimeState{}, internalErr("Nelze vytvořit adresář nastavení NTP.")
 		}
-		if err := atomicfile.Write(t.Dropin, []byte(RenderTimesyncd(servers)), 0o644); err != nil {
+		if err := atomicfile.Write(t.Dropin, data, 0o644); err != nil {
 			return TimeState{}, internalErr("Nelze zapsat nastavení NTP.")
 		}
 	}

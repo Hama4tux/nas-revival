@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo } from '../api/types';
+import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -128,6 +128,51 @@ function settings(path: string, method: string, body: unknown): Response | null 
   if (path === '/settings/tls/generate' && method === 'POST') {
     tls = makeCert(true, Date.now(), Date.now() + 825 * day);
     return json(200, tls);
+  }
+  return null;
+}
+
+/* ---------- config history ---------- */
+const NET_PATH = '/etc/systemd/network/20-wired.network', NTP_PATH = '/etc/systemd/timesyncd.conf.d/50-nas-revival.conf';
+const mockNet = (dhcp: boolean) => `# Managed by nas-revival.\n[Match]\nName=enp1s0\n\n[Network]\n${dhcp ? 'DHCP=yes' : 'Address=192.0.2.60/24\nGateway=192.0.2.1\nDNS=192.0.2.1'}\n`;
+const mockVersions: { entry: ConfigEntry; content: Record<string, string | null> }[] = [
+  { entry: { id: 1, time: new Date(Date.now() - 5 * day).toISOString(), user: 'system', kind: 'baseline', files: [], changed: ['network'] },
+    content: { network: mockNet(true), time: null, 'disk-power': null } },
+  { entry: { id: 2, time: new Date(Date.now() - 2 * day).toISOString(), user: 'admin', kind: 'change', module: 'time', files: [], changed: ['time'] },
+    content: { network: mockNet(true), time: '# Managed by nas-revival.\n[Time]\nNTP=tik.cesnet.cz tak.cesnet.cz\n', 'disk-power': null } },
+  { entry: { id: 3, time: new Date(Date.now() - 3600e3).toISOString(), user: 'admin', kind: 'change', module: 'network', files: [], changed: ['network'] },
+    content: { network: mockNet(false), time: '# Managed by nas-revival.\n[Time]\nNTP=tik.cesnet.cz tak.cesnet.cz\n', 'disk-power': null } },
+];
+const mockPaths: Record<string, string> = { network: NET_PATH, time: NTP_PATH, 'disk-power': '/etc/nas-revival/disks.json' };
+const mockLines = (a: string | null, b: string | null): ConfigDiffLine[] => {
+  const x = a ? a.trimEnd().split('\n') : [], y = b ? b.trimEnd().split('\n') : [];
+  return [...x.filter((l) => !y.includes(l)).map((text) => ({ op: '-' as const, text })),
+    ...y.map((text) => ({ op: x.includes(text) ? ' ' as const : '+' as const, text }))];
+};
+
+function configRoute(path: string, method: string): Response | null {
+  const latest = mockVersions[mockVersions.length - 1]!;
+  if (path === '/config/history' && method === 'GET') {
+    return json(200, { entries: [...mockVersions].reverse().map((v) => v.entry), maxEntries: 20, maxBytes: 2 << 20, usedBytes: 4096,
+      drift: Object.keys(mockPaths).map((id) => ({ id, path: mockPaths[id], state: netPending && id === 'network' ? 'pending' : 'ok' })) });
+  }
+  const m = /^\/config\/(history|rollback)\/([1-9][0-9]*)$/.exec(path);
+  const v = m && mockVersions.find((x) => x.entry.id === Number(m[2]));
+  if (!m) return null;
+  if (!v) return err(404, 'not_found', 'Tato verze konfigurace v historii není.');
+  const files = Object.keys(mockPaths).map((id) => {
+    const cur = latest.content[id] ?? null, old = v.content[id] ?? null;
+    return { id, path: mockPaths[id], same: cur === old, present: old !== null, currentPresent: cur !== null,
+      lines: cur === old ? null : mockLines(cur, old), tooLarge: false };
+  });
+  if (m[1] === 'history' && method === 'GET') return json(200, { entry: v.entry, files, drift: [] });
+  if (m[1] === 'rollback' && method === 'POST') {
+    const restored = files.filter((f) => !f.same).map((f) => f.id);
+    if (restored.length) {
+      mockVersions.push({ entry: { id: latest.entry.id + 1, time: new Date().toISOString(), user: 'admin', kind: 'rollback',
+        rollbackOf: v.entry.id, files: [], changed: restored as ConfigEntry['changed'] }, content: { ...v.content } });
+    }
+    return json(200, { rollbackOf: v.entry.id, restored, networkPending: null });
   }
   return null;
 }
@@ -379,6 +424,10 @@ export function installMock(): void {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = smartRoute(path, method, body) ?? powerRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/config/')) {
+      const r = configRoute(path, method);
       if (r) return r;
     }
     if (path.startsWith('/settings/') || path.startsWith('/system/')) {

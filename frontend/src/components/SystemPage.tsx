@@ -4,6 +4,7 @@ import { api, ApiError } from '../api/client';
 import type { SystemCapabilities, SystemInfo, TimeSettings, TlsInfo } from '../api/types';
 import { formatBytes, formatUptime } from '../lib/format';
 import { cs } from '../i18n/cs';
+import { ConfigHistoryWidget } from './ConfigHistory';
 import { validateNtp } from '../lib/netvalidate';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -323,6 +324,7 @@ export function SystemPage() {
       <InfoWidget />
       <TimeWidget />
       <CertWidget />
+      <ConfigHistoryWidget className="lg:col-span-5" />
     </div>
   );
 }

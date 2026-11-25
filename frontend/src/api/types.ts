@@ -173,3 +173,25 @@ export interface SystemPowerPreview {
   effects: PowerEffect[]; blockers: PowerBlocker[];
 }
 export interface SystemPowerResult { action: SystemPowerAction; forced: boolean; blockers: PowerBlocker[] }
+
+/* ---------- config history (GET /config/history, /config/history/{n}, POST /config/rollback/{n}) ---------- */
+
+export type ConfigFileId = 'network' | 'time' | 'disk-power';
+export type ConfigEntryKind = 'baseline' | 'change' | 'manual' | 'rollback';
+export interface ConfigFileState { id: ConfigFileId; path: string; present: boolean; sha256?: string; size: number }
+export interface ConfigEntry {
+  id: number; time: string; user: string; kind: ConfigEntryKind; module?: ConfigFileId; rollbackOf?: number;
+  files: ConfigFileState[]; changed: ConfigFileId[];
+}
+export interface ConfigDrift { id: ConfigFileId; path: string; state: 'ok' | 'modified' | 'pending' }
+export interface ConfigHistory { entries: ConfigEntry[]; drift: ConfigDrift[]; maxEntries: number; maxBytes: number; usedBytes: number }
+export interface ConfigDiffLine { op: ' ' | '-' | '+'; text: string }
+export interface ConfigFileDiff {
+  id: ConfigFileId; path: string; same: boolean; present: boolean; currentPresent: boolean;
+  lines: ConfigDiffLine[] | null; tooLarge: boolean;
+}
+export interface ConfigDetail { entry: ConfigEntry; files: ConfigFileDiff[]; drift: ConfigFileId[] }
+export interface ConfigRollbackResult {
+  rollbackOf: number; restored: ConfigFileId[];
+  networkPending: { deadline: string } | null;
+}

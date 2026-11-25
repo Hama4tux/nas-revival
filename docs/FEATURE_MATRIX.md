@@ -58,9 +58,9 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | CORE-13 | System Core | Preflight before power ops: running SMART test, backup, apt, copy | P0 | Implemented (backup lock arrives with backup tasks) | — | hdparm -C, smartctl -c, systemctl is-active, /proc | L | data loss | blocked with reason list; "force" needs second confirmation | CORE-12, TASK-* |
 | CORE-14 | System Core | Shutdown progress / reason page (UI keeps polling until gone) | P1 | Implemented | — | — | L | none | UI shows "shutting down" and "offline" states | CORE-12 |
 | CFG-01 | Config | Managed file registry in helper | P0 | Planned | — | — | L | arbitrary file write | write to unregistered path impossible (test) | PRIV-01 |
-| CFG-02 | Config | Atomic write + snapshot + rollback transaction | P0 | Planned | — | atomicfile | L | half-applied config | killed helper mid-write leaves old or new file, never partial | CFG-01 |
-| CFG-03 | Config | Bounded history (20 snapshots / 2 MiB) | P0 | Planned | — | — | L | disk fill | 21st snapshot evicts oldest | CFG-02 |
-| CFG-04 | Config | Drift detection (sha256 manifest) | P1 | Planned | — | — | L | silent overwrite of manual edits | manual edit shown as drift; save requires takeover | CFG-02 |
+| CFG-02 | Config | Atomic write + snapshot + rollback transaction | P0 | Implemented | — | atomicfile | L | half-applied config | killed helper mid-write leaves old or new file, never partial | CFG-01 |
+| CFG-03 | Config | Bounded history (20 snapshots / 2 MiB) | P0 | Implemented | — | — | L | disk fill | 21st snapshot evicts oldest | CFG-02 |
+| CFG-04 | Config | Drift detection (sha256 manifest) | P1 | Partial | — | — | L | silent overwrite of manual edits | manual edit shown as drift and kept in history before the next save; rollback requires takeover (settings save does not yet ask) | CFG-02 |
 | CFG-05 | Config | Export / import archive with schema migration | P1 | Planned | — | — | M | malicious archive, secret leak | size/depth limits; secrets only in encrypted export | CFG-02 |
 | HAL-10 | HAL | Device profiles: NSA310, generic ARM, generic Linux | P0 | Implemented | — | DT/DMI | L | wrong profile → wrong actuator | unknown board = read-only generic profile | — |
 
