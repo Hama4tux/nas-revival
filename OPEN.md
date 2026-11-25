@@ -9,9 +9,8 @@
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
-- [ ] Ventilátor jede stále naplno (lm85 pwm1=255, pwm1_enable=0) a hučí; navrženo zapnout automatickou regulaci LM85 s bezpečným minimem a pojistkou – čeká na souhlas vlastníka, provést až po dlouhém testu SMART. (2026-11-25)
 - [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
-- [ ] Webové rozhraní běží na NASu (https://<NAS>:8443, 24 MB RAM po startu); po prvním přihlášení ověřit SMART a stav služeb pod omezeným uživatelem nas-revival. (2026-11-25)
+- [ ] Webové rozhraní běží na NASu (https://<NAS>:8443, 24 MB RAM po startu, 42 MB po přihlášení); po prvním přihlášení ověřit SMART a stav služeb pod omezeným uživatelem nas-revival. (2026-11-25)
 - [ ] Webové rozhraní zatím nikdo neviděl na telefonu (zmenšení okna v testu nefungovalo) – zkontrolovat rozložení na mobilu. (2026-11-25)
 - [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
 - [ ] Další obrazovky GUI: Samba sdílení a uživatelé, pak NFS – zápisové operace přes úzký privilegovaný pomocník (ADR 0002). (2026-11-25)
