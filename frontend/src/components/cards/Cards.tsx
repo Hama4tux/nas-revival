@@ -135,6 +135,7 @@ export function StorageCard({ o, smart, smartError, className }: { o: Overview; 
   const other = filesystems.filter((f) => !disks.some((d) => onDisk(f, d.name)));
   return (
     <Widget id="c-sto" title={t.storage} icon={<HardDrive />} className={className}
+      right={<a href="#/storage" className="font-medium text-primary hover:underline">{t.manage}</a>}
       bodyClassName="divide-y divide-border/60 py-1">
       {disks.length === 0 && <p className="py-3 text-sm text-muted-foreground">{t.noDisks}</p>}
       {disks.map((d) => {

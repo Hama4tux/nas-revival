@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 
-export type Route = 'overview' | 'network' | 'system';
+export type Route = 'overview' | 'storage' | 'network' | 'system';
 
-export const parseRoute = (hash: string): Route =>
-  hash === '#/network' ? 'network' : hash === '#/system' ? 'system' : 'overview';
+const routes: Record<string, Route> = { '#/storage': 'storage', '#/network': 'network', '#/system': 'system' };
+
+export const parseRoute = (hash: string): Route => routes[hash] ?? 'overview';
 
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parseRoute(location.hash));

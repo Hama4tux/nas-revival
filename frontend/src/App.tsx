@@ -6,6 +6,7 @@ import { Overview } from './components/Overview';
 import { NetworkPage } from './components/NetworkPage';
 import { PendingBanner } from './components/PendingBanner';
 import { Shell, type HostSummary } from './components/Shell';
+import { StoragePage } from './components/StoragePage';
 import { SystemPage } from './components/SystemPage';
 import { useNetworkSettings } from './hooks/useNetworkSettings';
 import { useRoute } from './hooks/useRoute';
@@ -59,6 +60,7 @@ export function App() {
       title={page.title} subtitle={page.subtitle} route={route}
       banner={pending && <PendingBanner pending={pending} onConfirm={confirmPending} />}>
       {route === 'overview' && <Overview onHost={setHost} />}
+      {route === 'storage' && <StoragePage />}
       {route === 'network' && <NetworkPage net={net} />}
       {route === 'system' && <SystemPage />}
     </Shell>

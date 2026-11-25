@@ -84,3 +84,29 @@ export interface SystemCapabilities {
   usbPorts: number | null;
   capabilities: { id: string; status: CapabilityStatus }[];
 }
+
+/* ---------- storage (GET /storage) ---------- */
+
+export type DiskRole = 'system' | 'boot' | 'swap' | 'data';
+
+export interface StorageMount { point: string; readOnly: boolean; bind: boolean; root: string }
+
+export interface StoragePartition {
+  name: string; number: number; sizeBytes: number;
+  partUuid: string | null; partLabel: string | null;
+  fsType: string | null; fsUuid: string | null; label: string | null;
+  swap: boolean; mounts: StorageMount[];
+  usage: { totalBytes: number; usedBytes: number; availableBytes: number } | null;
+}
+
+export interface StorageDisk {
+  id: string; idStable: boolean; name: string;
+  model: string | null; vendor: string | null; serial: string | null; firmware: string | null;
+  bus: 'ata' | 'usb' | 'nvme' | 'mmc' | 'unknown';
+  type: 'hdd' | 'sshd' | 'ssd' | 'flash' | 'unknown';
+  rotationRpm: number | null; sizeBytes: number; removable: boolean; readOnly: boolean;
+  partitionTable: string | null; system: boolean; roles: DiskRole[]; sharedWithData: boolean;
+  partitions: StoragePartition[];
+}
+
+export interface StorageReport { disks: StorageDisk[] }

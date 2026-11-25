@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { NetConfig, NetworkSettings, Overview, Smart, TimeSettings, TlsInfo } from '../api/types';
+import type { NetConfig, NetworkSettings, Overview, Smart, StorageReport, TimeSettings, TlsInfo } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -186,6 +186,39 @@ const smart = (): Smart => ({
   ],
 });
 
+const GiB = 1024 ** 3;
+const storage = (): StorageReport => ({
+  disks: [
+    {
+      id: 'wwn-0x5000c50000000001', idStable: true, name: 'sda', model: 'ST1000LM014-SSHD-8GB', vendor: null, serial: 'MOCK0001',
+      firmware: 'LVD4', bus: 'ata', type: 'sshd', rotationRpm: 5400, sizeBytes: 1000204886016, removable: false, readOnly: false,
+      partitionTable: 'gpt', system: true, roles: ['system', 'swap', 'data'], sharedWithData: true,
+      partitions: [
+        { name: 'sda1', number: 1, sizeBytes: 30 * GiB, partUuid: 'mock-0001', partLabel: null, fsType: 'ext4', fsUuid: 'mock-fs-1', label: null,
+          swap: false, mounts: [{ point: '/', readOnly: false, bind: false, root: '/' }],
+          usage: { totalBytes: 29.4 * GiB, usedBytes: 2.1 * GiB, availableBytes: 25.8 * GiB } },
+        { name: 'sda2', number: 2, sizeBytes: 1 * GiB, partUuid: 'mock-0002', partLabel: null, fsType: 'swap', fsUuid: null, label: null,
+          swap: true, mounts: [], usage: null },
+        { name: 'sda3', number: 3, sizeBytes: 900.5 * GiB, partUuid: 'mock-0003', partLabel: 'nas-data', fsType: 'ext4', fsUuid: 'mock-fs-3', label: 'nasdata',
+          swap: false, mounts: [{ point: '/srv/data', readOnly: false, bind: false, root: '/' }],
+          usage: { totalBytes: 885 * GiB, usedBytes: 12.3 * GiB, availableBytes: 828 * GiB } },
+      ],
+    },
+    {
+      id: 'usb-SanDisk_Cruzer_Fit_MOCK0002-0:0', idStable: true, name: 'sdb', model: 'Cruzer Fit', vendor: "SanDisk'", serial: 'MOCK0002',
+      firmware: '1.00', bus: 'usb', type: 'flash', rotationRpm: null, sizeBytes: 8 * GiB, removable: true, readOnly: false,
+      partitionTable: 'dos', system: false, roles: ['boot'], sharedWithData: false,
+      partitions: [
+        { name: 'sdb1', number: 1, sizeBytes: 0.5 * GiB, partUuid: 'mock-01', partLabel: null, fsType: 'ext2', fsUuid: null, label: null,
+          swap: false, mounts: [{ point: '/boot', readOnly: false, bind: false, root: '/' }],
+          usage: { totalBytes: 0.48 * GiB, usedBytes: 0.03 * GiB, availableBytes: 0.42 * GiB } },
+        { name: 'sdb2', number: 2, sizeBytes: 4 * GiB, partUuid: 'mock-02', partLabel: null, fsType: 'ext4', fsUuid: null, label: 'rootfs',
+          swap: false, mounts: [], usage: null },
+      ],
+    },
+  ],
+});
+
 export function installMock(): void {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
@@ -213,6 +246,7 @@ export function installMock(): void {
     if (!loggedIn) return err(401, 'unauthorized', 'Login required');
     if (path === '/overview') return json(200, overview());
     if (path === '/smart') return json(200, smart());
+    if (path === '/storage') return json(200, storage());
     if (path.startsWith('/settings/') || path.startsWith('/system/')) {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }

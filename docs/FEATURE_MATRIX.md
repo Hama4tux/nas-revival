@@ -68,9 +68,9 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 
 | ID | Module | Feature | P | State | HW | SW deps | Res | Security risk | Acceptance criteria | Deps |
 |---|---|---|---|---|---|---|---|---|---|---|
-| STOR-10 | Storage | Stable disk identity (by-id/WWN), vendor, serial, firmware, interface, type HDD/SSD/SSHD/flash | P0 | Planned | — | lsblk -J, smartctl -i | L | serial shown to admins only | identity survives `sda`↔`sdb` swap (USB re-plug test) | STOR-01 |
-| STOR-11 | Storage | Partitions, UUID/PARTUUID, FS type, mountpoints, bind/duplicate mounts | P0 | Planned | — | /proc/self/mountinfo | L | none | bind mount of /srv/data flagged, not double counted | STOR-10 |
-| STOR-12 | Storage | System disk detection and protection | P0 | Planned | — | — | L | system wipe | helper refuses unmount/format of disk with `/`, swap or state dir | STOR-11, PRIV-01 |
+| STOR-10 | Storage | Stable disk identity (by-id/WWN), vendor, serial, firmware, interface, type HDD/SSD/SSHD/flash | P0 | Implemented | — | sysfs, udev database | L | serial shown to admins only | identity survives `sda`↔`sdb` swap (USB re-plug test) | STOR-01 |
+| STOR-11 | Storage | Partitions, UUID/PARTUUID, FS type, mountpoints, bind/duplicate mounts | P0 | Implemented | — | /proc/self/mountinfo | L | none | bind mount of /srv/data flagged, not double counted | STOR-10 |
+| STOR-12 | Storage | System disk detection and protection | P0 | In development | — | — | L | system wipe | helper refuses unmount/format of disk with `/`, swap or state dir | STOR-11, PRIV-01 |
 | STOR-13 | Storage | Disk → partition → share dependency tree | P1 | Planned | — | — | L | none | unmount lists dependent shares and blocks | STOR-11, SHARE-01 |
 | STOR-14 | Storage | Mount / unmount / read-only mount / automount (fstab `nofail`) | P1 | Planned | — | mount, fstab | L | data loss, boot hang | fstab entries by UUID with `nofail`; busy unmount reports holders | STOR-12, CFG-02 |
 | STOR-15 | Storage | Create partition / format (ext4 default) | P2 | Not started | — | parted, mkfs | M | data destruction | typed disk id + capacity confirmation; never system disk; read-only overview first | STOR-12 |
@@ -83,7 +83,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | PWR-02 | Disk power | Standby timeout, APM level, profiles (performance/balanced/eco/custom) | P0 | Planned | ATA APM | hdparm -S/-B | L | wear from frequent spin-ups | settings persist after reboot and re-plug; unsupported APM hidden | CFG-02 |
 | PWR-03 | Disk power | Manual standby / wake | P1 | Planned | ATA | hdparm -y | L | I/O stall | refused while I/O-heavy task holds lock | PWR-01 |
 | PWR-04 | Disk power | Start/stop and load-cycle counters, frequent wake warning | P1 | Planned | SMART | — | L | none | warns when load cycles grow > N/day (attr 193 currently 35 003) | SMART-10 |
-| PWR-05 | Disk power | Warning when system/swap/logs share the data disk | P0 | Planned | — | — | L | none | shown on NSA310 today | STOR-12 |
+| PWR-05 | Disk power | Warning when system/swap/logs share the data disk | P0 | Implemented | — | — | L | none | shown on NSA310 today | STOR-12 |
 | PWR-06 | Disk power | Reduce system writes (journal mode, noatime, commit) | P1 | Planned | — | journald, fstab | L | lost logs on crash | idle writes measured before/after; owner decision | CFG-02 |
 | DIAG-01 | Diagnostics | Current disk activity and per-process I/O (on demand) | P1 | Planned | — | /proc/diskstats, /proc/PID/io | M | info disclosure (process names) | 10 s sampling only while open | PRIV-01 |
 | DIAG-02 | Diagnostics | Standby/active transition history, "why not asleep" | P2 | Planned | ATA | hdparm -C sampling | L | none | unknown reason shown as unknown, never guessed | PWR-01 |

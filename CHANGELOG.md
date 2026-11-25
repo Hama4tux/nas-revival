@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-25
+- Nová stránka Úložiště: každý disk se stálým identifikátorem (nezmění se, když se sda a sdb prohodí), typem (HDD, SSHD, SSD, flash), rozhraním, kapacitou, otáčkami, sériovým číslem a firmwarem; oddíly se souborovým systémem, popiskem, přípojnými body a obsazeností. Systémový disk je označený a stránka upozorní, že systém a swap leží na stejném disku jako data (disk proto nemůže usnout). Údaje se čtou bez probuzení disku. Na Přehledu vede na stránku odkaz Spravovat.
 - Stránka Systém ukazuje informace o zařízení (verze NAS Revival, Debian, jádro, procesor, paměť, poslední start a poslední změnu balíčků) a které funkce hardwaru jsou na tomto kusu ověřené, neověřené nebo nepodporované. NAS se rozpozná podle device tree; neznámé zařízení dostane obecný profil jen pro čtení.
 - Rozhodnutí vlastníka zapsána (ADR 0004 a 0007) a vznikla samostatná roadmapa webového rozhraní (docs/WEB_ROADMAP.md). Na NASu vypnuto LLMNR (port 5355 už není otevřený do sítě), systémový žurnál se na disk zapisuje jen jednou za 15 minut a zabere nejvýš 64 MB, doinstalován hdparm pro uspávání disku.
 - Webové rozhraní umí měnit nastavení sítě (DHCP nebo pevná adresa, brána, DNS), servery pro synchronizaci času a certifikát HTTPS (nahrát vlastní nebo vygenerovat nový). Změny provádí samostatná malá služba s právy roota, která přijímá jen pevný seznam ověřených operací od webového rozhraní. Změnu sítě je potřeba do 3 minut potvrdit z nové adresy, jinak se samo vrátí původní nastavení (ověřeno na NASu, vrátí se i po restartu služby).

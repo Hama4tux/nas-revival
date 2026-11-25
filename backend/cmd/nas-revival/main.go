@@ -28,6 +28,7 @@ import (
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
 	"nas-revival/backend/internal/smart"
+	"nas-revival/backend/internal/storage"
 	"nas-revival/backend/internal/system"
 	"nas-revival/backend/internal/tlscert"
 	"nas-revival/backend/internal/web"
@@ -91,6 +92,7 @@ func serve(args []string) error {
 	hc := &helper.Client{Socket: *helperSock}
 	srv.System = systemSource{root: *root, profile: system.DetectProfile(*root)}
 	srv.Network, srv.Time = hc, hc
+	srv.Storage = storage.Collector{HAL: reader, StatFS: statFS}
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -224,6 +226,15 @@ func runHelper(args []string) error {
 		Net:  nm,
 		Time: &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
 	})
+}
+
+func statFS(path string) (total, free, avail uint64, err error) {
+	var s syscall.Statfs_t
+	if err := syscall.Statfs(path, &s); err != nil {
+		return 0, 0, 0, err
+	}
+	bs := uint64(s.Bsize)
+	return uint64(s.Blocks) * bs, uint64(s.Bfree) * bs, uint64(s.Bavail) * bs, nil
 }
 
 // version is set at build time (-ldflags "-X main.version=…", scripts/webui/build.sh).

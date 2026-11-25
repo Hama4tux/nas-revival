@@ -43,6 +43,8 @@ type Server struct {
 	TLS     TLSSettings
 	// System serves /system/info and /system/capabilities; nil answers 503.
 	System SystemSource
+	// Storage serves /storage; nil answers 503.
+	Storage StorageSource
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }
@@ -56,6 +58,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("GET /api/v1/smart", s.requireSession(s.smart))
 	s.registerSettings(api)
 	s.registerSystem(api)
+	s.registerStorage(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

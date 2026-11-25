@@ -1,8 +1,8 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: Debian 13 běží sám z NAND slotů; webové GUI s nastavením sítě, DNS, NTP a certifikátu je nasazené (root helper, rollback sítě ověřen). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W1.3 přehled úložiště (stabilní ID disků, oddíly, systémový disk), W1.4 SMART detail se samotesty, W1.5 uspávání a APM disku.
+- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém a nově stránku Úložiště (disky, oddíly, systémový disk). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
+- Další krok: W1.4 SMART detail disku se samotesty a průběhem, pak W1.5 uspávání a APM disku z GUI.
 
 ## Čeká na rozhodnutí
 - [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
@@ -49,6 +49,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Stránka Úložiště (W1.3): stabilní ID disků, typ, oddíly, přípojné body s obsazeností, označení systémového disku a varování, že systém a data sdílí disk; ověřeno čtením na NASu pod uživatelem služby. (2026-11-25)
 - Root helper pro nastavení sítě, DNS, NTP a certifikátu nasazen; ověřeno odmítnutí cizích uživatelů, neznámých operací i podstrčených hodnot a návrat neověřené změny po 180 s. Vypnuto LLMNR, žurnál zapisuje po 15 min (max. 64 MB), nainstalován hdparm. (2026-11-25)
 - Audit a plán M0: 10 dokumentů v docs/ (architektura, roadmapa s backlogem M1, matice funkcí, kompatibilita HW, výkonový rozpočet s měřením na NASu, bezpečnostní model, návrh API, navigace UI, obnova, testovací plán) a čtecí měřicí skript scripts/measure/snapshot.sh. (2026-11-25)
 - Nový vzhled webového GUI podle návrhu (tmavý výchozí, světlý přepínačem): boční menu, stav systému, dlaždice zdrojů, úložiště se SMART, graf sítě, poslední události; ověřeno s ukázkovými daty. (2026-11-25)

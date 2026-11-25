@@ -90,6 +90,7 @@ export const cs = {
   },
   pages: {
     network: { title: 'Síť', subtitle: 'IP adresa, brána a DNS servery' },
+    storage: { title: 'Úložiště', subtitle: 'Disky, oddíly a připojené svazky' },
     system: { title: 'Systém', subtitle: 'Informace o zařízení, čas, NTP a certifikát HTTPS' },
   },
   pending: {
@@ -164,6 +165,28 @@ export const cs = {
     generateBody: 'Vznikne nový certifikát (ECDSA P-256, 825 dní) pro název a aktuální IPv4 adresy NASu. Prohlížeč před ním znovu varuje; stránka se po vygenerování znovu načte.',
     generating: 'Generuji…', confirmGenerate: 'Vygenerovat',
     generated: 'Nový certifikát byl vytvořen. Stránka se znovu načte…',
+  },
+  storage: {
+    hint: 'Údaje se čtou bez probuzení disků. Disk je označen stabilním ID, které se nemění při přečíslování sda/sdb.',
+    refresh: 'Obnovit', loadError: 'Informace o úložišti nelze načíst.', noDisks: 'Nebyl nalezen žádný disk.',
+    systemDisk: 'Systémový disk',
+    roles: { system: 'Systém', boot: 'Zavaděč', swap: 'Swap', data: 'Data' } as Record<string, string>,
+    types: { hdd: 'HDD', sshd: 'SSHD (hybridní)', ssd: 'SSD', flash: 'Flash / USB klíč', unknown: 'Neznámý typ' } as Record<string, string>,
+    buses: { ata: 'SATA', usb: 'USB', nvme: 'NVMe', mmc: 'SD/MMC', unknown: 'neznámé rozhraní' } as Record<string, string>,
+    type: 'Typ', capacity: 'Kapacita', rpm: 'Otáčky', rpmValue: (n: number) => `${n} ot./min`,
+    serial: 'Sériové číslo', firmware: 'Firmware', table: 'Tabulka oddílů', noTable: 'žádná',
+    kernelName: 'Název v systému', id: 'Stabilní ID',
+    partitions: 'Oddíly', noPartitions: 'Disk nemá oddíly.', partition: (n: number) => `Oddíl ${n}`,
+    unpartitioned: (size: string) => `Nerozdělené místo: ${size}`,
+    mounts: 'Přípojné body', notMounted: 'Nepřipojeno', swap: 'swap', swapActive: 'Používá se jako swap', noFs: 'bez souborového systému',
+    bind: 'vazba', bindHint: (root: string) => `Další pohled na stejný svazek (podsložka ${root}); místo se nepočítá dvakrát.`,
+    readOnly: 'jen pro čtení',
+    usage: (used: string, total: string, avail: string) => `Obsazeno ${used} z ${total} · volno ${avail}`,
+    warn: {
+      sharedWithData: 'Systém a swap leží na stejném disku jako data. Disk proto nemůže usnout a výpadek disku vyřadí celý NAS.',
+      unstableId: 'Disk nemá stabilní identifikátor (chybí údaje udev); označení se může po restartu změnit.',
+      readOnly: 'Disk je připojen jen pro čtení.',
+    } as Record<string, string>,
   },
   errors: {
     generic: 'Operace se nezdařila.', helperDown: 'Služba pro změnu nastavení není dostupná.',
