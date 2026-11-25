@@ -5,6 +5,7 @@
 - Další krok: nasadit webové GUI (přehled, hotové na pracovní stanici) na NAS; pak Samba a NFS pro zálohy z Proxmoxu; postup aktualizace jádra z GUI.
 
 ## Čeká na rozhodnutí
+- [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
@@ -12,7 +13,9 @@
 - [ ] Webové rozhraní zatím nikdo neviděl na telefonu (zmenšení okna v testu nefungovalo) – zkontrolovat rozložení na mobilu. (2026-11-25)
 - [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
 - [ ] Další obrazovky GUI: Samba sdílení a uživatelé, pak NFS – zápisové operace přes úzký privilegovaný pomocník (ADR 0002). (2026-11-25)
-- [ ] Aktualizace jádra z GUI: zápis z Linuxu je ověřený (ECC sedí s U-Bootem); zbývá navrhnout postup (nové jádro do slotu A, předchozí do slotu B, kontrola zpětným čtením) a jednou ho vyzkoušet s konzolí po ruce. (2026-11-25)
+- [ ] Aktualizace jádra z webu (podklad pro backend, který staví druhý agent): zápis z Linuxu je ověřený (ECC sedí s U-Bootem, postup v docs/debian/boot.md). Strategie: slot B drží poslední funkční jádro; při upgradu nejdřív zkopírovat A → B, pak nové jádro do A, každý zápis ověřit zpětným čtením (sha256, corrected_bits/ecc_failures) a nikdy nezapisovat oba sloty najednou. První upgrade tímto postupem udělat s konzolí po ruce. (2026-11-25)
+- [ ] Značka slotu pro aktualizaci jádra: příkazy slotA/slotB v U-Bootu mají přidat do bootargs značku (např. nsa_slot=A/B); web smí kopírovat A → B jen když /proc/cmdline ukazuje nsa_slot=A, jinak běží záloha a upgrade musí odmítnout. Vyžaduje jednu úpravu prostředí U-Bootu přes konzoli (saveenv). (2026-11-25)
+- [ ] Zkušební jednorázový start nového jádra: U-Boot přepne na slot B jen když jádro z A nejde načíst, ne když nové jádro zamrzne nebo spadne – navrhnout „boot once“ (nové jádro se spustí jednou, po potvrzení zdraví z Linuxu se stane výchozím, jinak další start ze slotu B), vč. ověření bezpečného zápisu prostředí U-Bootu z Linuxu (fw_setenv, mtd1). Do té doby je při vadném jádře nutná konzole. (2026-11-25)
 - [ ] Dlouhý test SMART nového disku: první běh přerušilo vypnutí ze zásuvky, spuštěn znovu (konec kolem 19:10 2026-11-25) – zkontrolovat výsledek (smartctl -l selftest). (2026-11-25)
 - [ ] Při chybějícím nebo vadném disku jádro čeká na kořen donekonečna (rootwait) – zvážit nouzový kořen (USB flashka) nebo timeout. (2026-11-25)
 - [ ] Starý kořen na USB flashce (oddíl rootfs) je zamrzlá kopie z 2026-11-25 jako záloha; neaktualizuje se. (2026-11-25)
