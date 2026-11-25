@@ -1,16 +1,15 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: NAS bootuje Debian 13 sám: jádro ze slotu A v NAND (kernel_2), záloha ve slotu B (začátek rootfs2), nouzově původní firmware; systém 30 GB a data 900 GB na vnitřním disku 1 TB.
-- Další krok: Samba na /srv/data; pak ověřit zápis jádra z Linuxu (ECC) jako základ aktualizací z GUI.
+- Stav: NAS bootuje Debian 13 sám i po studeném startu (slot A → slot B → původní firmware); systém a data na vnitřním disku 1 TB; jádro jde zapisovat do NAND i z Linuxu.
+- Další krok: Samba na /srv/data; pak postup aktualizace jádra z GUI.
 
 ## Čeká na rozhodnutí
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
-- [ ] Aktualizace jádra z GUI (zápis slotu A z Linuxu, slot B = předchozí funkční): nejdřív ověřit, že ECC v mainline orion_nand odpovídá 1bit ECC původního U-Bootu (zápis z Linuxu do slotu B, čtení a iminfo v U-Bootu); do té doby jádra zapisovat jen z U-Bootu. (2026-11-25)
-- [ ] Ověřit start po studeném zapnutí (vypnout ze zásuvky a zapnout tlačítkem); boot bez obsluhy je zatím ověřen po resetu. (2026-11-25)
-- [ ] Dlouhý test SMART nového disku běží (konec kolem 19:05 2026-11-25) – zkontrolovat výsledek (smartctl -l selftest). (2026-11-25)
+- [ ] Aktualizace jádra z GUI: zápis z Linuxu je ověřený (ECC sedí s U-Bootem); zbývá navrhnout postup (nové jádro do slotu A, předchozí do slotu B, kontrola zpětným čtením) a jednou ho vyzkoušet s konzolí po ruce. (2026-11-25)
+- [ ] Dlouhý test SMART nového disku: první běh přerušilo vypnutí ze zásuvky, spuštěn znovu (konec kolem 19:10 2026-11-25) – zkontrolovat výsledek (smartctl -l selftest). (2026-11-25)
 - [ ] Při chybějícím nebo vadném disku jádro čeká na kořen donekonečna (rootwait) – zvážit nouzový kořen (USB flashka) nebo timeout. (2026-11-25)
 - [ ] Starý kořen na USB flashce (oddíl rootfs) je zamrzlá kopie z 2026-11-25 jako záloha; neaktualizuje se. (2026-11-25)
 - [ ] LED eSATA a COPY zatím nic neukazují a HDD bliká při činnosti kteréhokoli disku (i USB flashky); pro LED jednotlivých SATA portů je potřeba dohledat volbu jádra (per-port trigger ata1/ata2 v 6.12 chybí). Přiřazení tří LED síťového portu (link, aktivita, gigabit) ověřit pohledem. (2026-11-25)
@@ -34,6 +33,8 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Zápis jádra do NAND z Linuxu ověřen: ECC jádra (Hamming 1 bit/256 B, OOB 40–63) bajt po bajtu odpovídá původnímu U-Bootu, přepis slotu B z Linuxu dal shodný obsah NAND včetně OOB. (2026-11-25)
+- Studený start ověřen: po vypnutí ze zásuvky a zapnutí NAS sám naběhl do Debianu (jádro 6.12.119, kořen a data na vnitřním disku). (2026-11-25)
 - Trvalý boot bez obsluhy: jádro Debianu ve dvou slotech NAND (kernel_2, rootfs2), řetězec slot A → slot B → původní firmware uložen saveenv a ověřen restartem. (2026-11-25)
 - Systém přesunut na nový vnitřní disk 1 TB (30 GB systém, 1 GB swap, zbytek data), boot s kořenem na disku ověřen; vadný 3TB disk vyřazen. (2026-11-25)
 - Debian na NASu s jádrem s LED triggery: ověřený boot z USB přes konzoli, tovární MAC, firmware síťovky, vnitřní disk viditelný, LED nastavuje služba nsa310-leds. (2026-11-25)

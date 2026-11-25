@@ -50,9 +50,24 @@ nand erase 0x4640000 0xA00000
 nand write.e 0x2000000 0x4640000 0xA00000
 ```
 
-Read back with `mw.l 0x2000000 0 0x100; nand read.e …; iminfo 0x2000000`. Writing from Linux
-(planned GUI update) is **not qualified yet**: the mainline orion_nand ECC layout must first be
-proven identical to the stock U-Boot 1-bit ECC.
+Read back with `mw.l 0x2000000 0 0x100; nand read.e …; iminfo 0x2000000`.
+
+## Writing a kernel to a slot (from Linux)
+
+Qualified 2026-11-25. The kernel uses soft Hamming ECC (1 bit per 256 B, `eccpos` 40–63, non-SMC
+byte order, `CONFIG_MTD_NAND_ECC_SW_HAMMING_SMC` unset), which is exactly what the stock U-Boot
+`nandEcc=1bit` writes: all 128 pages of a U-Boot-written slot matched (`scripts/debian/ecc-check.py`
+on a `nanddump -n -o` dump), Linux read both slots with 0 corrected / 0 failed bits, and erasing and
+rewriting slot B from Linux produced a raw NAND image (data + OOB) identical to the one U-Boot wrote.
+
+```
+flash_erase /dev/mtd8 0 80            # slot B = first 10 MB of rootfs2 (80 × 128 KiB)
+nandwrite -p /dev/mtd8 uImage
+nanddump -l <size> -f check /dev/mtd8 # compare sha256 with uImage; check corrected_bits/ecc_failures
+```
+
+Slot A is `/dev/mtd7` (`kernel_2`). Only ever write one slot at a time and verify it before
+touching the other one.
 
 ## Console access and recovery
 
