@@ -2,15 +2,16 @@
 
 ## Stav (2026-11-25)
 - Stav: Debian 13 s vlastním jádrem 6.12.119 (LED triggery) běží z USB přes původní U-Boot (jen v RAM, NAND beze změny); tovární MAC, firmware síťovky, vnitřní 3TB disk i LED SYS/USB/HDD/síť fungují, boot přes konzoli ověřen.
-- Další krok: SMART vnitřního disku a datový svazek, Samba, pak trvalý boot z USB bez ruční obsluhy U-Bootu.
+- Další krok: náhradní disk místo selhávajícího 3TB, na něm systém (~30 GB) a data; pak Samba a trvalý boot bez ruční obsluhy U-Bootu.
 
 ## Čeká na rozhodnutí
+- [ ] Vlastník chce boot systému z disku (oddíl ~30 GB pro systém, zbytek data): vybrat náhradní disk; jádro zůstane na USB flashce (původní U-Boot 1.1.4 nejspíš neumí SATA ani GPT nad 2 TB), kořen a data na disku. (2026-11-25)
 - [ ] Zastavit odpočet U-Bootu (cca 3 s) a přečíst prostředí (printenv) jen pro čtení, žádný saveenv – podklad pro boot Debianu z USB. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
 - [ ] LED eSATA a COPY zatím nic neukazují a HDD bliká při činnosti kteréhokoli disku (i USB flashky); pro LED jednotlivých SATA portů je potřeba dohledat volbu jádra (per-port trigger ata1/ata2 v 6.12 chybí). Přiřazení tří LED síťového portu (link, aktivita, gigabit) ověřit pohledem. (2026-11-25)
-- [ ] Vnitřní disk (3 TB, sda2 = člen md z původního firmwaru) Debian vidí; doinstalovat smartmontools a ověřit SMART, pak rozhodnout o novém svazku. USB flashka je teď sdb, systém se připojuje podle LABEL/PARTUUID. (2026-11-25)
+- [ ] Vnitřní disk ST3000VX000 (3 TB, 13 264 h) je ve špatném stavu: 64 736 přemapovaných sektorů (normalizovaně 51, práh 36) a poslední krátký self-test skončil chybou čtení; na systém ani data se nehodí – vlastník rozhodne o náhradním disku. (2026-11-25)
 - [ ] Původní U-Boot najde USB flashku jen při prvním `usb start` po zapnutí a jen v předním portu; výzva je `NSA310>>`, odpočet zastaví mezery/Ctrl+C posílané hned od banneru. (2026-11-25)
 - [ ] Build rootfs (mmdebstrap) převzal resolv.conf stavebního počítače (127.0.0.53 bez resolved) – v receptu doinstalovat systemd-resolved nebo zapsat správný resolv.conf; na NASu opraveno ručně. (2026-11-25)
 - [ ] AGENTS.md (sekce Tento projekt) stále zakazuje přístup k živému NASu a popisuje fázi OpenWrt; po přechodu na Debian ho přepsat podle skutečného postupu. (2026-11-25)
