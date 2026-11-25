@@ -1,6 +1,6 @@
 # Debian deployment of the web UI
 
-Not yet deployed to the NAS (2026-11-25). Build on the workstation with
+Deployed to the NAS on 2026-11-25 (about 24 MiB RSS after start). Build on the workstation with
 `scripts/webui/build.sh` (output in `output/webui/`), then on the NAS as root:
 
 ```sh

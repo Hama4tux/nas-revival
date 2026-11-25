@@ -1,12 +1,14 @@
-import { Cpu, HardDrive, MemoryStick, Network, Server, Thermometer, Activity, ShieldCheck } from 'lucide-react';
+import { Cpu, HardDrive, Network, Server, Thermometer, Activity, ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import type { Overview, Smart } from '../../api/types';
 import { cs } from '../../i18n/cs';
 import { DASH, formatBytes, formatNumber, formatPercent, formatSpeed, formatTemp, formatUptime, ratioPercent } from '../../lib/format';
 import { Badge } from '../ui/badge';
-import { Card, CardTitle } from '../ui/card';
+import { Widget } from '../ui/card';
 import { Progress } from '../ui/progress';
 import { Skeleton } from '../ui/skeleton';
+import type { NetRate } from '../../hooks/useOverview';
+import { formatRate } from '../../lib/netrate';
 import { Sparkline } from '../Sparkline';
 
 const t = cs.overview;
@@ -18,19 +20,15 @@ const Row = ({ k, children }: { k: string; children: ReactNode }) => (
   </div>
 );
 
-export const CardSkeleton = ({ title, icon }: { title: string; icon: ReactNode }) => (
-  <Card aria-busy="true" aria-label={title}>
-    <CardTitle>{icon}{title}</CardTitle>
+export const CardSkeleton = ({ title, icon, id }: { title: string; icon: ReactNode; id: string }) => (
+  <Widget id={id} title={title} icon={icon} aria-busy="true">
     <Skeleton className="mb-2 h-5 w-2/3" /><Skeleton className="mb-2 h-5 w-1/2" /><Skeleton className="h-5 w-3/4" />
-  </Card>
+  </Widget>
 );
-
-const ic = 'h-4 w-4';
 
 export function SystemCard({ o }: { o: Overview }) {
   return (
-    <Card aria-labelledby="c-sys">
-      <CardTitle id="c-sys"><Server className={ic} aria-hidden />{t.system}</CardTitle>
+    <Widget id="c-sys" title={t.system} icon={<Server />} tone="bg-slate-600">
       <dl>
         <Row k={t.hostname}>{o.host.hostname}</Row>
         <Row k={t.os}>{o.host.os}</Row>
@@ -38,23 +36,7 @@ export function SystemCard({ o }: { o: Overview }) {
         <Row k={t.board}>{o.host.boardModel}</Row>
         <Row k={t.uptime}>{formatUptime(o.host.uptimeSeconds)}</Row>
       </dl>
-    </Card>
-  );
-}
-
-export function CpuCard({ o, history }: { o: Overview; history: number[] }) {
-  const { cpu } = o;
-  return (
-    <Card aria-labelledby="c-cpu">
-      <CardTitle id="c-cpu"><Cpu className={ic} aria-hidden />{t.cpu}</CardTitle>
-      <div className="mb-1 text-3xl font-semibold tabular-nums">{formatPercent(cpu.usagePercent)}</div>
-      <Sparkline values={history} label={t.cpuHistory} min={0} max={100} />
-      <dl className="mt-3">
-        <Row k={t.load}>{[cpu.load1, cpu.load5, cpu.load15].map((v) => formatNumber(v, 2)).join(' / ')}</Row>
-        <Row k={t.cores}>{cpu.cores}</Row>
-        <Row k="Model">{cpu.model}</Row>
-      </dl>
-    </Card>
+    </Widget>
   );
 }
 
@@ -65,7 +47,7 @@ function UsageRow({ label, used, total }: { label: string; used: number | null; 
   const p = ratioPercent(used, total);
   return (
     <div className="py-1.5">
-      <div className="mb-1 flex justify-between text-sm">
+      <div className="mb-1 flex justify-between gap-2 text-sm">
         <span className="font-medium">{label}</span>
         <span className="tabular-nums text-muted-foreground">{formatBytes(used)} {t.of} {formatBytes(total)} ({formatPercent(p, 0)})</span>
       </div>
@@ -74,18 +56,31 @@ function UsageRow({ label, used, total }: { label: string; used: number | null; 
   );
 }
 
-export function MemoryCard({ o }: { o: Overview }) {
-  const m = o.memory;
+export function ResourcesCard({ o, history }: { o: Overview; history: number[] }) {
+  const { cpu, memory: m } = o;
   const ramUsed = m.availableBytes == null ? null : m.totalBytes - m.availableBytes;
   const swapUsed = m.swapTotalBytes == null || m.swapFreeBytes == null ? null : m.swapTotalBytes - m.swapFreeBytes;
   return (
-    <Card aria-labelledby="c-mem">
-      <CardTitle id="c-mem"><MemoryStick className={ic} aria-hidden />{t.memory}</CardTitle>
-      <UsageRow label={t.ram} used={ramUsed} total={m.totalBytes} />
-      {m.swapTotalBytes === 0
-        ? <p className="py-1 text-sm text-muted-foreground">{t.noSwap}</p>
-        : <UsageRow label={t.swap} used={swapUsed} total={m.swapTotalBytes} />}
-    </Card>
+    <Widget id="c-res" title={t.resources} icon={<Cpu />} tone="bg-blue-600">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <div className="text-xs text-muted-foreground">{t.cpu}</div>
+          <div className="text-3xl font-semibold tabular-nums">{formatPercent(cpu.usagePercent)}</div>
+        </div>
+        <div className="w-1/2 max-w-[10rem]"><Sparkline values={history} label={t.cpuHistory} min={0} max={100} /></div>
+      </div>
+      <div className="mt-3">
+        <UsageRow label={t.ram} used={ramUsed} total={m.totalBytes} />
+        {m.swapTotalBytes === 0
+          ? <p className="py-1 text-sm text-muted-foreground">{t.noSwap}</p>
+          : <UsageRow label={t.swap} used={swapUsed} total={m.swapTotalBytes} />}
+      </div>
+      <dl className="mt-2 border-t border-border/60 pt-2">
+        <Row k={t.load}>{[cpu.load1, cpu.load5, cpu.load15].map((v) => formatNumber(v, 2)).join(' / ')}</Row>
+        <Row k={t.cores}>{cpu.cores}</Row>
+        <Row k="Model">{cpu.model}</Row>
+      </dl>
+    </Widget>
   );
 }
 
@@ -93,8 +88,7 @@ export function SensorsCard({ o, history }: { o: Overview; history: number[] }) 
   const s = o.sensors;
   const bad = s.status !== 'ok';
   return (
-    <Card aria-labelledby="c-sen">
-      <CardTitle id="c-sen"><Thermometer className={ic} aria-hidden />{t.sensors}</CardTitle>
+    <Widget id="c-sen" title={t.sensors} icon={<Thermometer />} tone="bg-orange-500">
       {bad ? (
         <Badge variant={s.status === 'fault' ? 'danger' : 'warning'} role="status">
           {t.sensorStatus[s.status] ?? t.sensorStatus.unknown}
@@ -107,48 +101,61 @@ export function SensorsCard({ o, history }: { o: Overview; history: number[] }) 
               <Row key={x.id} k={x.label}>{formatTemp(x.milliCelsius)}</Row>
             ))}
             {s.fans.map((x) => (
-              <Row key={x.id} k={x.label}>{x.rpm == null ? DASH : `${formatNumber(x.rpm)} ${t.rpm}`}</Row>
+              <Row key={x.id} k={x.label}>
+                {x.rpm === 0 && <Badge variant="warning" className="mr-2">{t.fanStopped}</Badge>}
+                {x.rpm == null ? DASH : `${formatNumber(x.rpm)} ${t.rpm}`}
+              </Row>
             ))}
           </dl>
           <div className="mt-2"><Sparkline values={history} label={t.tempHistory} /></div>
         </>
       )}
-    </Card>
+    </Widget>
   );
 }
 
-export function NetworkCard({ o }: { o: Overview }) {
+export function NetworkCard({ o, rates, history }: { o: Overview; rates: Record<string, NetRate>; history: Record<string, number[]> }) {
   return (
-    <Card aria-labelledby="c-net">
-      <CardTitle id="c-net"><Network className={ic} aria-hidden />{t.network}</CardTitle>
+    <Widget id="c-net" title={t.network} icon={<Network />} tone="bg-cyan-600">
       {o.network.length === 0 && <p className="text-sm text-muted-foreground">{t.noInterfaces}</p>}
-      <ul className="divide-y divide-border">
-        {o.network.map((n) => (
-          <li key={n.name} className="py-2 first:pt-0 last:pb-0">
-            <div className="flex items-center justify-between">
-              <span className="font-semibold">{n.name}</span>
-              <Badge variant={n.up ? 'success' : 'neutral'}>{n.up ? t.linkUp : t.linkDown}</Badge>
-            </div>
-            <dl className="mt-1">
-              <Row k={t.speed}>{formatSpeed(n.speedMbps)}</Row>
-              <Row k={t.received}>{formatBytes(n.rxBytes)}</Row>
-              <Row k={t.sent}>{formatBytes(n.txBytes)}</Row>
-              <Row k={t.addresses}>
-                {n.addresses.length ? n.addresses.map((a) => <div key={a}>{a}</div>) : DASH}
-              </Row>
-            </dl>
-          </li>
-        ))}
+      <ul className="divide-y divide-border/60">
+        {o.network.map((n) => {
+          const r = rates[n.name];
+          return (
+            <li key={n.name} className="py-2 first:pt-0 last:pb-0">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{n.name}</span>
+                <Badge variant={n.up ? 'success' : 'neutral'}>{n.up ? t.linkUp : t.linkDown}</Badge>
+              </div>
+              {n.up && (
+                <div className="mt-2 flex items-center gap-3">
+                  <dl className="shrink-0 text-sm tabular-nums">
+                    <div className="flex gap-2"><dt className="w-20 text-muted-foreground">{t.down}</dt><dd className="font-medium">{formatRate(r?.rx)}</dd></div>
+                    <div className="flex gap-2"><dt className="w-20 text-muted-foreground">{t.up}</dt><dd className="font-medium">{formatRate(r?.tx)}</dd></div>
+                  </dl>
+                  <div className="min-w-0 flex-1"><Sparkline values={history[n.name] ?? []} label={`${t.netHistory} ${n.name}`} min={0} /></div>
+                </div>
+              )}
+              <dl className="mt-1">
+                <Row k={t.speed}>{formatSpeed(n.speedMbps)}</Row>
+                <Row k={t.received}>{formatBytes(n.rxBytes)}</Row>
+                <Row k={t.sent}>{formatBytes(n.txBytes)}</Row>
+                <Row k={t.addresses}>
+                  {n.addresses.length ? n.addresses.map((a) => <div key={a}>{a}</div>) : DASH}
+                </Row>
+              </dl>
+            </li>
+          );
+        })}
       </ul>
-    </Card>
+    </Widget>
   );
 }
 
 export function StorageCard({ o }: { o: Overview }) {
   const { disks, filesystems } = o.storage;
   return (
-    <Card aria-labelledby="c-sto">
-      <CardTitle id="c-sto"><HardDrive className={ic} aria-hidden />{t.storage}</CardTitle>
+    <Widget id="c-sto" title={t.storage} icon={<HardDrive />} tone="bg-emerald-600">
       <h3 className="mb-1 text-sm font-medium">{t.disks}</h3>
       {disks.length === 0 && <p className="text-sm text-muted-foreground">{t.noDisks}</p>}
       <ul className="mb-3 space-y-1 text-sm">
@@ -180,19 +187,18 @@ export function StorageCard({ o }: { o: Overview }) {
           );
         })}
       </ul>
-    </Card>
+    </Widget>
   );
 }
 
 export function SmartCard({ smart, error }: { smart: Smart | null; error: boolean }) {
   return (
-    <Card aria-labelledby="c-smart">
-      <CardTitle id="c-smart"><ShieldCheck className={ic} aria-hidden />{t.smart}</CardTitle>
+    <Widget id="c-smart" title={t.smart} icon={<ShieldCheck />} tone="bg-teal-600">
       {error && !smart && <p className="text-sm text-danger">{t.smartError}</p>}
       {!smart && !error && <Skeleton className="h-16 w-full" />}
       {smart?.error && <Badge variant="warning">{smart.error === 'smartctl_unavailable' ? t.smartUnavailable : t.smartError}</Badge>}
       {smart && !smart.error && smart.disks.length === 0 && <p className="text-sm text-muted-foreground">{t.smartNoDisks}</p>}
-      <ul className="divide-y divide-border">
+      <ul className="divide-y divide-border/60">
         {smart?.disks.map((d) => (
           <li key={d.name} className="py-2 first:pt-0 last:pb-0">
             <div className="flex items-center justify-between gap-2">
@@ -216,7 +222,7 @@ export function SmartCard({ smart, error }: { smart: Smart | null; error: boolea
           </li>
         ))}
       </ul>
-    </Card>
+    </Widget>
   );
 }
 
@@ -224,8 +230,7 @@ const stateVariant = { active: 'success', inactive: 'neutral', failed: 'danger',
 
 export function ServicesCard({ o }: { o: Overview }) {
   return (
-    <Card aria-labelledby="c-svc">
-      <CardTitle id="c-svc"><Activity className={ic} aria-hidden />{t.services}</CardTitle>
+    <Widget id="c-svc" title={t.services} icon={<Activity />} tone="bg-rose-500">
       {o.services.length === 0 && <p className="text-sm text-muted-foreground">{t.noServices}</p>}
       <ul className="space-y-1.5">
         {o.services.map((s) => (
@@ -235,6 +240,6 @@ export function ServicesCard({ o }: { o: Overview }) {
           </li>
         ))}
       </ul>
-    </Card>
+    </Widget>
   );
 }

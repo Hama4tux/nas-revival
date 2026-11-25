@@ -10,7 +10,7 @@ const buttonVariants = cva(
       variant: {
         default: 'bg-primary text-primary-foreground hover:bg-primary/90',
         ghost: 'hover:bg-muted',
-        outline: 'border border-border bg-card hover:bg-muted',
+        outline: 'border border-border bg-card/80 hover:bg-muted',
       },
       size: { default: 'h-10 px-4', icon: 'h-10 w-10', sm: 'h-8 px-3' },
     },

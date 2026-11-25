@@ -18,7 +18,8 @@ export const cs = {
   },
   shell: {
     logout: 'Odhlásit', loggingOut: 'Odhlašuji…', mainNav: 'Hlavní navigace', soon: 'Připravujeme',
-    host: 'Hostitel',
+    host: 'Hostitel', menu: 'Hlavní nabídka', menuTitle: 'Aplikace', closeMenu: 'Zavřít nabídku',
+    userMenu: 'Uživatelské menu', user: 'Uživatel',
   },
   nav: {
     overview: 'Přehled', storage: 'Úložiště', shares: 'Sdílení', users: 'Uživatelé',
@@ -26,6 +27,20 @@ export const cs = {
   },
   overview: {
     title: 'Přehled',
+    healthTitle: 'Stav systému', healthOk: 'V pořádku', healthWarning: 'Varování', healthProblem: 'Problém',
+    healthOkDetail: 'Všechny sledované hodnoty jsou v normě.',
+    reasons: {
+      sensorsFault: () => 'Chyba senzorů teploty a ventilátoru',
+      sensorsUnknown: () => 'Stav senzorů je neznámý nebo nepodporovaný',
+      fanStopped: (a?: string) => `${a ?? 'Ventilátor'} stojí (0 ot./min)`,
+      smartFailed: (a?: string) => `Disk ${a ?? ''} hlásí selhání SMART`,
+      fsCritical: (a?: string) => `Svazek ${a ?? ''} je kriticky plný (nad 95 %)`,
+      fsWarn: (a?: string) => `Svazek ${a ?? ''} je téměř plný (nad 85 %)`,
+      serviceFailed: (a?: string) => `Služba ${a ?? ''} selhala`,
+      stale: () => 'Data nejsou aktuální',
+    } as Record<string, (a?: string) => string>,
+    resources: 'Zdroje', fanStopped: 'Zastaven', netRate: 'Aktuální přenos', down: 'Stahování', up: 'Odesílání',
+    netHistory: 'Historie přenosu', total: 'celkem',
     stale: 'Data nejsou aktuální',
     staleDetail: 'Poslední úspěšné načtení je starší než 15 s.',
     error: 'Přehled se nepodařilo načíst.',

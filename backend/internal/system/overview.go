@@ -159,7 +159,15 @@ func (c *Collector) Collect(ctx context.Context) (Overview, error) {
 	for _, t := range s.Temperatures {
 		o.Sensors.Temperatures = append(o.Sensors.Temperatures, Temperature(t))
 	}
+	prof := profileFor(h.BoardModel)
 	for _, f := range s.Fans {
+		if len(prof.Fans) > 0 {
+			label, wired := prof.Fans[f.ID]
+			if !wired {
+				continue
+			}
+			f.Label = label
+		}
 		o.Sensors.Fans = append(o.Sensors.Fans, Fan(f))
 	}
 

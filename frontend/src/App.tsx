@@ -12,6 +12,7 @@ export function App() {
   const [auth, setAuth] = useState<Auth>('checking');
   const [loggingOut, setLoggingOut] = useState(false);
   const [hostname, setHostname] = useState<string | null>(null);
+  const [username, setUsername] = useState<string | null>(null);
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuth('out'));
@@ -19,7 +20,8 @@ export function App() {
 
   const check = useCallback(async () => {
     try {
-      await api<SessionInfo>('/session', { quiet401: true });
+      const s = await api<SessionInfo>('/session', { quiet401: true });
+      setUsername(s.username);
       setAuth('in');
     } catch {
       setAuth('out');
@@ -39,9 +41,9 @@ export function App() {
   if (auth === 'checking') {
     return <p role="status" className="p-8 text-center text-muted-foreground">{cs.login.checking}</p>;
   }
-  if (auth === 'out') return <Login onSuccess={() => setAuth('in')} />;
+  if (auth === 'out') return <Login onSuccess={() => void check()} />;
   return (
-    <Shell hostname={hostname} onLogout={() => void logout()} loggingOut={loggingOut}>
+    <Shell hostname={hostname} username={username} onLogout={() => void logout()} loggingOut={loggingOut}>
       <Overview onHostname={setHostname} />
     </Shell>
   );

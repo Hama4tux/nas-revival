@@ -37,9 +37,9 @@ export function Login({ onSuccess }: { onSuccess: () => void }) {
 
   return (
     <main className="flex min-h-screen items-center justify-center p-4">
-      <form onSubmit={submit} className="w-full max-w-sm rounded-xl border border-border bg-card p-6 shadow-sm">
+      <form onSubmit={submit} className="w-full max-w-sm glass rounded-2xl bg-card/80 p-6 shadow-xl backdrop-blur-xl">
         <div className="mb-5 flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-sky-400 to-blue-600 text-white shadow">
             <Server className="h-5 w-5" aria-hidden />
           </span>
           <div>

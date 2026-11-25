@@ -149,3 +149,30 @@ func TestServiceCheckerSystemctlMissing(t *testing.T) {
 		t.Fatalf("got %+v", got)
 	}
 }
+
+func TestBoardProfileFiltersUnwiredFans(t *testing.T) {
+	files := map[string]string{}
+	for k, v := range minimal {
+		files[k] = v
+	}
+	files["proc/device-tree/model"] = "ZyXEL NSA310\x00"
+	files["sys/class/hwmon/hwmon0/name"] = "lm85"
+	files["sys/class/hwmon/hwmon0/fan1_input"] = "9075"
+	files["sys/class/hwmon/hwmon0/fan2_input"] = "0"
+	files["sys/class/hwmon/hwmon0/temp1_input"] = "31000"
+	c, _, _ := newTestCollector(t, files)
+	o, err := c.Collect(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(o.Sensors.Fans) != 1 || o.Sensors.Fans[0].Label != "Ventilátor" || o.Sensors.Fans[0].RPM != 9075 {
+		t.Fatalf("fans %+v", o.Sensors.Fans)
+	}
+
+	delete(files, "proc/device-tree/model")
+	c, _, _ = newTestCollector(t, files)
+	o, _ = c.Collect(context.Background())
+	if len(o.Sensors.Fans) != 2 {
+		t.Fatalf("unknown board must report all fans: %+v", o.Sensors.Fans)
+	}
+}

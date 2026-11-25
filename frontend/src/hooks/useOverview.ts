@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 import type { Overview, Smart } from '../api/types';
+import { bytesRate, type NetSample } from '../lib/netrate';
 import { isStale, pushSample } from '../lib/stale';
+
+export interface NetRate { rx: number | null; tx: number | null }
 
 const POLL_MS = 5000;
 const SMART_MS = 60_000;
@@ -34,6 +37,9 @@ export function useOverview() {
   const [tempHistory, setTempHistory] = useState<number[]>([]);
   const [smart, setSmart] = useState<Smart | null>(null);
   const [smartError, setSmartError] = useState(false);
+  const [netRates, setNetRates] = useState<Record<string, NetRate>>({});
+  const [netHistory, setNetHistory] = useState<Record<string, number[]>>({});
+  const prevNet = useRef<Record<string, NetSample>>({});
   const busy = useRef(false);
 
   const loadOverview = useCallback(async () => {
@@ -44,6 +50,26 @@ export function useOverview() {
       setData(o);
       setError(false);
       setLastOk(Date.now());
+      const t = Date.parse(o.generatedAt);
+      const at = Number.isFinite(t) ? t : Date.now();
+      const rates: Record<string, NetRate> = {};
+      const next: Record<string, NetSample> = {};
+      for (const n of o.network) {
+        const p = prevNet.current[n.name];
+        rates[n.name] = p
+          ? { rx: bytesRate(p.rx, n.rxBytes, at - p.t), tx: bytesRate(p.tx, n.txBytes, at - p.t) }
+          : { rx: null, tx: null };
+        next[n.name] = { t: at, rx: n.rxBytes, tx: n.txBytes };
+      }
+      prevNet.current = next;
+      setNetRates(rates);
+      setNetHistory((h) => {
+        const out: Record<string, number[]> = {};
+        for (const [name, r] of Object.entries(rates)) {
+          out[name] = r.rx == null && r.tx == null ? (h[name] ?? []) : pushSample(h[name] ?? [], (r.rx ?? 0) + (r.tx ?? 0));
+        }
+        return out;
+      });
       setCpuHistory((h) => pushSample(h, o.cpu.usagePercent));
       const temps = o.sensors.status === 'ok'
         ? o.sensors.temperatures.map((t) => t.milliCelsius).filter((v): v is number => v != null)
@@ -74,7 +100,7 @@ export function useOverview() {
   }, []);
 
   return {
-    data, error, smart, smartError, cpuHistory, tempHistory, lastOk,
+    data, error, smart, smartError, cpuHistory, tempHistory, netRates, netHistory, lastOk,
     stale: data !== null && isStale(lastOk, now),
     reload: loadOverview,
   };

@@ -36,32 +36,31 @@ function overview(): Overview {
       temperatures: [
         { id: 'lm85/temp1', label: 'temp1', milliCelsius: Math.round(wave(40, 3000, 44000)) },
         { id: 'lm85/temp2', label: 'temp2', milliCelsius: 38500 },
+        { id: 'lm85/temp3', label: 'temp3', milliCelsius: 41200 },
       ],
-      fans: [{ id: 'lm85/fan1', label: 'fan1', rpm: 1800 }],
+      fans: [{ id: 'lm85/fan1', label: 'Ventilátor', rpm: Math.round(wave(25, 150, 9000)) }],
     },
     network: [
       {
-        name: 'eth0', up: true, speedMbps: 1000, rxBytes: 123456789012 + Math.floor(t * 50000),
-        txBytes: 45678901234 + Math.floor(t * 20000), addresses: ['192.0.2.10/24', 'fe80::1/64'],
+        name: 'eth0', up: true, speedMbps: 1000, rxBytes: 123456789012 + Math.floor(t * 900000 + 400000 * Math.sin(t / 7) * 5),
+        txBytes: 45678901234 + Math.floor(t * 120000), addresses: ['192.0.2.10/24', 'fe80::1/64'],
       },
       { name: 'eth1', up: false, speedMbps: null, rxBytes: 0, txBytes: 0, addresses: [] },
     ],
     storage: {
       disks: [
         { name: 'sda', model: 'ST1000LM014', sizeBytes: 1000204886016, rotational: true, removable: false },
-        { name: 'sdb', model: 'WDC WD20EZRX', sizeBytes: 2000398934016, rotational: true, removable: false },
       ],
       filesystems: [
+        { mount: '/', device: '/dev/sda1', fsType: 'ext4', totalBytes: 8e9, usedBytes: 3.1e9, availableBytes: 4.9e9 },
         { mount: '/srv/data', device: '/dev/sda3', fsType: 'ext4', totalBytes: 950e9, usedBytes: 700e9, availableBytes: 250e9 },
-        { mount: '/srv/backup', device: '/dev/sdb1', fsType: 'ext4', totalBytes: 1900e9, usedBytes: 1780e9, availableBytes: 120e9 },
-        { mount: '/', device: '/dev/sda1', fsType: 'ext4', totalBytes: 8e9, usedBytes: 7.8e9, availableBytes: 0.2e9 },
       ],
     },
     services: [
       { name: 'ssh.service', label: 'SSH', state: 'active' },
       { name: 'smbd.service', label: 'Samba', state: 'active' },
       { name: 'nfs-server.service', label: 'NFS', state: 'inactive' },
-      { name: 'minidlna.service', label: 'DLNA', state: 'failed' },
+      { name: 'minidlna.service', label: 'DLNA', state: 'inactive' },
       { name: 'cron.service', label: 'Cron', state: 'unknown' },
     ],
   };
@@ -71,7 +70,6 @@ const smart = (): Smart => ({
   checkedAt: new Date().toISOString(),
   disks: [
     { name: 'sda', model: 'ST1000LM014', health: 'passed', temperatureCelsius: 38, powerOnHours: 1200, reallocatedSectors: 0, pendingSectors: 0, standby: false },
-    { name: 'sdb', model: 'WDC WD20EZRX', health: 'unknown', temperatureCelsius: null, powerOnHours: null, reallocatedSectors: null, pendingSectors: null, standby: true },
   ],
 });
 
