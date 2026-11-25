@@ -1,0 +1,11 @@
+[Unit]
+Description=NSA310 fan: LM85 automatic control
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/sbin/nsa310-fan
+
+[Install]
+WantedBy=multi-user.target

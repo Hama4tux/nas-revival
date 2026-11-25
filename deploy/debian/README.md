@@ -14,6 +14,16 @@ chown nas-revival:nas-revival /etc/nas-revival/admin.json
 systemctl daemon-reload && systemctl enable --now nas-revival
 ```
 
+Fan control (independent of the web UI; the LM85 regulates the fan itself once configured):
+
+```sh
+install -m 0755 nsa310-fan /usr/local/sbin/nsa310-fan
+install -m 0644 nsa310-fan.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now nsa310-fan
+```
+
+Installed on the NAS 2026-11-25. Thresholds are in the script header.
+
 The UI listens on HTTPS port 8443 with a self-signed certificate generated on first start
 in `/var/lib/nas-revival/tls` (replace `cert.pem`/`key.pem` to avoid the browser warning).
 There is one administrator account, independent of Linux and Samba users.

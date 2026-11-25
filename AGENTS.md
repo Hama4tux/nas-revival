@@ -72,6 +72,8 @@ Platí stejně pro každého agenta. Codex čte tento soubor přímo, Claude Cod
 
 # Tento projekt – NAS Revival
 
+- **Přístup k NASu:** `ssh nsa310` (root, klíč; adresa je jen v `~/.ssh/config` pracovní stanice, do repa ji nepiš). NAS běží na Debianu 13 a vlastník od 2026-11-25 práci přímo na něm povoluje (služby, konfigurace, nasazení GUI); zápisy do NAND a U-Boot prostředí a restarty dál jen po výslovném souhlasu. Starší body níže o zákazu přístupu a fázi OpenWrt jsou překonané. Sériová konzole (CP2102) je na samostatném notebooku s Live Ubuntu, ne na pracovní stanici.
+
 - Komunikace s vlastníkem česky, veřejná technická dokumentace a commity anglicky; CHANGELOG.md a OPEN.md česky podle společného postupu.
 - Bootstrap je dokončen. Stage 1 (chroot userspace na původním kernelu) je od 2026-11-16 zastavený rozhodnutím vlastníka; recept zůstává v userspace/stage1 a scripts/stage1 jen pro případný návrat, dál ho nerozvíjet. Aktuální fáze je kvalifikace OpenWrt: veřejný průzkum, příprava čtecích diagnostických příkazů a plánu dočasného bootu. Žádný flash, zápis do NAND/U-Boot prostředí, kexec, webové UI ani NAS služby.
 - Repozitář je zatím pouze lokální na main, bez remote. V tomto stavu fetch/pull/push vynechat a uvést to při předání. Nevytvářet vzdálený repozitář. Po jeho pozdějším zřízení platí společný git postup.

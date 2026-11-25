@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-25
+- Ventilátor už nejede pořád naplno: řídí ho sám čip LM85 podle nejteplejšího čidla (pod 40 °C asi třetina otáček, od 60 °C plný výkon, nikdy se nezastaví). Nastavuje to při startu služba nsa310-fan; když nastavení selže, ventilátor zůstane na plný výkon.
 - Webové rozhraní má nový vzhled podobný systémům NAS pro domácnosti: horní lišta, nabídka aplikací s dlaždicemi a přehled jako plocha s widgety, nahoře souhrn „Stav systému“, živá rychlost sítě. Zobrazuje se jen skutečně zapojený ventilátor.
 - Začalo webové rozhraní pro správu NASu: přihlášení a přehled stavu (systém, procesor, paměť, teploty a ventilátor, síť, disky a jejich zaplnění, SMART, služby). Backend je jeden program v Go pro procesor NASu, rozhraní je v Reactu a obnovuje se každých 5 s. Zatím je jen ke čtení a na NAS ještě nebylo nasazeno.
 - Ověřeno, že jádro jde do NAND zapisovat i z běžícího Debianu (zabezpečení ECC je stejné jako u původního U-Bootu) – základ pro budoucí aktualizace jádra z webového rozhraní. NAS také sám naběhl po vypnutí ze zásuvky.

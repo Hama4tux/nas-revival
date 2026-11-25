@@ -1,0 +1,59 @@
+#!/bin/sh
+# Hand the NSA310 fan to the LM85's built-in automatic control.
+#
+# The chip regulates the fan by itself once configured, so cooling keeps
+# working even if Linux services crash. At power-on the LM85 runs the fan at
+# full speed; any failure here leaves it at full speed (pwm1_enable=0).
+#
+# Measured 2026-11-25: pwm1 drives the fan (tach fan1), it spins steadily
+# down to 40/255. Zones: temp1/temp3 remote diodes, temp2 chip internal;
+# pwm1 follows the hottest of all three. Disk temperature is not visible to
+# the LM85 and is watched by smartd.
+set -eu
+
+ZONE_MIN=40000   # below: minimum speed
+ZONE_MAX=60000   # at and above: full speed (LM85 range 20 °C)
+ZONE_OFF=36000   # hysteresis floor; with minctl=1 the fan never stops
+ZONE_CRIT=70000  # all fans full speed
+PWM_MIN=64       # ~1/3 speed, well above the measured stall point
+
+hw=""
+tries=0
+# The lm85 module is loaded by udev and may bind after this unit starts.
+while [ -z "$hw" ] && [ "$tries" -lt 30 ]; do
+	for d in /sys/class/hwmon/hwmon*; do
+		[ "$(cat "$d/name" 2>/dev/null)" = lm85 ] && hw=$d
+	done
+	[ -n "$hw" ] || { tries=$((tries + 1)); sleep 1; }
+done
+if [ -z "$hw" ]; then
+	echo "nsa310-fan: LM85 not found, fan stays at power-on full speed" >&2
+	exit 1
+fi
+cd "$hw"
+
+fail() {
+	echo 0 >pwm1_enable 2>/dev/null || true
+	echo "nsa310-fan: $1; fan set to full speed" >&2
+	exit 1
+}
+
+put() {
+	echo "$2" >"$1" || fail "cannot write $1"
+	[ "$(cat "$1")" = "$2" ] || fail "$1 reads $(cat "$1"), expected $2"
+}
+
+for z in 1 2 3; do
+	put "temp${z}_auto_temp_min" "$ZONE_MIN"
+	put "temp${z}_auto_temp_max" "$ZONE_MAX"
+	put "temp${z}_auto_temp_off" "$ZONE_OFF"
+	put "temp${z}_auto_temp_crit" "$ZONE_CRIT"
+done
+put pwm1_auto_pwm_minctl 1
+put pwm1_auto_pwm_min "$PWM_MIN"
+# Zone code, not a bitmask: 123 = hottest of zones 1, 2 and 3. An unknown
+# value makes the driver select full speed.
+put pwm1_auto_channels 123
+put pwm1_enable 2
+
+echo "nsa310-fan: automatic, ${PWM_MIN}/255 below $((ZONE_MIN / 1000)) °C, full at $((ZONE_MAX / 1000)) °C"

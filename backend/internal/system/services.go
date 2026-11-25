@@ -31,6 +31,7 @@ var DefaultUnits = []Unit{
 	{"systemd-resolved.service", "DNS"},
 	{"systemd-timesyncd.service", "Čas (NTP)"},
 	{"nsa310-leds.service", "LED"},
+	{"nsa310-fan.service", "Ventilátor"},
 	{"smartmontools.service", "SMART dohled"},
 	{"cron.service", "Plánovač"},
 }
