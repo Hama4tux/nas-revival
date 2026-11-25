@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { api, setUnauthorizedHandler } from './api/client';
-import type { NetworkSettings, SessionInfo } from './api/types';
+import type { NetworkSettings, SessionInfo, SystemPowerAction } from './api/types';
+import { GoingDown } from './components/GoingDown';
 import { Login } from './components/Login';
 import { Overview } from './components/Overview';
 import { NetworkPage } from './components/NetworkPage';
@@ -19,8 +20,9 @@ export function App() {
   const [loggingOut, setLoggingOut] = useState(false);
   const [host, setHost] = useState<HostSummary | null>(null);
   const [username, setUsername] = useState<string | null>(null);
+  const [powering, setPowering] = useState<SystemPowerAction | null>(null);
   const route = useRoute();
-  const net = useNetworkSettings(auth === 'in');
+  const net = useNetworkSettings(auth === 'in' && !powering);
 
   useEffect(() => {
     setUnauthorizedHandler(() => setAuth('out'));
@@ -46,6 +48,8 @@ export function App() {
     setAuth('out');
   }
 
+  // After a restart the session is gone; a full reload starts from the login screen.
+  if (powering) return <GoingDown action={powering} onBack={() => location.reload()} />;
   if (auth === 'checking') {
     return <p role="status" className="p-8 text-center text-muted-foreground">{cs.login.checking}</p>;
   }
@@ -57,7 +61,7 @@ export function App() {
   }
   return (
     <Shell host={host} username={username} onLogout={() => void logout()} loggingOut={loggingOut}
-      title={page.title} subtitle={page.subtitle} route={route}
+      onPowerStarted={setPowering} title={page.title} subtitle={page.subtitle} route={route}
       banner={pending && <PendingBanner pending={pending} onConfirm={confirmPending} />}>
       {route === 'overview' && <Overview onHost={setHost} />}
       {route === 'storage' && <StoragePage />}

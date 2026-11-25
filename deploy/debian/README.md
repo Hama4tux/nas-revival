@@ -18,6 +18,12 @@ Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, wr
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
 balanced profile (APM 254, no standby on the system disk).
 
+Restart and shutdown (W1.6) go through the helper ops `power.preflight`, `power.reboot` and
+`power.shutdown`: preflight checks running SMART self-tests (sleeping disks are not woken),
+`nsa310-copy.service`, apt/dpkg processes and a pending network change; the helper then calls `sync` and
+`systemctl reboot`/`poweroff` 2 s after answering. The NSA310 device tree has `gpio-poweroff`, so a
+shutdown should cut the power; verify on the first real shutdown.
+
 The helper (`nas-revival helper`, ADR 0003) runs as root and lets the web UI change IP, DNS, NTP:
 socket `/run/nas-revival-helper/helper.sock` (0660 root:nas-revival, only uid `nas-revival` is served),
 it writes only `/etc/systemd/network/20-wired.network` and `/etc/systemd/timesyncd.conf.d/50-nas-revival.conf`.

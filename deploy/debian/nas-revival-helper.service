@@ -1,5 +1,5 @@
 [Unit]
-Description=NAS Revival privileged helper (network, DNS, NTP settings, SMART self-tests, disk power)
+Description=NAS Revival privileged helper (network, DNS, NTP settings, SMART self-tests, disk power, restart/shutdown)
 Documentation=file:///usr/share/doc/nas-revival/adr-0003
 # Started before the web UI so its socket exists; the web UI only Wants= it.
 Before=nas-revival.service

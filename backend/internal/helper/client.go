@@ -125,6 +125,24 @@ func (c *Client) DiskStandby(ctx context.Context, diskID string) (DiskStandbyRes
 	return r, err
 }
 
+// PowerPreflight lists what a restart or shutdown would interrupt.
+func (c *Client) PowerPreflight(ctx context.Context) (PowerPreflight, error) {
+	var r PowerPreflight
+	long := *c
+	long.Timeout = 45 * time.Second
+	err := long.Call(ctx, "power.preflight", struct{}{}, &r)
+	return r, err
+}
+
+// PowerAction restarts ("reboot") or shuts down ("shutdown") the NAS.
+func (c *Client) PowerAction(ctx context.Context, action string, force bool, user string) (PowerActionResult, error) {
+	var r PowerActionResult
+	long := *c
+	long.Timeout = 45 * time.Second
+	err := long.Call(ctx, "power."+action, map[string]any{"force": force, "user": user}, &r)
+	return r, err
+}
+
 // AsError extracts a *Error from err.
 func AsError(err error) (*Error, bool) {
 	var e *Error

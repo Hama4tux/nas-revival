@@ -99,6 +99,7 @@ func serve(args []string) error {
 	srv.SmartTests = hc
 	srv.DiskPower = &diskpower.Reader{Run: diskpower.ExecRunner, Now: time.Now, ConfigPath: diskpower.DefaultConfigPath}
 	srv.DiskPowerSet = hc
+	srv.SystemPower = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -225,6 +226,9 @@ func runHelper(args []string) error {
 	nm.Recover(ctx)
 	dp := &helper.DiskPowerManager{Resolve: resolvePowerDisk, Disks: powerDisks, Run: helper.ExecRunner,
 		ConfigPath: diskpower.DefaultConfigPath}
+	sp := &helper.SystemPowerManager{Disks: powerDisks, Run: helper.ExecRunner, ProcRoot: "/proc",
+		NetPending: nm.HasPending, Sync: syscall.Sync, Delay: 2 * time.Second,
+		After: func(d time.Duration, f func()) { time.AfterFunc(d, f) }}
 	// Boot task disk-power: hdparm settings do not survive a power cycle.
 	go dp.ApplyAll(ctx)
 	ln, err := helper.Listen(*sock, gid)
@@ -233,10 +237,11 @@ func runHelper(args []string) error {
 	}
 	slog.Info("helper listening", "socket", *sock, "uid", uid)
 	return helper.Serve(ctx, ln, uid, &helper.Dispatcher{
-		Net:   nm,
-		Time:  &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
-		Smart: &helper.SmartManager{Resolve: resolveSmartDisk, Run: helper.ExecRunner},
-		Power: dp,
+		Net:      nm,
+		Time:     &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
+		Smart:    &helper.SmartManager{Resolve: resolveSmartDisk, Run: helper.ExecRunner},
+		Power:    dp,
+		SysPower: sp,
 	})
 }
 

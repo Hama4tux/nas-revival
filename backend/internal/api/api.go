@@ -51,6 +51,9 @@ type Server struct {
 	// DiskPower and DiskPowerSet serve /storage/disks/{id}/power; nil answers 503.
 	DiskPower    DiskPowerSource
 	DiskPowerSet DiskPowerSetter
+	// SystemPower serves /system/{reboot,shutdown}; nil answers 503.
+	SystemPower SystemPowerer
+	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }
@@ -64,6 +67,7 @@ func (s *Server) Handler() http.Handler {
 	api.HandleFunc("GET /api/v1/smart", s.requireSession(s.smart))
 	s.registerSettings(api)
 	s.registerSystem(api)
+	s.registerSystemPower(api)
 	s.registerStorage(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")

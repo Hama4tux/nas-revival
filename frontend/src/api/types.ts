@@ -148,3 +148,13 @@ export interface DiskPower {
   settings: PowerSettings; stored: boolean; profiles: PowerSettings[]; standbyChoices: number[];
 }
 export interface DiskStandbyResult { diskId: string; wasStandby: boolean }
+
+export type SystemPowerAction = 'reboot' | 'shutdown';
+export type PowerBlockerCode = 'smart_test' | 'copy_running' | 'package_manager' | 'network_pending' | 'check_failed';
+export interface PowerBlocker { code: PowerBlockerCode; diskId?: string }
+export type PowerEffect = 'web_offline' | 'connections_drop' | 'sessions_end' | 'back_in_minutes' | 'power_button';
+export interface SystemPowerPreview {
+  action: SystemPowerAction; hostname: string; confirmToken: string; expiresAt: string;
+  effects: PowerEffect[]; blockers: PowerBlocker[];
+}
+export interface SystemPowerResult { action: SystemPowerAction; forced: boolean; blockers: PowerBlocker[] }

@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, TimeSettings, TlsInfo } from '../api/types';
+import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -12,6 +12,8 @@ let netConfig: NetConfig = { mode: 'dhcp', address: null, prefixLength: null, ga
 let netCurrent = { addresses: [`${HOST_ADDR}/24`], gateway: '192.0.2.1' as string | null, dns: ['192.0.2.1'] };
 let netPending: { deadline: number; previous: NetConfig; next: NetConfig; prevCurrent: typeof netCurrent } | null = null;
 let ntp: string[] = [];
+let powerToken: string | null = null;
+let downUntil: { from: number; to: number } | null = null;
 const DEFAULT_NTP = ['0.debian.pool.ntp.org', '1.debian.pool.ntp.org'];
 const day = 86400e3;
 const makeCert = (selfSigned: boolean, notBefore: number, notAfter: number): TlsInfo => ({
@@ -76,6 +78,24 @@ function settings(path: string, method: string, body: unknown): Response | null 
       ['wakeOnLan', 'unverified'], ['autoPowerOn', 'unsupported'], ['raid', 'unsupported']];
     return json(200, { profileId: 'zyxel-nsa310', profileName: 'ZyXEL NSA310', sataBays: 1, usbPorts: 2,
       capabilities: caps.map(([id, status]) => ({ id, status })) });
+  }
+  const pw = /^\/system\/(reboot|shutdown)(\/preview)?$/.exec(path);
+  if (pw && method === 'POST') {
+    const action = pw[1] as SystemPowerAction;
+    if (pw[2]) {
+      powerToken = `mock-${Date.now()}`;
+      const blockers: PowerBlocker[] = smartDetail().selfTest?.running ? [{ code: 'smart_test', diskId: 'wwn-0x5000c500a1b2c3d4' }] : [];
+      return json(200, {
+        action, hostname: 'nas', confirmToken: powerToken, expiresAt: new Date(Date.now() + 60e3).toISOString(),
+        effects: ['web_offline', 'connections_drop', 'sessions_end', action === 'reboot' ? 'back_in_minutes' : 'power_button'], blockers,
+      });
+    }
+    const b = body as { confirmToken?: string; force?: boolean };
+    if (!powerToken || b.confirmToken !== powerToken) return err(409, 'confirm_required', 'Potvrzení vypršelo.');
+    powerToken = null;
+    // Simulate: down after 4 s, back (restart) after 15 s.
+    downUntil = { from: Date.now() + 4000, to: action === 'reboot' ? Date.now() + 15000 : Infinity };
+    return json(202, { action, forced: !!b.force, blockers: [] });
   }
   if (path === '/settings/network' && method === 'GET') return json(200, netBody());
   if (path === '/settings/network' && method === 'PUT') return putNetwork(body as NetConfig);
@@ -324,6 +344,10 @@ export function installMock(): void {
     await new Promise((r) => setTimeout(r, 250));
     const path = url.pathname.slice('/api/v1'.length);
     const method = (init?.method ?? 'GET').toUpperCase();
+    if (downUntil && Date.now() >= downUntil.from) {
+      if (Date.now() < downUntil.to) throw new TypeError('Failed to fetch');
+      downUntil = null; loggedIn = false;
+    }
     const h = new Headers(init?.headers);
     if (method !== 'GET' && h.get('X-Requested-With') !== 'nas-revival') return err(403, 'csrf', 'Missing header');
 

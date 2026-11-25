@@ -5,8 +5,10 @@ import { useTheme } from '../hooks/useTheme';
 import { cn } from '../lib/utils';
 import { Launcher } from './Launcher';
 import { NasArt } from './NasArt';
+import { PowerMenu } from './SystemPower';
 import { apps } from './nav';
 import type { Route } from '../hooks/useRoute';
+import type { SystemPowerAction } from '../api/types';
 
 export interface HostSummary { hostname: string; boardModel: string; os: string }
 
@@ -105,8 +107,9 @@ function Sidebar({ host, route }: { host: HostSummary | null; route: Route }) {
   );
 }
 
-export function Shell({ host, username, onLogout, loggingOut, title, subtitle, route, banner, children }: {
+export function Shell({ host, username, onLogout, loggingOut, onPowerStarted, title, subtitle, route, banner, children }: {
   host: HostSummary | null; username: string | null; onLogout: () => void; loggingOut: boolean;
+  onPowerStarted: (a: SystemPowerAction) => void;
   title: string; subtitle: string; route: Route; banner?: ReactNode; children: ReactNode;
 }) {
   const { theme, toggle } = useTheme();
@@ -129,6 +132,7 @@ export function Shell({ host, username, onLogout, loggingOut, title, subtitle, r
       <button type="button" className={iconBtn} onClick={toggle} aria-label={theme === 'dark' ? cs.theme.toLight : cs.theme.toDark}>
         {theme === 'dark' ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
       </button>
+      <PowerMenu onStarted={onPowerStarted} />
       <UserMenu username={username} onLogout={onLogout} loggingOut={loggingOut} />
     </>
   );

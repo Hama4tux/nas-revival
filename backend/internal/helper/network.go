@@ -101,6 +101,13 @@ func (m *Manager) Get(ctx context.Context) NetworkState {
 		Current: ReadCurrent(ctx, m.Run, m.Iface), Pending: p}
 }
 
+// HasPending reports a network change waiting for confirmation.
+func (m *Manager) HasPending() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.pending != nil
+}
+
 func (m *Manager) reload(ctx context.Context, iface string) error {
 	if _, err := m.Run(ctx, "networkctl", "reload"); err != nil {
 		return err

@@ -1,10 +1,12 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém a stránku Úložiště s detailem SMART, samotesty a napájením disku (profily, APM, uspání – W1.5). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W1.6 restart a vypnutí z GUI (náhled dopadu, obrazovka „vypínám“).
+- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém, Úložiště se SMART a napájením disku a nově restart/vypnutí NASu s kontrolou před akcí (W1.6). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
+- Další krok: W1.7 přehled se seznamem problémů a stavem napájení disku; mezitím se souhlasem vlastníka vyzkoušet restart z GUI.
 
 ## Čeká na rozhodnutí
+- [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
+- [ ] Vyzkoušet vypnutí z GUI – device tree má gpio-poweroff, ale že NSA310 opravdu odpojí napájení (a jde znovu zapnout tlačítkem), není ověřené. (2026-11-25)
 - [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
@@ -47,9 +49,12 @@
 - [ ] Před přijetím ADR ověřit bezpečnostní životní cyklus vybrané větve OpenWrt, potřebné balíčky a rozdíly NSA310 proti profilu NSA310b. (2026-11-16)
 - [ ] Změřit rozpočet RAM, velikosti systému a výkonu TLS/SMB/SFTP i možnost bezpečného chlazení; uvedené limity jsou cíle, nikoliv výsledky. (2026-11-16)
 - [ ] Upřesnit podepisování aktualizací, důvěryhodné klíče, migrace konfigurace a recovery při výpadku napájení bez předpokladu dvou NAND slotů; mechanismus dosud není implementovaný. (2026-11-16)
+- [ ] Dialog restartu/vypnutí ověřen jen v ukázkovém režimu na šířce desktopu; zobrazení na telefonu (360 px) neověřeno. (2026-11-25)
+- [ ] Kontrola před restartem zatím nehlídá budoucí zálohovací úlohy – zámky /run/nas-revival/locks doplnit spolu s úlohami zálohování (TASK-*). (2026-11-25)
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Restart a vypnutí z GUI (W1.6): kontrola před akcí (samotest SMART, COPY, apt/dpkg, nepotvrzená síť), potvrzení názvem NASu a jednorázovým tokenem, vynucení druhým potvrzením, sync a obrazovka „restartuje se / vypíná se“; kontrola ověřena na NASu, samotný restart zatím ne. (2026-11-25)
 - Napájení disku z GUI (W1.5): stav bez probuzení, profily Výkon/Vyvážený/Úsporný/Vlastní (doba do uspání, APM), trvalé uložení v /etc/nas-revival/disks.json a použití při startu, „Uspat teď“; APM 254 na systémovém disku se teď nastavuje sám. Ověřeno na NASu přes root helper. (2026-11-25)
 - SMART detail disku (W1.4): atributy se zvýrazněním a dekódováním Seagate, historie samotestů z disku, spuštění krátkého/dlouhého testu přes root helper (jeden test na disk) s průběhem v %; krátký test z helperu na NASu prošel. (2026-11-25)
 - Stránka Úložiště (W1.3): stabilní ID disků, typ, oddíly, přípojné body s obsazeností, označení systémového disku a varování, že systém a data sdílí disk; ověřeno čtením na NASu pod uživatelem služby. (2026-11-25)

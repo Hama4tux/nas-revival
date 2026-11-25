@@ -27,10 +27,11 @@ const (
 
 // Dispatcher executes the fixed list of operations.
 type Dispatcher struct {
-	Net   *Manager
-	Time  *TimeManager
-	Smart *SmartManager
-	Power *DiskPowerManager
+	Net      *Manager
+	Time     *TimeManager
+	Smart    *SmartManager
+	Power    *DiskPowerManager
+	SysPower *SystemPowerManager
 }
 
 type request struct {
@@ -114,6 +115,23 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return nil, err
 		}
 		return d.Power.Standby(ctx, a.DiskID)
+	case "power.preflight":
+		if d.SysPower == nil {
+			break
+		}
+		return d.SysPower.Preflight(ctx), nil
+	case "power.reboot", "power.shutdown":
+		if d.SysPower == nil {
+			break
+		}
+		var a struct {
+			Force bool   `json:"force"`
+			User  string `json:"user"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.SysPower.Do(ctx, req.Op[len("power."):], a.Force, a.User)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

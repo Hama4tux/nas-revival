@@ -54,9 +54,9 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 |---|---|---|---|---|---|---|---|---|---|---|
 | CORE-10 | System Core | NAS Revival version, Debian version, arch, boot time, last update time | P0 | Implemented | — | dpkg log, build info | L | none | values match `dpkg`, `/proc/stat btime` | — |
 | CORE-11 | System Core | Hardware capability detection endpoint | P0 | Implemented | — | profile | L | none | UI hides unsupported features | HAL-10 |
-| CORE-12 | System Core | Reboot and shutdown with confirmation | P0 | Planned | — | systemctl | L | DoS by authorized user | typed confirmation; audit entry; `sync` before | PRIV-01 |
-| CORE-13 | System Core | Preflight before power ops: running SMART test, backup, apt, copy | P0 | Planned | — | flock files | L | data loss | blocked with reason list; "force" needs second confirmation | CORE-12, TASK-* |
-| CORE-14 | System Core | Shutdown progress / reason page (UI keeps polling until gone) | P1 | Planned | — | — | L | none | UI shows "shutting down" and "offline" states | CORE-12 |
+| CORE-12 | System Core | Reboot and shutdown with confirmation | P0 | Implemented | — | systemctl | L | DoS by authorized user | typed confirmation; audit entry; `sync` before | PRIV-01 |
+| CORE-13 | System Core | Preflight before power ops: running SMART test, backup, apt, copy | P0 | Implemented (backup lock arrives with backup tasks) | — | hdparm -C, smartctl -c, systemctl is-active, /proc | L | data loss | blocked with reason list; "force" needs second confirmation | CORE-12, TASK-* |
+| CORE-14 | System Core | Shutdown progress / reason page (UI keeps polling until gone) | P1 | Implemented | — | — | L | none | UI shows "shutting down" and "offline" states | CORE-12 |
 | CFG-01 | Config | Managed file registry in helper | P0 | Planned | — | — | L | arbitrary file write | write to unregistered path impossible (test) | PRIV-01 |
 | CFG-02 | Config | Atomic write + snapshot + rollback transaction | P0 | Planned | — | atomicfile | L | half-applied config | killed helper mid-write leaves old or new file, never partial | CFG-01 |
 | CFG-03 | Config | Bounded history (20 snapshots / 2 MiB) | P0 | Planned | — | — | L | disk fill | 21st snapshot evicts oldest | CFG-02 |
