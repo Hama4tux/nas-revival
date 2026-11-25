@@ -75,20 +75,34 @@ func serve(args []string) error {
 		return fmt.Errorf("tls certificate: %w", err)
 	}
 
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
 	reader := hal.Reader{Root: *root}
+	smartSvc := &smart.Service{
+		Run:     smart.ExecRunner,
+		Devices: func() []string { return smartDevices(reader) },
+		TTL:     10 * time.Minute,
+		Now:     time.Now,
+	}
+	diskPower := &diskpower.Reader{Run: diskpower.ExecRunner, Now: time.Now, ConfigPath: diskpower.DefaultConfigPath}
+	collector := system.NewCollector(*root, system.NewServiceChecker(system.DefaultUnits))
+	collector.Smart = smartSvc
+	collector.DiskPower = func(ctx context.Context, dev string) string { return diskPower.Read(ctx, dev).State }
+	// One CHECK POWER MODE per minute at most: cheap, and keeps an open
+	// dashboard from poking the drive every few seconds.
+	collector.PowerTTL = time.Minute
+	snapshots := system.NewSnapshots(collector.Collect)
+	go snapshots.Run(ctx)
+
 	srv := &api.Server{
 		Verifier: verifier,
 		Sessions: auth.NewSessions(),
 		Limiter:  auth.NewLimiter(),
-		Overview: system.NewCollector(*root, system.NewServiceChecker(system.DefaultUnits)),
-		Smart: &smart.Service{
-			Run:     smart.ExecRunner,
-			Devices: func() []string { return smartDevices(reader) },
-			TTL:     10 * time.Minute,
-			Now:     time.Now,
-		},
-		UI:  web.Handler(web.Dist()),
-		TLS: certs,
+		Overview: snapshots,
+		Smart:    smartSvc,
+		UI:       web.Handler(web.Dist()),
+		TLS:      certs,
 	}
 	hc := &helper.Client{Socket: *helperSock}
 	srv.System = systemSource{root: *root, profile: system.DetectProfile(*root)}
@@ -97,7 +111,7 @@ func serve(args []string) error {
 	// Short TTL: the UI polls progress of a running self-test.
 	srv.SmartDetail = &smart.DetailService{Run: smart.DetailExecRunner, TTL: 5 * time.Second, Now: time.Now}
 	srv.SmartTests = hc
-	srv.DiskPower = &diskpower.Reader{Run: diskpower.ExecRunner, Now: time.Now, ConfigPath: diskpower.DefaultConfigPath}
+	srv.DiskPower = diskPower
 	srv.DiskPowerSet = hc
 	srv.SystemPower = hc
 
@@ -112,8 +126,6 @@ func serve(args []string) error {
 		MaxHeaderBytes:    16 << 10,
 	}
 
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
-	defer stop()
 	errc := make(chan error, 1)
 	go func() {
 		slog.Info("listening", "addr", *listen)

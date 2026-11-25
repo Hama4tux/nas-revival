@@ -42,7 +42,7 @@ export function Overview({ onHost }: { onHost: (h: HostSummary) => void }) {
 
       {data ? (
         <>
-          <HealthPanel o={data} smart={smart} stale={stale} />
+          <HealthPanel o={data} stale={stale} />
           <ResourceTiles o={data} history={cpuHistory} />
           <div className={row}>
             <StorageCard o={data} smart={smart} smartError={smartError} className="lg:col-span-3" />

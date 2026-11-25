@@ -7,16 +7,17 @@ import (
 	"time"
 )
 
-// Runner runs a command and returns its standard output.
+// Runner runs a command and returns its standard output and error together.
 type Runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
-// ExecRunner runs hdparm with a fixed environment and a time limit.
+// ExecRunner runs hdparm with a fixed environment and a time limit. Standard
+// error is included because hdparm reports a failed pass-through only there.
 func ExecRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C"}
-	return cmd.Output()
+	return cmd.CombinedOutput()
 }
 
 // Live is the drive's current power state (PWR-01).

@@ -1,5 +1,5 @@
-import { AlertTriangle, Check, Clock, Thermometer, X } from 'lucide-react';
-import type { Overview, Smart } from '../api/types';
+import { AlertTriangle, Check, Clock, HelpCircle, Thermometer, X } from 'lucide-react';
+import type { Overview } from '../api/types';
 import { cs } from '../i18n/cs';
 import { formatTemp, formatUptime } from '../lib/format';
 import { deriveHealth, type HealthLevel } from '../lib/health';
@@ -11,7 +11,13 @@ const look: Record<HealthLevel, { icon: typeof Check; tile: string; label: strin
   ok: { icon: Check, tile: 'bg-success text-white dark:text-slate-900', label: t.heroOk, band: 'from-success/15' },
   warning: { icon: AlertTriangle, tile: 'bg-warning text-white dark:text-slate-900', label: t.heroWarning, band: 'from-warning/15' },
   problem: { icon: X, tile: 'bg-danger text-white dark:text-slate-900', label: t.heroProblem, band: 'from-danger/15' },
+  unknown: { icon: HelpCircle, tile: 'bg-muted-foreground text-white dark:text-slate-900', label: t.heroUnknown, band: 'from-muted-foreground/15' },
 };
+
+function checkedAtText(iso: string): string | null {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) || d.getFullYear() < 2000 ? null : t.healthCheckedAt(d.toLocaleTimeString('cs-CZ'));
+}
 
 /** Highest temperature reported by the board sensors, in milli-°C. */
 function hottest(o: Overview): number | null {
@@ -32,8 +38,9 @@ function Stat({ icon: Icon, k, v }: { icon: typeof Clock; k: string; v: string }
   );
 }
 
-export function HealthPanel({ o, smart, stale }: { o: Overview; smart: Smart | null; stale: boolean }) {
-  const h = deriveHealth(o, smart, stale);
+export function HealthPanel({ o, stale }: { o: Overview; stale: boolean }) {
+  const h = deriveHealth(o, stale);
+  const checked = checkedAtText(h.checkedAt);
   const l = look[h.level];
   const Icon = l.icon;
   return (
@@ -54,11 +61,12 @@ export function HealthPanel({ o, smart, stale }: { o: Overview; smart: Smart | n
                 {h.reasons.map((r) => (
                   <li key={`${r.code}-${r.arg ?? ''}`} className="flex items-center gap-1.5">
                     <span className={cn('h-2 w-2 shrink-0 rounded-full', r.level === 'problem' ? 'bg-danger' : 'bg-warning')} aria-hidden />
-                    {t.reasons[r.code]?.(r.arg)}
+                    {(t.reasons[r.code] ?? t.reasonUnknown)(r.arg)}
                   </li>
                 ))}
               </ul>
             )}
+            {checked && <p className="mt-1 text-xs text-muted-foreground">{checked}</p>}
           </div>
         </div>
         <div className="flex gap-8 border-border/70 md:ml-auto md:border-l md:pl-8">

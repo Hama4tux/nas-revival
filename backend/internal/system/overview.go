@@ -5,11 +5,13 @@ import (
 	"context"
 	"log/slog"
 	"net"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
 	"nas-revival/backend/internal/hal"
+	"nas-revival/backend/internal/smart"
 )
 
 type Overview struct {
@@ -21,6 +23,7 @@ type Overview struct {
 	Network     []NetIface `json:"network"`
 	Storage     Storage    `json:"storage"`
 	Services    []Service  `json:"services"`
+	Health      Health     `json:"health"`
 }
 
 type Host struct {
@@ -80,6 +83,9 @@ type Disk struct {
 	SizeBytes  uint64  `json:"sizeBytes"`
 	Rotational bool    `json:"rotational"`
 	Removable  bool    `json:"removable"`
+	// PowerState is active, standby, sleeping or unknown (hdparm -C, never
+	// wakes the drive); null for removable disks, which are not asked.
+	PowerState *string `json:"powerState"`
 }
 
 type Filesystem struct {
@@ -109,11 +115,29 @@ type Collector struct {
 	Addrs    func(iface string) []string
 	Services *ServiceChecker
 	Now      func() time.Time
+	// Smart supplies the cached SMART summary for health; nil skips SMART.
+	Smart SmartReporter
+	// DiskPower returns a disk's power state; nil leaves powerState null.
+	// Answers are cached for PowerTTL so a watched dashboard does not keep
+	// querying the drive.
+	DiskPower func(ctx context.Context, device string) string
+	PowerTTL  time.Duration
 
 	mu      sync.Mutex
 	prev    *hal.CPUTimes
 	prevAt  time.Time
 	lastUse *float64
+	power   map[string]powerSample
+}
+
+// SmartReporter is the cached SMART service (smart.Service).
+type SmartReporter interface {
+	Report(ctx context.Context) smart.Report
+}
+
+type powerSample struct {
+	state string
+	at    time.Time
 }
 
 func NewCollector(root string, services *ServiceChecker) *Collector {
@@ -188,7 +212,9 @@ func (c *Collector) Collect(ctx context.Context) (Overview, error) {
 		slog.Warn("disks unavailable", "err", err)
 	} else {
 		for _, d := range ds {
-			o.Storage.Disks = append(o.Storage.Disks, Disk(d))
+			disk := Disk{Name: d.Name, Model: d.Model, SizeBytes: d.SizeBytes, Rotational: d.Rotational, Removable: d.Removable}
+			disk.PowerState = c.powerState(ctx, d)
+			o.Storage.Disks = append(o.Storage.Disks, disk)
 		}
 	}
 	if ms, err := c.HAL.Mounts(); err != nil {
@@ -211,7 +237,37 @@ func (c *Collector) Collect(ctx context.Context) (Overview, error) {
 	if c.Services != nil {
 		o.Services = c.Services.Check(ctx)
 	}
+
+	var rep *smart.Report
+	if c.Smart != nil {
+		r := c.Smart.Report(ctx)
+		rep = &r
+	}
+	o.Health = Evaluate(o, rep, o.GeneratedAt)
 	return o, nil
+}
+
+// powerState asks internal sd* disks only: USB bridges often answer
+// CHECK POWER MODE with garbage.
+func (c *Collector) powerState(ctx context.Context, d hal.Disk) *string {
+	if c.DiskPower == nil || d.Removable || !strings.HasPrefix(d.Name, "sd") {
+		return nil
+	}
+	now := c.Now()
+	c.mu.Lock()
+	ps, ok := c.power[d.Name]
+	c.mu.Unlock()
+	if !ok || now.Sub(ps.at) >= c.PowerTTL {
+		ps = powerSample{state: c.DiskPower(ctx, d.Name), at: now}
+		c.mu.Lock()
+		if c.power == nil {
+			c.power = map[string]powerSample{}
+		}
+		c.power[d.Name] = ps
+		c.mu.Unlock()
+	}
+	st := ps.state
+	return &st
 }
 
 func (c *Collector) cpuUsage() *float64 {

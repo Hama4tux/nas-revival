@@ -19,12 +19,27 @@ export interface Overview {
     name: string; up: boolean; speedMbps: number | null; rxBytes: number | null; txBytes: number | null; addresses: string[];
   }[];
   storage: {
-    disks: { name: string; model: string; sizeBytes: number; rotational: boolean; removable: boolean }[];
+    disks: {
+      name: string; model: string; sizeBytes: number; rotational: boolean; removable: boolean;
+      /** null for removable disks, which are not asked. */
+      powerState: PowerState | null;
+    }[];
     filesystems: {
       mount: string; device: string; fsType: string; totalBytes: number; usedBytes: number; availableBytes: number;
     }[];
   };
   services: { name: string; label: string; state: ServiceState; since?: string | null }[];
+  health: SystemHealth;
+}
+
+export type HealthStatus = 'ok' | 'warn' | 'crit' | 'unknown';
+export type ProblemCode =
+  | 'sensorsFault' | 'sensorsUnknown' | 'fanStopped' | 'smartFailed' | 'smartSectors'
+  | 'fsCritical' | 'fsWarn' | 'serviceFailed' | 'collectFailed';
+export interface HealthProblem { severity: 'warn' | 'crit'; code: ProblemCode; subject?: string }
+/** Evaluated on the NAS by the shared collector (MON-01). */
+export interface SystemHealth {
+  status: HealthStatus; checkedAt: string; smartCheckedAt: string | null; problems: HealthProblem[];
 }
 
 export interface Smart {

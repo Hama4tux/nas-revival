@@ -23,8 +23,9 @@ const (
 	csrfValue  = "nas-revival"
 )
 
+// OverviewSource is the shared collector (system.Snapshots).
 type OverviewSource interface {
-	Collect(ctx context.Context) (system.Overview, error)
+	Snapshot(ctx context.Context) (system.Overview, error)
 }
 
 type SmartSource interface {
@@ -218,7 +219,7 @@ func (s *Server) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
-	o, err := s.Overview.Collect(r.Context())
+	o, err := s.Overview.Snapshot(r.Context())
 	if err != nil {
 		slog.Error("overview failed", "err", err)
 		writeError(w, http.StatusInternalServerError, "overview_unavailable", "Stav systému nelze načíst.")

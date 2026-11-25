@@ -2,7 +2,7 @@ import {
   Activity, ArrowDown, ArrowUp, Cpu, Database, FileText, HardDrive, Info, MemoryStick, Network, Thermometer, Usb,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import type { Overview, Smart } from '../../api/types';
+import type { Overview, PowerState, Smart } from '../../api/types';
 import type { NetHistory, NetRate } from '../../hooks/useOverview';
 import { cs } from '../../i18n/cs';
 import { deriveEvents } from '../../lib/events';
@@ -110,9 +110,22 @@ function FsRow({ f }: { f: Fs }) {
   );
 }
 
-function SmartLine({ s }: { s: SmartDisk | undefined }) {
+/** Drive power state from the overview (hdparm -C, never wakes the drive). */
+function PowerBadge({ state }: { state: PowerState | null }) {
+  const label = state ? t.powerState[state] : undefined;
+  if (!label) return null;
+  return (
+    <Badge variant={state === 'active' ? 'success' : 'neutral'}>
+      <span className={cn('mr-1.5 inline-block h-2 w-2 rounded-full', state === 'active' ? 'bg-success' : 'bg-muted-foreground/60')} aria-hidden />
+      {label}
+    </Badge>
+  );
+}
+
+function SmartLine({ s, powerKnown }: { s: SmartDisk | undefined; powerKnown: boolean }) {
   if (!s) return null;
-  if (s.standby) return <Badge>{t.standby}</Badge>;
+  // The power badge already says the disk sleeps; SMART has no fresh data then.
+  if (s.standby) return powerKnown ? null : <Badge>{t.standby}</Badge>;
   const bad = (s.reallocatedSectors ?? 0) > 0 || (s.pendingSectors ?? 0) > 0;
   return (
     <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
@@ -152,8 +165,11 @@ export function StorageCard({ o, smart, smartError, className }: { o: Overview; 
                 <span className="text-sm text-muted-foreground">{formatBytes(d.sizeBytes)} · {d.rotational ? t.hdd : t.ssd}</span>
               </div>
               <div className="mb-1 flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
-                <span>{diskRole(d, fss)}</span>
-                <SmartLine s={smart?.disks.find((s) => s.name === d.name)} />
+                <span className="flex flex-wrap items-center gap-2">
+                  {diskRole(d, fss)}
+                  <PowerBadge state={d.powerState} />
+                </span>
+                <SmartLine s={smart?.disks.find((s) => s.name === d.name)} powerKnown={t.powerState[d.powerState ?? ''] != null} />
               </div>
               {fss.length === 0 ? <p className="text-sm text-muted-foreground">{t.noVolumes}</p> : fss.map((f) => <FsRow key={f.mount} f={f} />)}
             </div>

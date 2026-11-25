@@ -15,7 +15,7 @@ import (
 
 type fakeOverview struct{}
 
-func (fakeOverview) Collect(context.Context) (system.Overview, error) {
+func (fakeOverview) Snapshot(context.Context) (system.Overview, error) {
 	return system.Overview{Host: system.Host{Hostname: "nas"}}, nil
 }
 

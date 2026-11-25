@@ -32,7 +32,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | STOR-02 | Storage | Filesystem usage per mount | P0 | Tested | — | statfs | L | none | matches `df -B1` | — |
 | SMART-01 | SMART | SMART health summary, cached 10 min, `--nocheck=standby` | P0 | Tested | SATA SMART | smartmontools | L | none | does not wake a sleeping disk | — |
 | SVC-01 | Services | Fixed allowlist of service states (systemctl show) | P0 | Tested | — | systemd | L | info disclosure only | unknown units = `not installed`; oneshot "done" | — |
-| UI-01 | UI | Dashboard: health summary, resources, storage, network chart, services, events | P0 | Implemented | — | React static | L | XSS via data (React escapes) | loads < 3 s on LAN; mobile 390 px checked with mock only | CORE-*, STOR-* |
+| UI-01 | UI | Dashboard: health summary (evaluated on the NAS, problem list, `checkedAt`), resources, storage with disk power state, network chart, services, events | P0 | Implemented | — | React static | L | XSS via data (React escapes) | loads < 3 s on LAN; mobile 390 px checked with mock only | CORE-*, STOR-* |
 | UI-02 | UI | Polling every 5 s only while page visible | P0 | Tested | — | Page Visibility API | L | none | no requests when tab hidden | — |
 | UI-03 | UI | Dark/light theme | P1 | Implemented | — | — | L | none | toggle persists per browser | — |
 | UI-04 | UI | Launcher and sidebar navigation | P0 | Implemented | — | — | L | none | unready apps disabled | — |
@@ -131,7 +131,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 
 | ID | Module | Feature | P | State | HW | SW deps | Res | Security risk | Acceptance criteria | Deps |
 |---|---|---|---|---|---|---|---|---|---|---|
-| MON-01 | Monitoring | Shared collector snapshot for all clients | P0 | Planned | — | — | L | — | 5 clients = same CPU as 1 (measured) | — |
+| MON-01 | Monitoring | Shared collector snapshot for all clients | P0 | Implemented | — | `internal/system/snapshot.go` | L | — | 5 clients = same CPU as 1 (unit test: 3 clients → 1 collection; CPU not measured) | — |
 | MON-02 | Monitoring | RAM ring buffer 1 h, 5-min aggregates 7 days, hourly flush | P1 | Planned | — | — | L | — | RSS growth < 1 MiB over 7 days | MON-01 |
 | MON-03 | Monitoring | CPU user/system/idle/iowait, swap in/out, memory pressure (PSI) | P1 | Planned | — | /proc/stat, /proc/vmstat, /proc/pressure | L | — | PSI shown if kernel exposes it | MON-01 |
 | MON-04 | Monitoring | Disk throughput, IOPS, busy %, latency | P1 | Planned | — | /proc/diskstats | L | — | does not wake disk (diskstats only) | MON-01 |

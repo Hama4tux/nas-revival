@@ -177,8 +177,8 @@ function overview(): Overview {
     ],
     storage: {
       disks: [
-        { name: 'sda', model: 'ST1000LM014-SSHD-8GB', sizeBytes: 1000204886016, rotational: true, removable: false },
-        { name: 'sdb', model: 'Cruzer Fit', sizeBytes: 15376318464, rotational: false, removable: true },
+        { name: 'sda', model: 'ST1000LM014-SSHD-8GB', sizeBytes: 1000204886016, rotational: true, removable: false, powerState: 'active' },
+        { name: 'sdb', model: 'Cruzer Fit', sizeBytes: 15376318464, rotational: false, removable: true, powerState: null },
       ],
       filesystems: [
         { mount: '/', device: '/dev/sda2', fsType: 'ext4', totalBytes: 31.5e9, usedBytes: 0.54e9, availableBytes: 30e9 },
@@ -196,6 +196,13 @@ function overview(): Overview {
       { name: 'nsa310-button.service', label: 'Tlačítko COPY', state: 'failed', since: ago(25 * 60) },
       { name: 'cron.service', label: 'Plánovač', state: 'unknown', since: null },
     ],
+    health: {
+      status: 'crit', checkedAt: new Date().toISOString(), smartCheckedAt: ago(-5),
+      problems: [
+        { severity: 'crit', code: 'serviceFailed', subject: 'Tlačítko COPY' },
+        { severity: 'warn', code: 'fsWarn', subject: '/media/usb' },
+      ],
+    },
   };
 }
 

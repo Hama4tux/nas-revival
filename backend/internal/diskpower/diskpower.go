@@ -174,8 +174,13 @@ const (
 
 var stateRe = regexp.MustCompile(`drive state is:\s+(\S+)`)
 
-// ParseState reads the output of hdparm -C.
+// ParseState reads the combined output of hdparm -C. An SG_IO error means the
+// drive (typically behind a USB bridge) did not answer; hdparm then still
+// prints "standby", which must not be believed.
 func ParseState(out string) string {
+	if strings.Contains(out, "SG_IO:") {
+		return StateUnknown
+	}
 	m := stateRe.FindStringSubmatch(out)
 	if m == nil {
 		return StateUnknown

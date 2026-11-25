@@ -1,8 +1,8 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém, Úložiště se SMART a napájením disku a nově restart/vypnutí NASu s kontrolou před akcí (W1.6). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W1.7 přehled se seznamem problémů a stavem napájení disku; mezitím se souhlasem vlastníka vyzkoušet restart z GUI.
+- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém, Úložiště se SMART a napájením disku, restart/vypnutí NASu s kontrolou před akcí (W1.6) a přehled, kde zdraví vyhodnocuje NAS (seznam problémů, stav napájení disku, jeden společný sběr dat – W1.7). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
+- Další krok: W1.8 historie konfigurace (zálohy, rozdíly, návrat); mezitím se souhlasem vlastníka vyzkoušet restart z GUI.
 
 ## Čeká na rozhodnutí
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
@@ -14,6 +14,7 @@
 ## Nedodělané
 - [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť, Systém a Úložiště – u Úložiště, že / a /srv/data nejsou označené „jen pro čtení“, panel SMART s živými daty včetně spuštění testu z GUI a panel Napájení – stav, uložení profilu, potvrzení u systémového disku, „Uspat teď“): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
 - [ ] Napájení disku: že se uložené nastavení (disks.json) po restartu NASu znovu použije, je ověřené jen restartem služby helperu – zkontrolovat při nejbližším plánovaném restartu (`journalctl -u nas-revival-helper | grep disk-power`). (2026-11-25)
+- [ ] Přehled (W1.7): zkontrolovat v prohlížeči souhrn „Zkontrolováno …“, seznam problémů a štítek „Disk běží/spí“ u sda; zobrazení na šířce telefonu ověřeno jen u předchozí verze s testovacími daty. (2026-11-25)
 - [ ] Napájení disku: nastavení se použije jen při startu helperu a z GUI; disk připojený za běhu (hotplug, eSATA) ho nedostane – doplnit udev pravidlo, až bude druhý disk. (2026-11-25)
 - [ ] Varování při rychlém růstu parkování hlav / roztočení (PWR-04) přesunuto do W3.6 (historie uspávání); počítadla zatím ukazuje panel SMART. (2026-11-25)
 - [ ] `timedatectl show-timesync` na NASu končí chybou „Connection timed out“ (synchronizace přitom běží), proto stránka NTP neukazuje aktuální server – zjistit proč. (2026-11-25)
@@ -54,6 +55,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Přehled se zdravím z NASu (W1.7): seznam problémů s časem kontroly, stav napájení disku ve widgetu Úložiště, jeden společný sběr dat pro všechny prohlížeče (5 s / 60 s v klidu); nasazeno na NAS, služba běží, v prohlížeči s přihlášením zatím nezkontrolováno. (2026-11-25)
 - Restart a vypnutí z GUI (W1.6): kontrola před akcí (samotest SMART, COPY, apt/dpkg, nepotvrzená síť), potvrzení názvem NASu a jednorázovým tokenem, vynucení druhým potvrzením, sync a obrazovka „restartuje se / vypíná se“; kontrola ověřena na NASu, samotný restart zatím ne. (2026-11-25)
 - Napájení disku z GUI (W1.5): stav bez probuzení, profily Výkon/Vyvážený/Úsporný/Vlastní (doba do uspání, APM), trvalé uložení v /etc/nas-revival/disks.json a použití při startu, „Uspat teď“; APM 254 na systémovém disku se teď nastavuje sám. Ověřeno na NASu přes root helper. (2026-11-25)
 - SMART detail disku (W1.4): atributy se zvýrazněním a dekódováním Seagate, historie samotestů z disku, spuštění krátkého/dlouhého testu přes root helper (jeden test na disk) s průběhem v %; krátký test z helperu na NASu prošel. (2026-11-25)

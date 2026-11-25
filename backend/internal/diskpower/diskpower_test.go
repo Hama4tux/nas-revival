@@ -55,6 +55,8 @@ func TestParseState(t *testing.T) {
 		"\n/dev/sda:\n drive state is:  sleeping\n":    StateSleep,
 		"\n/dev/sda:\n drive state is:  unknown\n":     StateUnknown,
 		"garbage": StateUnknown,
+		// USB bridge without ATA pass-through: hdparm prints a made-up "standby".
+		"SG_IO: bad/missing sense data, sb[]:  70 00 05 00\n\n/dev/sdb:\n drive state is:  standby\n": StateUnknown,
 	}
 	for in, want := range cases {
 		if got := ParseState(in); got != want {

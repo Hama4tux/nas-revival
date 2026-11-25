@@ -31,7 +31,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 | W1.4 ✅ 2026-11-25 | Disk detail: SMART attributes with highlights, self-test start, progress %, history | `GET /storage/disks/{id}/smart`, `POST …/smart/test` | `smart.test` | SMART-10, SMART-11 |
 | W1.5 ✅ 2026-11-25 | Disk detail → Power: state (active/standby), profile, standby timeout, APM, standby now | `GET/PUT /storage/disks/{id}/power`, `POST …/standby` | `disk.setPower`, `disk.standby`, boot task `disk-power` | PWR-01..03 (PWR-04 load-cycle growth warning moved to W3.6) |
 | W1.6 ✅ 2026-11-25 | Quick actions: restart / shut down with preflight dialog and "going down" screen | `POST /system/{reboot,shutdown}/preview`, `POST /system/{reboot,shutdown}` | `power.reboot`, `power.shutdown` | CORE-12..14 |
-| W1.7 | Overview: health with problem list + `checkedAt`, disk power state in storage widget | `GET /overview` (shared collector) | – | MON-01, UI-01 |
+| W1.7 ✅ 2026-11-25 | Overview: health with problem list + `checkedAt`, disk power state in storage widget | `GET /overview` (shared collector) | – | MON-01, UI-01 |
 | W1.8 | Config history (Control panel → Configuration): snapshots, drift, rollback | `GET /config/history`, `POST /config/rollback/{n}` | `config.*` | CFG-02..04 |
 | W1.9 | Storage → Activity (on demand): per-process disk writes, why the disk does not sleep | `GET /storage/activity` | `disk.activity` | DIAG-01, PWR-06 |
 
