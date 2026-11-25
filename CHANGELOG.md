@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-25
+- Debian 13 s jádrem 6.12.119 poprvé naběhl na NASu z USB flashky přes původní U-Boot, bez zápisu do NAND; funguje síť, SSH s klíčem a čidlo LM85.
+- Na NASu opraven překlad jmen (DNS), doinstalován firmware síťové karty, nastavena tovární MAC adresa (projeví se po dalším startu) a zelená LED SYS se rozsvítí po startu systému.
+
 ## 2026-11-19
 - Na NASu proběhla čtecí diagnostika přes Telnet. Zjištěno: procesor Marvell 88F6281 A1 (1,2 GHz), čip ventilátoru LM85, síťová karta Realtek RTL8111D. Všechny tři odpovídají profilu OpenWrt NSA310b, takže stačí standardní image OpenWrt a varianta pro ADT7476 není potřeba.
 - Původní jádro NASu nepodporuje kexec, takže nový systém nejde spustit bez sériového kabelu (UART).

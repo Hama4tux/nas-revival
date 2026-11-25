@@ -1,14 +1,21 @@
 # Otevřené body
 
-## Stav (2026-11-19)
-- Stav: Čtecí diagnostika na NASu potvrdila, že hardware (procesor 88F6281 A1, ventilátor LM85, síť RTL8111D) odpovídá profilu OpenWrt NSA310b. Hotový je i ověřený build a simulace v QEMU. Na NASu se nic neměnilo.
-- Další krok: pořídit USB–TTL adaptér (3,3 V) a dočasně spustit standardní initramfs OpenWrt NSA310b z RAM (M3). Bez UART to nejde, protože původní jádro nemá kexec.
+## Stav (2026-11-25)
+- Stav: Debian 13 (jádro 6.12.119) běží z USB flashky přes původní U-Boot (jen v RAM, NAND beze změny); SSH s klíčem, opravené DNS, nainstalovaný firmware-realtek, nové heslo roota a zelená LED SYS.
+- Další krok: při příštím bootu ověřit tovární MAC a načtení firmwaru síťovky; pak jádro s LED triggery, disk, Samba a trvalý boot z USB.
 
 ## Čeká na rozhodnutí
-- [ ] Vlastník objednal USB–TTL adaptér CP2102. Až přijde, otevřít kryt a zjistit, jestli je konektor konzole osazený kolíky. Pájet vlastník nebude: když kolíky chybí, zkusit kontakt bez pájení (kolíková lišta zasunutá šikmo do otvorů); jinak rozhodnout o přímém flashi NAND ze stock Linuxu, který nemá žádnou cestu záchrany. (2026-11-19)
+- [ ] Zastavit odpočet U-Bootu (cca 3 s) a přečíst prostředí (printenv) jen pro čtení, žádný saveenv – podklad pro boot Debianu z USB. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 ## Nedodělané
+- [ ] Původní U-Boot najde USB flashku jen při prvním `usb start` po zapnutí a jen v předním portu; výzva je `NSA310>>`, odpočet zastaví mezery/Ctrl+C posílané hned od banneru. (2026-11-25)
+- [ ] Síťovka r8169: firmware-realtek nainstalován a tovární MAC nastavena souborem /etc/systemd/network/10-nsa310-mac.link; obojí se projeví až po dalším bootu (vyžaduje sériovou konzoli kvůli U-Bootu) – ověřit firmware v dmesg a novou adresu z DHCP (IP se může změnit). (2026-11-25)
+- [ ] LED: jádro má jen triggery timer/heartbeat/default-on, takže HDD/USB/eSATA a LED síťového portu nesvítí; do konfigurace jádra přidat LEDS_TRIGGER_DISK, USB_LEDS_TRIGGER_USBPORT, LEDS_TRIGGER_NETDEV a R8169_LEDS a namapovat LED. (2026-11-25)
+- [ ] Build rootfs (mmdebstrap) převzal resolv.conf stavebního počítače (127.0.0.53 bez resolved) – v receptu doinstalovat systemd-resolved nebo zapsat správný resolv.conf; na NASu opraveno ručně. (2026-11-25)
+- [ ] AGENTS.md (sekce Tento projekt) stále zakazuje přístup k živému NASu a popisuje fázi OpenWrt; po přechodu na Debian ho přepsat podle skutečného postupu. (2026-11-25)
+- [ ] Debian 13 armel nemá oficiální jádro Kirkwood: jádro (mainline LTS 6.12) aktualizujeme sami – zautomatizovat build a hlídat nové verze 6.12.x. (2026-11-25)
+- [ ] Vlastník zvolil Debian 13 místo OpenWrt (2026-11-25): přepsat ADR 0001 a roadmapu (kořen na USB/disku, komunitní jádro Kirkwood, konec armel po Debianu 13) a nejdřív Debian vyzkoušet z USB přes původní U-Boot bez saveenv a bez zápisu do NAND. (2026-11-25)
 - [ ] NAS se po výpadku napájení nezapne sám (nutné tlačítko) – zohlednit u napájení z Delty a v plánu obnovy. (2026-11-18)
 - [ ] Instalace OpenWrt do NAND vyžaduje samostatný plán: oddíl ubi v OpenWrt (od 0x140000) přepíše prostředí U-Bootu i všechny oddíly výrobce a uboot_env v OpenWrt (0xC0000) leží uvnitř oddílu původního U-Bootu; buď nový U-Boot z OpenWrt, nebo vlastní mapa oddílů – rozhodnout před M7. (2026-11-18)
 - [ ] Při dočasném bootu (M3) nastavit bootargs jen v RAM (setenv bez saveenv): jádro OpenWrt přebírá příkazový řádek od původního U-Bootu (root=/dev/nfs, mtdparts=nand_mtd); podle analýzy je neškodný, na hardwaru neověřeno. Pod OpenWrt s původním U-Bootem nepoužívat fw_setenv. (2026-11-18)
@@ -18,7 +25,6 @@
 - [ ] Telnet je nešifrovaný (naběhne sám po zapnutí přes háček na md0, ověřeno 2026-11-19); v OpenWrt ho nahradit SSH s klíčem. (2026-11-16)
 - [ ] Ověřit zdraví disku pod /dev/md0 (SMART, vadné sektory); vlastník potvrdil, že svazek je prázdný po formátu a lze ho volně použít, zdraví disku tím ale ověřené není. (2026-11-16)
 - [ ] Doověřit PCB revizi desky (procesor, takt, síťový čip a čip ventilátoru už potvrdila diagnostika 2026-11-19). (2026-11-16)
-- [ ] Vysvětlit rozpor kernel_addr=480000 v exportu prostředí proti začátku kernel_1 na 0xC80000 podle uloženého mtdparts; žádnou hodnotu bez ověření nepoužívat k bootování ani zápisu. (2026-11-16)
 - [ ] Zjistit skutečné USB/FAT32 chování bootloaderu, podporu kernelu a DT/ATAG handoff a návrat při selhání; statické záznamy příkazů nejsou funkční test. (2026-11-16)
 - [ ] Doplnit původní nástroj a volby zálohování, ECC/OOB a bad-block politiku a kvalifikovat obnovu; devět ověřených hashů a oddělení OOB nepotvrzují obnovitelnost a analýza ECC neopravovala. (2026-11-16)
 - [ ] Dokončit offline posouzení původní dokumentace výrobce a komunitních návodů; přímý archiv výrobce a Doozan nebyly dostupné, historické návody nejsou schválený postup. (2026-11-16)
@@ -28,6 +34,11 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Debian na NASu: opravené DNS (systemd-resolved), firmware-realtek, nové heslo roota (v secret.env), LED SYS svítí. (2026-11-25)
+- První boot Debianu 13 (jádro 6.12.119, nsa310a DTB) z USB na NASu, přihlášení root na konzoli. (2026-11-25)
+- Sestaven Debian 13.8 armel (mmdebstrap) a jádro 6.12.119 pro NSA310a, nahráno na USB flashku. (2026-11-25)
+- Obousměrná sériová konzole: TX NASu na J2 pin 2, TXD adaptéru zapojen; původní firmware na konzoli dává root shell BusyBox bez hesla. (2026-11-25)
+- Sériová konzole funguje: CP2102 na J2, 115200 8N1; U-Boot 1.1.4 čte jádro z NAND 0xC80000 (kernel_1, 0xA00000) do RAM 0x2000000, legacy uImage; rozpor kernel_addr vyřešen. Výpis mimo git v ~/VScode/NAS310. (2026-11-25)
 - Čtecí diagnostika na NASu: 88F6281 A1, LM85, RTL8111D sedí na OpenWrt NSA310b; původní jádro bez kexec, Telnet po zapnutí naběhne sám. (2026-11-19)
 - Ověřený build OpenWrt 25.12.6 (podpis a SHA-256) a simulace v QEMU: ARMv5TE userspace bez chyb, plný systém v 256 MB s RAID1/ext4/SMB, reboot a výpadek napájení; opraveno pořadí mdadm/fstab a ukázkové pole v konfiguraci mdadm. (2026-11-18)
 - Stage 1 vyhodnocen a zastaven: build uClibc-ng 1.0.59 narazil na glibc podmínku v linux/socket.h z 2.6.31.8; rozbité buildy a cache smazány, další směr OpenWrt. (2026-11-16)
