@@ -18,7 +18,9 @@
 - [ ] Aktualizace jádra z webu (podklad pro backend, který staví druhý agent): zápis z Linuxu je ověřený (ECC sedí s U-Bootem, postup v docs/debian/boot.md). Strategie: slot B drží poslední funkční jádro; při upgradu nejdřív zkopírovat A → B, pak nové jádro do A, každý zápis ověřit zpětným čtením (sha256, corrected_bits/ecc_failures) a nikdy nezapisovat oba sloty najednou. První upgrade tímto postupem udělat s konzolí po ruce. (2026-11-25)
 - [ ] Značka slotu pro aktualizaci jádra: příkazy slotA/slotB v U-Bootu mají přidat do bootargs značku (např. nsa_slot=A/B); web smí kopírovat A → B jen když /proc/cmdline ukazuje nsa_slot=A, jinak běží záloha a upgrade musí odmítnout. Vyžaduje jednu úpravu prostředí U-Bootu přes konzoli (saveenv). (2026-11-25)
 - [ ] Zkušební jednorázový start nového jádra: U-Boot přepne na slot B jen když jádro z A nejde načíst, ne když nové jádro zamrzne nebo spadne – navrhnout „boot once“ (nové jádro se spustí jednou, po potvrzení zdraví z Linuxu se stane výchozím, jinak další start ze slotu B), vč. ověření bezpečného zápisu prostředí U-Bootu z Linuxu (fw_setenv, mtd1). Do té doby je při vadném jádře nutná konzole. (2026-11-25)
-- [ ] Dlouhý test SMART nového disku: běží třetí pokus (v 16:10 zbývalo 80 %, trvá asi 3,5 h); navíc je na NASu jednorázový časovač smart-long na 22:00 – pokud test do té doby doběhne, spustí další, jinak se nespustí. Výsledek zkontrolovat (smartctl -l selftest /dev/sda). (2026-11-25)
+- [ ] Dlouhý test SMART nového disku: počtvrté přerušen (16:18 krátký výpadek spojení s diskem při manipulaci s otevřeným NASem, pak vypnutí kvůli přenesení); časovač na 22:00 vypnutím zanikl – po přenesení test znovu naplánovat a výsledek zkontrolovat (smartctl -l selftest /dev/sda). (2026-11-25)
+- [ ] Tlačítko COPY: vyzkoušet skutečnou zálohu s běžnou flashkou FAT32 (zatím ověřeno jen přeskočení záchranné flashky a červená LED). (2026-11-25)
+- [ ] Tlačítko COPY: jádro neumí exFAT ani NTFS (běžné na flashkách nad 32 GB a externích discích) – přidat moduly exfat a ntfs3 do jádra; vyžaduje nové jádro a zápis do slotu A. (2026-11-25)
 - [ ] Projektová část AGENTS.md („Tento projekt“) je zastaralá – pořád zakazuje přístup k NASu a popisuje fázi OpenWrt; přepsat podle fáze Debian. (2026-11-25)
 - [ ] Ventilátor: po pár dnech provozu ověřit teplotu disku při minimálních otáčkách (LM85 disk nevidí); kdyby šla nad ~50 °C, snížit práh v deploy/debian/nsa310-fan. (2026-11-25)
 - [ ] Při chybějícím nebo vadném disku jádro čeká na kořen donekonečna (rootwait) – zvážit nouzový kořen (USB flashka) nebo timeout. (2026-11-25)
@@ -44,6 +46,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Tlačítko COPY zálohuje USB flashku do /srv/data/usb-zalohy (služby nsa310-button a nsa310-copy). (2026-11-25)
 - Ventilátor řídí automaticky čip LM85 (služba nsa310-fan), už nejede pořád naplno. (2026-11-25)
 - Webové GUI nasazeno na NAS (port 8443, uživatel nas-revival, 24–42 MB RAM); SMART i stav služeb fungují pod omezeným uživatelem. (2026-11-25)
 - Webové GUI – čtecí přehled: Go backend (ARMv5) a React rozhraní, přihlášení, testy prošly, ověřeno v prohlížeči na pracovní stanici. (2026-11-25)

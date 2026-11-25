@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-25
+- Tlačítko COPY na předním panelu zálohuje USB flashku na NAS jako původní firmware: každý stisk vytvoří novou složku s datem v /srv/data/usb-zalohy, nezměněné soubory nezabírají místo navíc a flashka se připojí jen pro čtení. COPY bliká zeleně při kopírování, svítí zeleně po dokončení (flashku lze vytáhnout) a červeně při chybě. Zatím jen flashky FAT32 a ext; exFAT a NTFS jádro neumí.
 - Ventilátor už nejede pořád naplno: řídí ho sám čip LM85 podle nejteplejšího čidla (pod 40 °C asi třetina otáček, od 60 °C plný výkon, nikdy se nezastaví). Nastavuje to při startu služba nsa310-fan; když nastavení selže, ventilátor zůstane na plný výkon.
 - Webové rozhraní má nový vzhled podobný systémům NAS pro domácnosti: horní lišta, nabídka aplikací s dlaždicemi a přehled jako plocha s widgety, nahoře souhrn „Stav systému“, živá rychlost sítě. Zobrazuje se jen skutečně zapojený ventilátor.
 - Začalo webové rozhraní pro správu NASu: přihlášení a přehled stavu (systém, procesor, paměť, teploty a ventilátor, síť, disky a jejich zaplnění, SMART, služby). Backend je jeden program v Go pro procesor NASu, rozhraní je v Reactu a obnovuje se každých 5 s. Zatím je jen ke čtení a na NAS ještě nebylo nasazeno.

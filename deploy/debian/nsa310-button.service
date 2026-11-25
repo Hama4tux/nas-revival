@@ -1,0 +1,18 @@
+[Unit]
+Description=NSA310 front panel COPY button
+After=systemd-udev-settle.service
+
+[Service]
+ExecStart=/usr/local/bin/nsa310-button
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+DevicePolicy=closed
+DeviceAllow=char-input r
+MemoryMax=16M
+
+[Install]
+WantedBy=multi-user.target

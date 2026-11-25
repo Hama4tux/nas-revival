@@ -1,0 +1,12 @@
+[Unit]
+Description=NSA310 COPY button: back up USB stick to /srv/data/usb-zalohy
+RequiresMountsFor=/srv/data
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nsa310-copy
+Nice=10
+IOSchedulingClass=idle
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
