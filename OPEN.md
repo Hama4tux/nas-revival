@@ -1,8 +1,8 @@
 # Otevřené body
 
 ## Stav (2026-11-25)
-- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém a nově stránku Úložiště (disky, oddíly, systémový disk). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W1.4 SMART detail disku se samotesty a průběhem, pak W1.5 uspávání a APM disku z GUI.
+- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, nastavení sítě, NTP a certifikátu, stránku Systém a stránku Úložiště s detailem SMART a spouštěním samotestů (W1.4). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
+- Další krok: W1.5 uspávání a APM disku z GUI (stav, časový limit, uspat hned), pak W1.6 restart a vypnutí z GUI.
 
 ## Čeká na rozhodnutí
 - [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
@@ -10,13 +10,12 @@
 
 
 ## Nedodělané
-- [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť, Systém a Úložiště – u Úložiště, že / a /srv/data nejsou označené „jen pro čtení“): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
+- [ ] Zkontrolovat v prohlížeči s přihlášením nasazené GUI (nový vzhled, stránky Síť, Systém a Úložiště – u Úložiště, že / a /srv/data nejsou označené „jen pro čtení“, a panel SMART s živými daty včetně spuštění testu z GUI): změnu sítě potvrdit z nové adresy, přiřazení / k disku sda a Poslední události – agent nezná heslo administrátora, ověřil jen helper přímo přes socket. (2026-11-25)
 - [ ] Disk ST1000LM014: APM nastaveno ručně na 254 (bez parkování hlav, 35 015 cyklů při 6 869 h); platí jen do restartu – trvale ho bude nastavovat krok W1.5 (uspávání a APM z GUI). (2026-11-25)
 - [ ] `timedatectl show-timesync` na NASu končí chybou „Connection timed out“ (synchronizace přitom běží), proto stránka NTP neukazuje aktuální server – zjistit proč. (2026-11-25)
 - [ ] Rollback sítě po restartu NASu během čekající změny zatím neověřen (ověřen jen vypršením 180 s) – vyzkoušet při nejbližším plánovaném restartu. (2026-11-25)
 - [ ] NAS má od 2026-11-25 statickou IP (systemd-networkd, mimo repo) – ověřit, že adresa je mimo DHCP rozsah routeru nebo má rezervaci; na stejné adrese dřív běželo jiné zařízení (starý SSH klíč v known_hosts), zkontrolovat, že už neexistuje. (2026-11-25)
 - [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
-- [ ] GUI: u SMART ukazovat běžící samotest (průběh v %) a výsledek posledního testu. (2026-11-25)
 - [ ] Rozložení na mobilu ověřeno jen v prohlížeči na šířce 390 px s ukázkovými daty – zkontrolovat na skutečném telefonu. (2026-11-25)
 - [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
 - [ ] Aktualizace jádra z webu (podklad pro backend, který staví druhý agent): zápis z Linuxu je ověřený (ECC sedí s U-Bootem, postup v docs/debian/boot.md). Strategie: slot B drží poslední funkční jádro; při upgradu nejdřív zkopírovat A → B, pak nové jádro do A, každý zápis ověřit zpětným čtením (sha256, corrected_bits/ecc_failures) a nikdy nezapisovat oba sloty najednou. První upgrade tímto postupem udělat s konzolí po ruce. (2026-11-25)
@@ -49,6 +48,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- SMART detail disku (W1.4): atributy se zvýrazněním a dekódováním Seagate, historie samotestů z disku, spuštění krátkého/dlouhého testu přes root helper (jeden test na disk) s průběhem v %; krátký test z helperu na NASu prošel. (2026-11-25)
 - Stránka Úložiště (W1.3): stabilní ID disků, typ, oddíly, přípojné body s obsazeností, označení systémového disku a varování, že systém a data sdílí disk; ověřeno čtením na NASu pod uživatelem služby. (2026-11-25)
 - Root helper pro nastavení sítě, DNS, NTP a certifikátu nasazen; ověřeno odmítnutí cizích uživatelů, neznámých operací i podstrčených hodnot a návrat neověřené změny po 180 s. Vypnuto LLMNR, žurnál zapisuje po 15 min (max. 64 MB), nainstalován hdparm. (2026-11-25)
 - Audit a plán M0: 10 dokumentů v docs/ (architektura, roadmapa s backlogem M1, matice funkcí, kompatibilita HW, výkonový rozpočet s měřením na NASu, bezpečnostní model, návrh API, navigace UI, obnova, testovací plán) a čtecí měřicí skript scripts/measure/snapshot.sh. (2026-11-25)

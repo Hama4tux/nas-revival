@@ -94,6 +94,16 @@ func (c *Client) TimeApply(ctx context.Context, servers []string) (TimeState, er
 	return s, err
 }
 
+// SmartTest starts a self-test. Waking a sleeping disk takes several seconds,
+// so the call gets more time than the settings operations.
+func (c *Client) SmartTest(ctx context.Context, diskID, typ string) (SmartTestResult, error) {
+	var r SmartTestResult
+	long := *c
+	long.Timeout = 45 * time.Second
+	err := long.Call(ctx, "smart.test", map[string]string{"diskId": diskID, "type": typ}, &r)
+	return r, err
+}
+
 // AsError extracts a *Error from err.
 func AsError(err error) (*Error, bool) {
 	var e *Error

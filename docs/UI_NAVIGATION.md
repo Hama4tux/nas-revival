@@ -14,7 +14,7 @@ into **10 apps**; the rest are sections inside them. Each app has *Basic* tabs a
 | # | App (`nav` key) | Contains (plan modules) | Milestone | Today |
 |---|---|---|---|---|
 | 1 | Overview (`overview`) | Dashboard | – | ready |
-| 2 | Storage (`storage`) | Storage Manager, SMART, Disk power, Activity diagnostics, USB storage | M1 | disks tab ready (W1.3) |
+| 2 | Storage (`storage`) | Storage Manager, SMART, Disk power, Activity diagnostics, USB storage | M1 | disks tab ready (W1.3), SMART detail and self-tests per disk (W1.4) |
 | 3 | Shared folders (`shares`) | Shared Folder Management, recycle bin | M2 | tile exists, not ready |
 | 4 | Users & groups (`users`) | User & Group Management, roles | M2 | tile exists, not ready |
 | 5 | Services (`services`) | Service Manager + File Services (SMB, NFS, SSH/SFTP, FTP, discovery) as tabs | M2 | tile exists, not ready |

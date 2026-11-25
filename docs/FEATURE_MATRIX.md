@@ -75,8 +75,8 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | STOR-14 | Storage | Mount / unmount / read-only mount / automount (fstab `nofail`) | P1 | Planned | — | mount, fstab | L | data loss, boot hang | fstab entries by UUID with `nofail`; busy unmount reports holders | STOR-12, CFG-02 |
 | STOR-15 | Storage | Create partition / format (ext4 default) | P2 | Not started | — | parted, mkfs | M | data destruction | typed disk id + capacity confirmation; never system disk; read-only overview first | STOR-12 |
 | STOR-16 | Storage | exFAT / NTFS (ntfs3) support | P2 | Blocked | — | kernel modules | L | FS corruption on NTFS | needs new kernel with `exfat`, `ntfs3` | UPD-04 |
-| SMART-10 | SMART | Attribute table with vendor-aware highlights (5, 187, 188, 197, 198, 193, 9, 4, 12, 194) | P0 | Planned | SMART | smartmontools | L | none | raw values parsed per vendor (Seagate 48-bit packed) | SMART-01 |
-| SMART-11 | SMART | Self-test short/long: start, progress %, last result | P0 | Planned | SMART | smartctl -t/-c | M (disk busy) | DoS by repeated tests | one test per disk; progress shown; result in history | PRIV-01 |
+| SMART-10 | SMART | Attribute table with vendor-aware highlights (5, 187, 188, 197, 198, 193, 9, 4, 12, 194) | P0 | Implemented | SMART | smartmontools | L | none | raw values parsed per vendor (Seagate 48-bit packed) | SMART-01 |
+| SMART-11 | SMART | Self-test short/long: start, progress %, last result | P0 | Implemented | SMART | smartctl -t/-c | M (disk busy) | DoS by repeated tests | one test per disk; progress shown; result in history | PRIV-01 |
 | SMART-12 | SMART | Scheduled tests via timers | P1 | Planned | SMART | systemd timers | L | conflicts with backup | not concurrent with backup (lock) | TASK-01 |
 | SMART-13 | SMART | History of results and temperature, deterioration alerts | P1 | Planned | SMART | — | L | none | increase of 5/197/198 raises warning notification | LOG-10 |
 | PWR-01 | Disk power | Current power state (active/idle/standby) without waking | P0 | Planned | ATA | hdparm -C | L | none | query never spins the disk up (test with standby disk) | PRIV-01 |

@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { NetConfig, NetworkSettings, Overview, Smart, StorageReport, TimeSettings, TlsInfo } from '../api/types';
+import type { NetConfig, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, TimeSettings, TlsInfo } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -191,7 +191,7 @@ const storage = (): StorageReport => ({
   disks: [
     {
       id: 'wwn-0x5000c50000000001', idStable: true, name: 'sda', model: 'ST1000LM014-SSHD-8GB', vendor: null, serial: 'MOCK0001',
-      firmware: 'LVD4', bus: 'ata', type: 'sshd', rotationRpm: 5400, sizeBytes: 1000204886016, removable: false, readOnly: false,
+      firmware: 'LVD4', bus: 'ata', type: 'sshd', rotationRpm: 5400, sizeBytes: 1000204886016, removable: false, smart: true, readOnly: false,
       partitionTable: 'gpt', system: true, roles: ['system', 'swap', 'data'], sharedWithData: true,
       partitions: [
         { name: 'sda1', number: 1, sizeBytes: 30 * GiB, partUuid: 'mock-0001', partLabel: null, fsType: 'ext4', fsUuid: 'mock-fs-1', label: null,
@@ -206,7 +206,7 @@ const storage = (): StorageReport => ({
     },
     {
       id: 'usb-SanDisk_Cruzer_Fit_MOCK0002-0:0', idStable: true, name: 'sdb', model: 'Cruzer Fit', vendor: "SanDisk'", serial: 'MOCK0002',
-      firmware: '1.00', bus: 'usb', type: 'flash', rotationRpm: null, sizeBytes: 8 * GiB, removable: true, readOnly: false,
+      firmware: '1.00', bus: 'usb', type: 'flash', rotationRpm: null, sizeBytes: 8 * GiB, removable: true, smart: false, readOnly: false,
       partitionTable: 'dos', system: false, roles: ['boot'], sharedWithData: false,
       partitions: [
         { name: 'sdb1', number: 1, sizeBytes: 0.5 * GiB, partUuid: 'mock-01', partLabel: null, fsType: 'ext2', fsUuid: null, label: null,
@@ -218,6 +218,64 @@ const storage = (): StorageReport => ({
     },
   ],
 });
+
+/* ---------- SMART detail: a self-test "runs" for 2 minutes after it is started ---------- */
+let mockTest: { type: 'short' | 'long'; start: number } | null = null;
+const TEST_MS = 120e3;
+const a = (id: number, name: string, count: number, p: Partial<SmartAttribute> = {}): SmartAttribute => ({
+  id, name, value: 100, worst: 100, thresh: 0, raw: String(count), rawValue: count, count, prefailure: false,
+  whenFailed: '', key: [4, 5, 9, 10, 12, 187, 188, 193, 194, 197, 198, 199].includes(id), level: 'ok', ...p,
+});
+function smartDetail(): SmartDetail {
+  const attrs = [
+    a(1, 'Raw_Read_Error_Rate', 0, { value: 116, worst: 99, thresh: 6, prefailure: true, raw: '109331216', rawValue: 109331216 }),
+    a(4, 'Start_Stop_Count', 9731, { value: 91, worst: 91, thresh: 20 }),
+    a(5, 'Reallocated_Sector_Ct', 0, { thresh: 10, prefailure: true }),
+    a(7, 'Seek_Error_Rate', 16, { value: 72, worst: 60, thresh: 30, prefailure: true, raw: '68992411861', rawValue: 68992411861 }),
+    a(9, 'Power_On_Hours', 6870, { value: 93, worst: 93 }),
+    a(12, 'Power_Cycle_Count', 10115, { value: 91, worst: 91, thresh: 20 }),
+    a(187, 'Reported_Uncorrect', 0), a(188, 'Command_Timeout', 0),
+    a(193, 'Load_Cycle_Count', 35015, { value: 83, worst: 83 }),
+    a(194, 'Temperature_Celsius', 42, { value: 42, worst: 47, raw: '42 (0 6 0 0 0)' }),
+    a(197, 'Current_Pending_Sector', 0), a(198, 'Offline_Uncorrectable', 0),
+    a(199, 'UDMA_CRC_Error_Count', 2, { value: 200, worst: 200, level: 'warn' }),
+  ].map((x) => (x.key && x.level === 'ok' ? { ...x, level: 'info' as const } : x));
+  const history: SmartDetail['history'] = [
+    { type: 'long', typeText: 'Extended offline', status: 'Interrupted (host reset)', passed: false, remainingPercent: 80, lifetimeHours: 6866 },
+    { type: 'short', typeText: 'Short offline', status: 'Completed without error', passed: true, remainingPercent: null, lifetimeHours: 6865 },
+  ];
+  let selfTest: SmartDetail['selfTest'] = { value: 0, text: 'completed without error', running: false, remainingPercent: null, passed: true };
+  if (mockTest) {
+    const done = (Date.now() - mockTest.start) / TEST_MS;
+    if (done < 1) {
+      const rem = Math.max(10, Math.ceil((1 - done) * 10) * 10);
+      selfTest = { value: 240 + rem / 10, text: `in progress, ${rem}% remaining`, running: true, remainingPercent: rem, passed: null };
+    } else {
+      history.unshift({ type: mockTest.type, typeText: mockTest.type === 'long' ? 'Extended offline' : 'Short offline',
+        status: 'Completed without error', passed: true, remainingPercent: null, lifetimeHours: 6870 });
+    }
+  }
+  return {
+    checkedAt: new Date().toISOString(), standby: false, health: 'passed', model: 'ST1000LM014-SSHD-8GB', family: 'Seagate Laptop SSHD',
+    temperatureCelsius: 42, powerOnHours: 6870, powerCycles: 10115, selfTestsSupported: true, shortMinutes: 1, longMinutes: 206,
+    selfTest, attributes: attrs, history,
+  };
+}
+
+function smartRoute(path: string, method: string, body: unknown): Response | null {
+  const m = /^\/storage\/disks\/([^/]+)\/smart(\/test)?$/.exec(path);
+  if (!m) return null;
+  if (decodeURIComponent(m[1] ?? '') !== 'wwn-0x5000c50000000001') return err(404, 'smart_unsupported', 'Disk nepodporuje SMART.');
+  if (!m[2] && method === 'GET') return json(200, smartDetail());
+  if (m[2] && method === 'POST') {
+    const type = (body as { type?: string }).type;
+    if (type !== 'short' && type !== 'long') return bad('type', 'Typ testu musí být short nebo long.');
+    if (smartDetail().selfTest?.running) return err(409, 'test_running', 'Na disku už běží samotest. Počkejte na jeho dokončení.');
+    mockTest = { type, start: Date.now() };
+    return json(202, { diskId: decodeURIComponent(m[1] ?? ''), type, estimatedMinutes: type === 'long' ? 206 : 1 });
+  }
+  return null;
+}
 
 export function installMock(): void {
   const real = window.fetch.bind(window);
@@ -247,6 +305,12 @@ export function installMock(): void {
     if (path === '/overview') return json(200, overview());
     if (path === '/smart') return json(200, smart());
     if (path === '/storage') return json(200, storage());
+    if (path.startsWith('/storage/disks/')) {
+      let body: unknown = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = smartRoute(path, method, body);
+      if (r) return r;
+    }
     if (path.startsWith('/settings/') || path.startsWith('/system/')) {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }

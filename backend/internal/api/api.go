@@ -45,6 +45,9 @@ type Server struct {
 	System SystemSource
 	// Storage serves /storage; nil answers 503.
 	Storage StorageSource
+	// SmartDetail and SmartTests serve /storage/disks/{id}/smart; nil answers 503.
+	SmartDetail SmartDetailSource
+	SmartTests  SmartTester
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }

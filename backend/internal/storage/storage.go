@@ -39,6 +39,7 @@ type Disk struct {
 	RotationRPM    *int        `json:"rotationRpm"`
 	SizeBytes      uint64      `json:"sizeBytes"`
 	Removable      bool        `json:"removable"`
+	SMART          bool        `json:"smart"` // detail and self-tests available (W1.4)
 	ReadOnly       bool        `json:"readOnly"`
 	PartitionTable *string     `json:"partitionTable"`
 	System         bool        `json:"system"`
@@ -136,6 +137,7 @@ func (c Collector) disk(bd hal.BlockDisk, byDev map[string][]hal.MountEntry, isS
 		d.RotationRPM = &rpm
 	}
 	d.Type = typeOf(bd, d.Bus, d.RotationRPM)
+	d.SMART = DiskRef{Name: bd.Name, Bus: d.Bus, Removable: bd.Removable}.SMARTCapable()
 
 	roles := map[string]bool{}
 	if dm := byDev[bd.DevNum]; len(dm) > 0 { // filesystem directly on the disk, no partition table
@@ -271,4 +273,31 @@ func firstNonEmpty(vs ...string) string {
 		}
 	}
 	return ""
+}
+
+// DiskRef is the minimum the privileged helper needs to act on a disk.
+type DiskRef struct {
+	Name      string
+	Bus       string
+	Removable bool
+}
+
+// SMARTCapable reports whether smartctl can address the disk directly:
+// internal SATA disks only (USB bridges rarely pass SMART through reliably).
+func (d DiskRef) SMARTCapable() bool {
+	return d.Bus == "ata" && !d.Removable && strings.HasPrefix(d.Name, "sd")
+}
+
+// ResolveDisk finds a disk by its stable ID using sysfs and udev data only.
+func ResolveDisk(r hal.Reader, id string) (DiskRef, bool, error) {
+	disks, err := r.BlockDisks()
+	if err != nil {
+		return DiskRef{}, false, err
+	}
+	for _, bd := range disks {
+		if sid, _ := stableID(bd); sid == id {
+			return DiskRef{Name: bd.Name, Bus: busOf(bd), Removable: bd.Removable}, true, nil
+		}
+	}
+	return DiskRef{}, false, nil
 }

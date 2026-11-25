@@ -142,6 +142,24 @@ func TestReportNSA310(t *testing.T) {
 	if d, ok := r.FindByID("wwn-0x5000c500000000aa"); !ok || d.Name != "sda" {
 		t.Error("FindByID wwn failed")
 	}
+	if !sda.SMART || sdb.SMART {
+		t.Errorf("SMART capable: sda=%v sdb=%v", sda.SMART, sdb.SMART)
+	}
+}
+
+func TestResolveDisk(t *testing.T) {
+	r := fixture(t, nsa310)
+	d, ok, err := ResolveDisk(r, "wwn-0x5000c500000000aa")
+	if err != nil || !ok || d.Name != "sda" || !d.SMARTCapable() {
+		t.Fatalf("sda: %+v %v %v", d, ok, err)
+	}
+	d, ok, _ = ResolveDisk(r, "usb-SanDisk_Cruzer_Fit_TEST0002-0:0")
+	if !ok || d.SMARTCapable() {
+		t.Fatalf("usb stick must not be SMART capable: %+v", d)
+	}
+	if _, ok, _ := ResolveDisk(r, "ata-ST1000LM014-SSHD-8GB_TEST0001"); ok {
+		t.Fatal("only the stable ID shown in the UI may resolve")
+	}
 }
 
 // The ID must follow the disk, not the kernel name, when sda and sdb swap.

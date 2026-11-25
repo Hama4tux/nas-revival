@@ -25,8 +25,9 @@ const (
 
 // Dispatcher executes the fixed list of operations.
 type Dispatcher struct {
-	Net  *Manager
-	Time *TimeManager
+	Net   *Manager
+	Time  *TimeManager
+	Smart *SmartManager
 }
 
 type request struct {
@@ -75,6 +76,18 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return nil, err
 		}
 		return d.Time.Apply(ctx, a.NTPServers)
+	case "smart.test":
+		if d.Smart == nil {
+			break
+		}
+		var a struct {
+			DiskID string `json:"diskId"`
+			Type   string `json:"type"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Smart.Test(ctx, a.DiskID, a.Type)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

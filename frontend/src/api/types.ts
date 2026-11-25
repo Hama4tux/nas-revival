@@ -104,9 +104,37 @@ export interface StorageDisk {
   model: string | null; vendor: string | null; serial: string | null; firmware: string | null;
   bus: 'ata' | 'usb' | 'nvme' | 'mmc' | 'unknown';
   type: 'hdd' | 'sshd' | 'ssd' | 'flash' | 'unknown';
-  rotationRpm: number | null; sizeBytes: number; removable: boolean; readOnly: boolean;
+  rotationRpm: number | null; sizeBytes: number; removable: boolean; smart: boolean; readOnly: boolean;
   partitionTable: string | null; system: boolean; roles: DiskRole[]; sharedWithData: boolean;
   partitions: StoragePartition[];
 }
 
 export interface StorageReport { disks: StorageDisk[] }
+
+export type SmartLevel = 'ok' | 'info' | 'warn' | 'crit';
+
+export interface SmartAttribute {
+  id: number; name: string; value: number | null; worst: number | null; thresh: number | null;
+  raw: string; rawValue: number; count: number; prefailure: boolean; whenFailed: '' | 'past' | 'now';
+  key: boolean; level: SmartLevel;
+}
+
+export interface SmartSelfTestStatus {
+  value: number; text: string; running: boolean; remainingPercent: number | null; passed: boolean | null;
+}
+
+export interface SmartSelfTestEntry {
+  type: 'short' | 'long' | 'conveyance' | 'other'; typeText: string; status: string; passed: boolean;
+  remainingPercent: number | null; lifetimeHours: number;
+}
+
+export interface SmartDetail {
+  checkedAt: string; standby: boolean; health: 'passed' | 'failed' | 'unknown';
+  model: string | null; family: string | null; temperatureCelsius: number | null; powerOnHours: number | null;
+  powerCycles: number | null; selfTestsSupported: boolean; shortMinutes: number | null; longMinutes: number | null;
+  selfTest: SmartSelfTestStatus | null; attributes: SmartAttribute[]; history: SmartSelfTestEntry[];
+  error?: 'smartctl_unavailable' | 'smartctl_failed';
+}
+
+export type SmartTestType = 'short' | 'long';
+export interface SmartTestStarted { diskId: string; type: SmartTestType; estimatedMinutes: number | null }

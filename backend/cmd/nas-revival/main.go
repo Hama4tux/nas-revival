@@ -93,6 +93,9 @@ func serve(args []string) error {
 	srv.System = systemSource{root: *root, profile: system.DetectProfile(*root)}
 	srv.Network, srv.Time = hc, hc
 	srv.Storage = storage.Collector{HAL: reader, StatFS: statFS}
+	// Short TTL: the UI polls progress of a running self-test.
+	srv.SmartDetail = &smart.DetailService{Run: smart.DetailExecRunner, TTL: 5 * time.Second, Now: time.Now}
+	srv.SmartTests = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -223,9 +226,16 @@ func runHelper(args []string) error {
 	}
 	slog.Info("helper listening", "socket", *sock, "uid", uid)
 	return helper.Serve(ctx, ln, uid, &helper.Dispatcher{
-		Net:  nm,
-		Time: &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
+		Net:   nm,
+		Time:  &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner},
+		Smart: &helper.SmartManager{Resolve: resolveSmartDisk, Run: helper.ExecRunner},
 	})
+}
+
+// resolveSmartDisk maps a stable disk ID to its kernel name from sysfs/udev.
+func resolveSmartDisk(id string) (helper.SmartDisk, bool, error) {
+	d, ok, err := storage.ResolveDisk(hal.Reader{Root: "/"}, id)
+	return helper.SmartDisk{Name: d.Name, Capable: d.SMARTCapable()}, ok, err
 }
 
 func statFS(path string) (total, free, avail uint64, err error) {

@@ -1,10 +1,11 @@
-import { AlertTriangle, HardDrive, RefreshCw, Usb } from 'lucide-react';
+import { Activity, AlertTriangle, ChevronDown, HardDrive, RefreshCw, Usb } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import type { StorageDisk, StoragePartition, StorageReport } from '../api/types';
 import { cs } from '../i18n/cs';
 import { formatBytes, ratioPercent } from '../lib/format';
 import { diskTitle, diskWarnings, unpartitionedBytes } from '../lib/storage';
+import { SmartPanel } from './SmartPanel';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
@@ -64,6 +65,8 @@ function DiskCard({ d }: { d: StorageDisk }) {
   const warnings = diskWarnings(d);
   const free = unpartitionedBytes(d);
   const Icon = d.bus === 'usb' ? Usb : HardDrive;
+  const [smartOpen, setSmartOpen] = useState(false);
+  const smartId = `smart-${d.name}`;
   return (
     <Widget id={`disk-${d.name}`} title={diskTitle(d)} icon={<Icon />}
       right={<div className="flex flex-wrap justify-end gap-1">
@@ -101,6 +104,17 @@ function DiskCard({ d }: { d: StorageDisk }) {
           {free > 0 && <p className="mt-2 text-sm text-muted-foreground">{t.unpartitioned(formatBytes(free))}</p>}
         </div>
       </div>
+      {d.smart && (
+        <div className="mt-4 border-t border-border/70 pt-3">
+          <Button type="button" variant="ghost" size="sm" aria-expanded={smartOpen} aria-controls={smartId}
+            onClick={() => setSmartOpen((v) => !v)}>
+            <Activity className="h-4 w-4" aria-hidden />
+            {smartOpen ? cs.smart.close : cs.smart.open}
+            <ChevronDown className={`h-4 w-4 transition-transform ${smartOpen ? 'rotate-180' : ''}`} aria-hidden />
+          </Button>
+          {smartOpen && <div id={smartId} className="mt-3"><SmartPanel diskId={d.id} /></div>}
+        </div>
+      )}
     </Widget>
   );
 }

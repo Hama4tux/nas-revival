@@ -5,7 +5,7 @@ import { diskTitle, diskWarnings, unpartitionedBytes } from './storage';
 const GiB = 1024 ** 3;
 const disk = (p: Partial<StorageDisk> = {}): StorageDisk => ({
   id: 'wwn-0x1', idStable: true, name: 'sda', model: 'ST1000LM014-SSHD', vendor: null, serial: 'X', firmware: 'LVD4',
-  bus: 'ata', type: 'sshd', rotationRpm: 5400, sizeBytes: 100 * GiB, removable: false, readOnly: false,
+  bus: 'ata', type: 'sshd', rotationRpm: 5400, sizeBytes: 100 * GiB, removable: false, smart: true, readOnly: false,
   partitionTable: 'gpt', system: true, roles: ['system'], sharedWithData: false, partitions: [], ...p,
 });
 const part = (name: string, sizeBytes: number) => ({
