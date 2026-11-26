@@ -16,6 +16,7 @@
 
 
 ## Nedodělané
+- [ ] Web: po nasazení nové verze běží v otevřené záložce dál starý kód (nutné Ctrl+Shift+R) – zvážit upozornění „je dostupná nová verze, obnovte stránku“. (2026-11-26)
 - [ ] Nový disk WD Red 2 TB (WD20EFRX, CMR, 36 900 provozních hodin, SMART bez chyb): spustit dlouhý test SMART z GUI (Úložiště → SMART) a nastavit profil napájení – po výměně běží výchozí Vyvážený bez uloženého nastavení. (2026-11-26)
 - [ ] Po nejbližším plánovaném restartu NASu ověřit, že helper startuje až po připojení /proc/fs/nfsd (seznam připojených klientů NFS; `scripts/webui/e2e-nfs.sh proxmox.home`) – opraveno pořadím v nas-revival-helper.service, ověřeno restartem helperu, ne restartem NASu. (2026-11-26)
 - [ ] Flashka v NASu je teď instalační (štítek nrinstall, kopie systému z 26. 11. 10:04, instalace hotová, služba vypnutá); záchranná kopie z 25. 11. na ní už není. Před další výměnou disku ji připravit znovu skriptem prepare-usb.sh. Starý 2,5" disk (1 TB SSHD) je úplná záloha systému k 26. 11. (2026-11-26)
