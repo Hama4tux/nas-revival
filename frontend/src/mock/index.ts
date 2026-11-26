@@ -446,7 +446,7 @@ function usersRoute(path: string, method: string, body: Record<string, unknown>)
     if (!NAME.test(name)) return bad('name', 'Jméno nesplňuje pravidla.');
     if (name.startsWith('nas-')) return bad('name', 'Jména začínající nas- jsou vyhrazená.');
     if (mockUsers.some((u) => u.name === name) || mockGroups.some((g) => g.name === name)) return bad('name', 'Uživatel s tímto jménem už existuje.');
-    if ([...pw].length < 12) return bad('password', 'Heslo musí mít alespoň 12 znaků.');
+    if (!pw) return bad('password', 'Heslo nesmí být prázdné.');
     mockUsers = [...mockUsers, { name, uid: 1000 + mockUsers.length + 4, fullName: String(body.fullName ?? '').trim(), groups: [],
       role: (body.role as Role | undefined) ?? 'user', disabled: false,
       password: { linux: true, samba: 'unavailable' as const, web: true, changedOutside: false, changed: new Date().toISOString() } }]
@@ -477,7 +477,7 @@ function usersRoute(path: string, method: string, body: Record<string, unknown>)
   if (!u) return err(404, 'not_found', 'Uživatel neexistuje nebo ho nelze spravovat.');
   const patch = (p: Partial<UserInfo>) => { mockUsers = mockUsers.map((x) => (x.name === u.name ? { ...x, ...p } : x)); };
   if (m[2] === 'password' && method === 'PUT') {
-    if ([...pw].length < 12) return bad('password', 'Heslo musí mít alespoň 12 znaků.');
+    if (!pw) return bad('password', 'Heslo nesmí být prázdné.');
     patch({ password: { ...u.password, web: true, changedOutside: false, changed: new Date().toISOString() } });
     return json(200, { samba: false });
   }
@@ -740,7 +740,7 @@ export function installMock(): void {
     if (path === '/session/password' && method === 'PUT') {
       const b = JSON.parse(String(init?.body ?? '{}')) as { current?: string; password?: string };
       if (b.current !== 'demo') return bad('current', 'Současné heslo nesouhlasí.');
-      if ([...(b.password ?? '')].length < 12) return bad('password', 'Heslo musí mít alespoň 12 znaků.');
+      if (!b.password) return bad('password', 'Heslo nesmí být prázdné.');
       loggedIn = false;
       return json(200, { samba: false });
     }

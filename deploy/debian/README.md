@@ -9,7 +9,7 @@ useradd --system --no-create-home --shell /usr/sbin/nologin nas-revival
 install -m 0755 nas-revival-armv5 /usr/local/bin/nas-revival
 install -m 0644 nas-revival.service nas-revival-helper.service /etc/systemd/system/
 install -d -m 0700 -o nas-revival -g nas-revival /etc/nas-revival
-nas-revival set-password -config /etc/nas-revival     # at least 12 characters
+nas-revival set-password -config /etc/nas-revival     # must not be empty
 chown nas-revival:nas-revival /etc/nas-revival/admin.json
 systemctl daemon-reload && systemctl enable --now nas-revival-helper nas-revival
 ```
@@ -50,8 +50,9 @@ with a real client, then restores the previous SMB settings and removes everythi
 NFS (W2.6): needs a kernel with `CONFIG_NFSD` (module `nfsd`, in `scripts/debian/build-kernel.sh` since
 W2.6; in slot A since 2026-11-26). Install with `install-nfs.sh` (as root on the NAS;
 `--no-install-recommends`, a temporary `policy-rc.d`): it writes `/etc/nfs.conf.d/nas-revival.conf`
-(NFSv4.1/4.2 only, TCP, 4 threads), leaves `nfs-server` disabled and masks `rpcbind` and `rpc-statd`, so the
-only port is TCP 2049. The helper owns `/etc/exports.d/nas-revival.exports` (`/etc/exports` stays untouched):
+(NFSv4.1/4.2 only, TCP, 4 threads), leaves `nfs-server` disabled on a fresh install (a re-run keeps the UI state) and masks `rpc-statd`. Ports: TCP 2049
+and TCP 111 – Proxmox checks an NFSv4 storage with `rpcinfo -T tcp <nas> nfs 4`, which asks rpcbind, and reports
+"not online" without it; a socket drop-in limits rpcbind to TCP and `/etc/default/rpcbind` binds its UDP socket to loopback. The helper owns `/etc/exports.d/nas-revival.exports` (`/etc/exports` stays untouched):
 it renders it from `/etc/nas-revival/nfs.json` (exports by share name, clients as IP or network, read-only per
 client, root or all squash, always `sync,secure,no_subtree_check,sec=sys`, `anonuid=65534`,
 `anongid=<nas-nfs>`), runs `systemctl enable/disable --now nfs-server` and `exportfs -ra` and puts the old

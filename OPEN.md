@@ -22,7 +22,7 @@
 - [ ] Trvalá automatická obnova z USB (jádro s ramdiskem: disk bez systému → instalace z flashky se značkou NAS Revival) – výměna disku ji nepotřebuje (stačí PARTUUID na flashce), zůstává jako návrh. (2026-11-26)
 - [ ] NFS (W2.6): kartu Služby → NFS projít v prohlížeči na telefonu i desktopu a vyzkoušet skutečnou zálohu vzdump z Proxmoxu (pvesm add nfs … --options vers=4.2) – test připojení a zápisu z Proxmoxu prošel (scripts/webui/e2e-nfs.sh proxmox.home). (2026-11-26)
 - [ ] NFS: nabízí se jen NFSv4.1/4.2 (bez rpcbind); NFSv3 pro starší klienty a výběr exportu v Proxmoxu (showmount) nefunguje – doplnit jen když bude potřeba. (2026-11-26)
-- [ ] NFS: přidat port TCP 2049 do inventáře služeb HomeSecurity, až bude NFS zapnuté (viz bod o záznamu NASu v inventáři). (2026-11-26)
+- [ ] NFS: přidat porty TCP 2049 a TCP 111 (rpcbind) do inventáře služeb HomeSecurity, až bude NFS zapnuté (viz bod o záznamu NASu v inventáři). (2026-11-26)
 - [ ] Služby (W2.4): stránku Služby projít v prohlížeči po přihlášení skutečným účtem na telefonu (360 px) i desktopu – ověřeno e2e testem helperu na NASu a ukázkovým režimem na desktopu (zmenšení okna v testovacím prohlížeči nešlo). (2026-11-26)
 - [ ] Služby: jeden výpis stojí na NASu ~0,9 s CPU (systemctl show ~50 ms na službu přes D-Bus), stránka proto obnovuje jen každých 10 s; přehled platí totéž každých 5 s. Případně zrychlit jedním dotazem přes D-Bus nebo sdílenou mezipamětí s přehledem. (2026-11-26)
 - [ ] Role (W2.2): v prohlížeči se přihlásit skutečným účtem NASu s rolí Jen pro čtení a Uživatel a projít menu, pruh „jen pro čtení“ a Můj účet na telefonu (360 px) i desktopu – ověřeno jen API testem na NASu a ukázkovým režimem na desktopu. (2026-11-26)

@@ -115,8 +115,8 @@ func TestOwnPassword(t *testing.T) {
 	if rec := do(h, "PUT", "/api/v1/session/password", `{"current":"wrong password!","password":"new password 123"}`, xrw, eva); rec.Code != 400 || len(u.calls) != 0 {
 		t.Fatalf("wrong current = %d %v", rec.Code, u.calls)
 	}
-	if rec := do(h, "PUT", "/api/v1/session/password", `{"current":"`+rolePassword+`","password":"short"}`, xrw, eva); rec.Code != 400 || len(u.calls) != 0 {
-		t.Fatalf("short = %d %v", rec.Code, u.calls)
+	if rec := do(h, "PUT", "/api/v1/session/password", `{"current":"`+rolePassword+`","password":""}`, xrw, eva); rec.Code != 400 || len(u.calls) != 0 {
+		t.Fatalf("empty = %d %v", rec.Code, u.calls)
 	}
 	if rec := do(h, "PUT", "/api/v1/session/password", `{"current":"`+rolePassword+`","password":"new password 123"}`, xrw, eva); rec.Code != 200 {
 		t.Fatalf("change = %d %s", rec.Code, rec.Body)

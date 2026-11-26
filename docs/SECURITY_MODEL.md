@@ -88,7 +88,7 @@ files touched, commands run, whether it needs confirmation, whether it takes the
 - NFS: explicit client list only (IP addresses or networks no wider than /16, IPv6 /48; no `*`, host names or
   netgroups), `root_squash` default and `no_root_squash` never offered, no `insecure`, `sync`. Squashed
   clients write as `nobody` with the member-less group `nas-nfs`, so NFS write access is granted per share
-  without granting it to SMB users. NFSv4.1/4.2 only (TCP 2049, no rpcbind). Exports
+  without granting it to SMB users. NFSv4.1/4.2 only (TCP 2049; rpcbind on TCP 111 only for the Proxmox online check, UDP on loopback). Exports
   reference shared folders by name; paths never come from the request. NFS off renders an empty exports file.
 - SSH: keys preferred, `PermitRootLogin prohibit-password` (current setup uses root with key; M2
   moves admin access to a named user in `nas-admin` and offers disabling root login).

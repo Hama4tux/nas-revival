@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Share } from '../api/types';
-import { accessChoices, addPermission, daysProblem, descriptionProblem, permissionsProblem, removePermission, shareNameProblem, shareValid, usersWithAccess } from './shares';
+import { accessChoices, addPermission, daysProblem, descriptionProblem, permissionsProblem, removePermission, shareNameProblem, shareValid, toShare, usersWithAccess } from './shares';
 
 const share = (p: Partial<Share> = {}): Share => ({
   name: 'Fotky', description: '', volume: '/srv/data', folder: 'Fotky', readOnly: false, hidden: false,
@@ -44,5 +44,14 @@ describe('share rules', () => {
     expect(addPermission(a, { kind: 'user', name: 'jana', access: 'ro' })).toBe(a);
     expect(removePermission(a, 'user', 'jana')).toEqual([]);
     expect(usersWithAccess([{ access: 'rw' }, { access: 'none' }, { access: 'ro' }])).toBe(2);
+  });
+});
+
+describe('toShare', () => {
+  it('drops the read-only fields of ShareInfo', () => {
+    const info = { ...share({ permissions: [{ kind: 'user' as const, name: 'jana', access: 'rw' as const }] }),
+      path: '/srv/data/Fotky', exists: true, enforcement: 'acl' as const, effective: [], conflicts: [] };
+    expect(Object.keys(toShare(info)).sort()).toEqual(Object.keys(share()).sort());
+    expect(toShare(info).permissions).toEqual([{ kind: 'user', name: 'jana', access: 'rw' }]);
   });
 });

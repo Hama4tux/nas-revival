@@ -58,3 +58,10 @@ export function addPermission(list: SharePermission[], p: SharePermission): Shar
 export function removePermission(list: SharePermission[], kind: string, name: string): SharePermission[] {
   return list.filter((x) => !(x.kind === kind && x.name === name));
 }
+
+/** Only the fields the API accepts: the server rejects unknown fields (ShareInfo adds path, effective, …). */
+export const toShare = (s: Share): Share => ({
+  name: s.name, description: s.description, volume: s.volume, folder: s.folder, readOnly: s.readOnly, hidden: s.hidden,
+  recycle: { enabled: s.recycle.enabled, days: s.recycle.days },
+  permissions: s.permissions.map((p) => ({ kind: p.kind, name: p.name, access: p.access })),
+});

@@ -159,7 +159,7 @@ func TestValidation(t *testing.T) {
 			t.Errorf("%q accepted", n)
 		}
 	}
-	if ValidatePassword("short") == nil || ValidatePassword("long enough\nroot:x") == nil ||
+	if ValidatePassword("") == nil || ValidatePassword("x") != nil || ValidatePassword("long enough\nroot:x") == nil ||
 		ValidatePassword(strings.Repeat("a", 257)) == nil || ValidatePassword(testPassword) != nil {
 		t.Error("password rules")
 	}

@@ -195,8 +195,8 @@ func setPassword(args []string) error {
 	if err != nil {
 		return err
 	}
-	if len(pw) < 12 {
-		return errors.New("password must have at least 12 characters")
+	if pw == "" {
+		return errors.New("password must not be empty")
 	}
 	hash, err := auth.HashPassword(pw)
 	if err != nil {

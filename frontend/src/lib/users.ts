@@ -2,7 +2,7 @@ import type { UserInfo } from '../api/types';
 
 /** Same rules as the helper (ValidName, ValidatePassword, ValidateFullName). */
 export const NAME_RE = /^[a-z][a-z0-9_-]{0,31}$/;
-export const MIN_PASSWORD = 12;
+export const MIN_PASSWORD = 1;
 
 export type NameProblem = 'empty' | 'format' | 'reserved' | null;
 export function nameProblem(name: string): NameProblem {

@@ -7,7 +7,7 @@ import type {
 import { cs } from '../i18n/cs';
 import { formatBytes } from '../lib/format';
 import {
-  accessChoices, addPermission, daysProblem, descriptionProblem, permissionsProblem, removePermission, shareNameProblem,
+  accessChoices, addPermission, daysProblem, descriptionProblem, permissionsProblem, removePermission, shareNameProblem, toShare,
   shareValid, usersWithAccess,
 } from '../lib/shares';
 import { Badge } from './ui/badge';
@@ -136,7 +136,7 @@ const blank = (volume: string): Share => ({
 function ShareDialog({ share, list, onClose, onDone }: {
   share: ShareInfo | null; list: ShareList; onClose: () => void; onDone: (l: ShareList, msg: string) => void;
 }) {
-  const [s, setS] = useState<Share>(share ?? blank(list.volumes[0]?.path ?? ''));
+  const [s, setS] = useState<Share>(share ? toShare(share) : blank(list.volumes[0]?.path ?? ''));
   const [daysText, setDaysText] = useState(String(s.recycle.days));
   const [nameTouched, setNameTouched] = useState(false);
   const a = useAction();

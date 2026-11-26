@@ -16,7 +16,7 @@ import (
 
 // Password limits: the same minimum as `nas-revival set-password`.
 const (
-	MinPasswordLen = 12
+	MinPasswordLen = 1
 	MaxPasswordLen = 256
 	maxFullName    = 64
 	maxGroupsPer   = 32
@@ -63,11 +63,11 @@ func ValidateFullName(s string) (string, error) {
 	return s, nil
 }
 
-// ValidatePassword: 12–256 characters, no control characters (chpasswd is
+// ValidatePassword: 1–256 characters, no control characters (chpasswd is
 // line based, a newline would start a new record).
 func ValidatePassword(pw string) error {
 	if !utf8.ValidString(pw) || utf8.RuneCountInString(pw) < MinPasswordLen {
-		return invalid("password", "Heslo musí mít alespoň 12 znaků.")
+		return invalid("password", "Heslo nesmí být prázdné.")
 	}
 	if len(pw) > MaxPasswordLen {
 		return invalid("password", "Heslo může mít nejvýše 256 bajtů.")

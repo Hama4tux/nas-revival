@@ -78,7 +78,7 @@ func TestUserCreateValidatesBeforeHelper(t *testing.T) {
 	for _, body := range []string{
 		`{"name":"Jana",` + goodPassword + `}`,
 		`{"name":"nas-admin",` + goodPassword + `}`,
-		`{"name":"jana","password":"short"}`,
+		`{"name":"jana","password":""}`,
 		`{"name":"jana","password":"correct horse\nroot:x"}`,
 		`{"name":"jana","fullName":"a:b",` + goodPassword + `}`,
 		`{"name":"jana",` + goodPassword + `,"uid":0}`,

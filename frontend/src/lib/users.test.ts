@@ -17,7 +17,8 @@ describe('user form rules', () => {
   });
 
   it('checks password length, control characters and repetition', () => {
-    expect(passwordProblem('kratke', 'kratke')).toBe('short');
+    expect(passwordProblem('', '')).toBe('short');
+    expect(passwordProblem('x', 'x')).toBeNull();
     expect(passwordProblem('dlouhé heslo\nroot', 'dlouhé heslo\nroot')).toBe('control');
     expect(passwordProblem('ž'.repeat(129), 'ž'.repeat(129))).toBe('long');
     expect(passwordProblem('správné heslo 1', 'správné heslo 2')).toBe('mismatch');

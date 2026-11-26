@@ -190,7 +190,7 @@ export const cs = {
   },
   nfs: {
     title: 'NFS', refresh: 'Načíst znovu', loadError: 'Nastavení NFS nelze načíst.',
-    hint: 'NFS zpřístupní sdílené složky linuxovým serverům, typicky jako cíl záloh Proxmoxu. Přístup se povoluje podle IP adresy klienta, ne heslem – uveďte jen adresy svých serverů. NAS nabízí jen NFS 4.1 a 4.2 (port TCP 2049).',
+    hint: 'NFS zpřístupní sdílené složky linuxovým serverům, typicky jako cíl záloh Proxmoxu. Přístup se povoluje podle IP adresy klienta, ne heslem – uveďte jen adresy svých serverů. NAS nabízí jen NFS 4.1 a 4.2 (port TCP 2049, kontrolu dostupnosti Proxmoxu obsluhuje rpcbind na TCP 111).',
     health: {
       notInstalled: 'NFS server není na NASu nainstalovaný.',
       off: 'NFS je vypnuté.',
@@ -309,13 +309,13 @@ export const cs = {
       createTitle: 'Nový uživatel', editTitle: (n: string) => `Upravit uživatele ${n}`,
       name: 'Uživatelské jméno', nameHint: 'Malá písmena bez diakritiky, číslice, _ nebo -; začíná písmenem. Později nejde změnit.',
       fullName: 'Celé jméno', fullNameHint: 'Nepovinné, bez dvojtečky a čárky.',
-      password: 'Heslo', repeat: 'Heslo znovu', passwordHint: 'Alespoň 12 znaků. Delší věta se pamatuje lépe než složité krátké heslo.',
+      password: 'Heslo', repeat: 'Heslo znovu', passwordHint: 'Delší věta se pamatuje lépe než složité krátké heslo.',
       groups: 'Skupiny', noGroups: 'Zatím nejsou vytvořené žádné skupiny.', role: 'Role ve webovém rozhraní',
       selfRole: 'Svou vlastní roli administrátora si odebrat nemůžete.',
       create: 'Vytvořit', creating: 'Vytvářím…',
       nameErr: { empty: 'Zadejte jméno.', format: 'Jméno nesplňuje pravidla.', reserved: 'Jména začínající nas- jsou vyhrazená.' } as Record<string, string>,
       pwErr: {
-        short: 'Heslo musí mít alespoň 12 znaků.', control: 'Heslo nesmí obsahovat řídicí znaky.',
+        short: 'Heslo nesmí být prázdné.', control: 'Heslo nesmí obsahovat řídicí znaky.',
         long: 'Heslo je příliš dlouhé (nejvýše 256 bajtů).', mismatch: 'Hesla se neshodují.',
       } as Record<string, string>,
       fullNameErr: 'Celé jméno může mít nejvýše 64 znaků a nesmí obsahovat dvojtečku ani čárku.',
