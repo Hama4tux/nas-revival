@@ -1,8 +1,10 @@
 import { cs } from '../i18n/cs';
-import type { TaskDef, TaskRun, TaskSchedule, TaskWeekday } from '../api/types';
+import type { BackupParams, TaskDef, TaskRun, TaskSchedule, TaskWeekday } from '../api/types';
 
 export const WEEKDAYS: TaskWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const MAX_TASKS = 32;
+export const MAX_BACKUP_TASKS = 8;
+export const DEFAULT_BACKUP_ROOT = '/var/backups';
 export const NAME_MAX = 40;
 const ID_RE = /^[a-z0-9]{1,16}$/;
 const DISK_RE = /^[A-Za-z0-9._:-]{1,128}$/;
@@ -22,7 +24,45 @@ export function scheduleLabel(s: TaskSchedule): string {
 
 export const timeOk = (t: string) => TIME_RE.test(t);
 
-export type TaskErrors = Partial<Record<'name' | 'time' | 'weekdays' | 'day' | 'diskId' | 'test' | 'list', string>>;
+const HOST_RE = /^[A-Za-z0-9]([A-Za-z0-9-]{0,62})(\.[A-Za-z0-9]([A-Za-z0-9-]{0,62}))*$/;
+const IPV6_RE = /^[0-9A-Fa-f:.]{2,45}$/;
+const USER_RE = /^[a-z_][a-z0-9_-]{0,31}$/;
+const PATH_RE = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
+const EXCLUDE_RE = /^[A-Za-z0-9._*?/[\]-]+$/;
+
+export type TaskErrors = Partial<Record<'name' | 'time' | 'weekdays' | 'day' | 'diskId' | 'test' | 'list'
+  | 'host' | 'port' | 'user' | 'paths' | 'keepDays' | 'freshFile' | 'freshAge' | 'bwlimit' | 'excludes', string>>;
+
+export function hostOk(h: string): boolean {
+  if (h === '' || h.length > 253 || h.startsWith('-')) return false;
+  if (h.includes(':')) return IPV6_RE.test(h) && (h.match(/:/g) ?? []).length >= 2;
+  return HOST_RE.test(h);
+}
+/** Port 0 / missing means the default 22. */
+export const portOk = (p: number | undefined) => p === undefined || p === 0 || (Number.isInteger(p) && p >= 1 && p <= 65535);
+export const userOk = (u: string) => USER_RE.test(u);
+/** Relative path on the server (rrsync root): safe characters, no "." / ".." segment, max 128. */
+export const relPathOk = (p: string) => p.length <= 128 && PATH_RE.test(p) && !p.split('/').some((s) => s === '.' || s === '..');
+const intIn = (n: number, lo: number, hi: number) => Number.isInteger(n) && n >= lo && n <= hi;
+
+function validateBackup(b: BackupParams | undefined, e: TaskErrors) {
+  const v = cs.tasks.v;
+  if (!b) { e.host = v.host; return; }
+  if (!hostOk(b.host.trim())) e.host = v.host;
+  if (!portOk(b.port)) e.port = v.port;
+  if (!userOk(b.user.trim())) e.user = v.user;
+  const paths = b.paths.map((p) => p.trim());
+  if (paths.length < 1 || paths.length > 8 || paths.some((p) => !relPathOk(p)) || new Set(paths).size !== paths.length) e.paths = v.paths;
+  if (!intIn(b.keepDays, 1, 90)) e.keepDays = v.keepDays;
+  if (!intIn(b.bwlimitKiB, 0, 1_000_000)) e.bwlimit = v.bwlimit;
+  if (b.fresh) {
+    const f = b.fresh.file.trim();
+    if (!relPathOk(f) || !paths.some((p) => f.startsWith(`${p}/`))) e.freshFile = v.freshFile;
+    if (!intIn(b.fresh.maxAgeHours, 1, 720)) e.freshAge = v.freshAge;
+  }
+  const ex = b.excludes.map((x) => x.trim());
+  if (ex.length > 16 || ex.some((x) => x.length < 1 || x.length > 100 || x.startsWith('-') || !EXCLUDE_RE.test(x))) e.excludes = v.excludes;
+}
 
 /** Mirrors the backend validation of a single task (messages are Czech). */
 export function validateTask(t: TaskDef): TaskErrors {
@@ -46,6 +86,7 @@ export function validateTask(t: TaskDef): TaskErrors {
     if (!t.smart || !DISK_RE.test(t.smart.diskId)) e.diskId = v.disk;
     if (!t.smart || (t.smart.test !== 'short' && t.smart.test !== 'long')) e.test = v.test;
   }
+  if (t.type === 'backup-pull') validateBackup(t.backup, e);
   return e;
 }
 
@@ -57,6 +98,7 @@ export function listError(tasks: TaskDef[]): string | undefined {
   if (tasks.length > MAX_TASKS) return v.tooMany(MAX_TASKS);
   const ids = tasks.map((t) => t.id).filter((i) => i !== '');
   if (new Set(ids).size !== ids.length) return v.dupIds;
+  if (tasks.filter((t) => t.type === 'backup-pull').length > MAX_BACKUP_TASKS) return v.tooManyBackups(MAX_BACKUP_TASKS);
   return undefined;
 }
 
@@ -68,7 +110,23 @@ export function normalizeTask(t: TaskDef): TaskDef {
       : { kind, time, day: t.schedule.day };
   const out: TaskDef = { id: t.id, name: t.name.trim(), type: t.type, enabled: t.enabled, schedule };
   if (t.type === 'smart' && t.smart) out.smart = { diskId: t.smart.diskId, test: t.smart.test };
+  if (t.type === 'backup-pull' && t.backup) {
+    const b = t.backup;
+    out.backup = {
+      host: b.host.trim(), port: b.port || 22, user: b.user.trim(), paths: b.paths.map((p) => p.trim()).filter((p) => p !== ''),
+      keepDays: b.keepDays, bwlimitKiB: b.bwlimitKiB || 0, excludes: b.excludes.map((x) => x.trim()).filter((x) => x !== ''),
+      ...(b.fresh ? { fresh: { file: b.fresh.file.trim(), maxAgeHours: b.fresh.maxAgeHours } } : {}),
+    };
+  }
   return out;
+}
+
+export const newBackup = (): BackupParams => ({ host: '', port: 22, user: '', paths: [''], keepDays: 35, bwlimitKiB: 0, excludes: [] });
+
+/** authorized_keys line with the folder the admin chose; null when the folder is not a plain absolute path. */
+export function authorizedLine(hint: string, root: string): string | null {
+  if (!/^\/[A-Za-z0-9._/-]*$/.test(root) || root.includes('..')) return null;
+  return hint.replace(`rrsync -ro ${DEFAULT_BACKUP_ROOT}`, `rrsync -ro ${root}`);
 }
 
 export const newTask = (diskId = ''): TaskDef => ({

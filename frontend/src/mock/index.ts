@@ -597,22 +597,59 @@ const mockNfs: NfsService = {
   installed: true, running: true, managed: true, missing: [], shares: [],
   settings: { enabled: true, exports: [{ share: 'Fotky', squash: 'root', clients: [{ host: '192.0.2.40', readOnly: false }] }] },
 };
-interface MockTask { id: string; name: string; type: string; enabled: boolean; schedule: Record<string, unknown>; smart?: { diskId: string; test: string } }
-interface MockRun { start: string; end: string; result: string; message: string }
+interface MockTask { id: string; name: string; type: string; enabled: boolean; schedule: Record<string, unknown>; smart?: { diskId: string; test: string }; backup?: Record<string, unknown> }
+interface MockRun { start: string; end: string; result: string; message: string; bytes?: number; usedBytes?: number }
 let mockTasks: MockTask[] = [
   { id: 'recycle', name: 'Vysypání košů', type: 'recycle-cleanup', enabled: true, schedule: { kind: 'daily', time: '03:30' } },
   { id: 'a1b2c3d4', name: 'SMART dlouhý test', type: 'smart', enabled: true, schedule: { kind: 'monthly', time: '02:00', day: 1 },
     smart: { diskId: 'wwn-0x5000c50000000001', test: 'long' } },
+  { id: 'export', name: 'Záloha ze serveru', type: 'backup-pull', enabled: true, schedule: { kind: 'daily', time: '06:45' },
+    backup: { host: '192.0.2.10', port: 22, user: 'root', paths: ['nas-export', 'hrcm'], keepDays: 35,
+      fresh: { file: 'nas-export/last-ok', maxAgeHours: 26 }, bwlimitKiB: 0, excludes: ['*.tmp'] } },
 ];
 const mockRuns: Record<string, MockRun[]> = {
   recycle: [{ start: new Date(Date.now() - 20 * 3600e3).toISOString(), end: new Date(Date.now() - 20 * 3600e3 + 42e3).toISOString(), result: 'ok', message: 'Odstraněno 12 souborů (84 MB)' }],
   a1b2c3d4: [{ start: new Date(Date.now() - 9 * 86400e3).toISOString(), end: new Date(Date.now() - 9 * 86400e3 + 5e3).toISOString(), result: 'skipped', message: 'Na disku už běží test SMART.' }],
 };
+mockRuns.export = [{ start: new Date(Date.now() - 5 * 3600e3).toISOString(), end: new Date(Date.now() - 5 * 3600e3 + 95e3).toISOString(), result: 'ok',
+  message: 'Staženo 12,3 MB, verzí 35.', bytes: 12_900_000, usedBytes: 4_800_000_000 }];
 const mockRunning = new Set<string>();
 const taskView = () => mockTasks.map((t) => ({
   ...t, running: mockRunning.has(t.id), lastRun: mockRuns[t.id]?.[0] ?? null,
   nextRun: t.enabled ? new Date(Date.now() + 3 * 3600e3).toISOString() : null,
 }));
+
+const MOCK_FP = 'SHA256:q3Zk0m7H1nP2yB8cV5xT9aLwR4eDfG6uJhS1oXiNtEw';
+let mockShareOn = false;
+function backupRoute(path: string, method: string, body: Record<string, unknown>): Response | null {
+  if (path === '/backup/share' && method === 'GET') return json(200, { enabled: mockShareOn, name: 'zalohy', path: '/srv/data/versions' });
+  if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+  if (path === '/backup/share' && method === 'PUT') {
+    mockShareOn = body.enabled === true;
+    return json(200, { enabled: mockShareOn, name: 'zalohy', path: '/srv/data/versions' });
+  }
+  if (path === '/backup/key' && method === 'GET') {
+    const pub = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockMockMockMockMockMockMockMockMockMockMock nas-backup@nas';
+    return json(200, { publicKey: pub, fingerprint: 'SHA256:Zx8Wq1LrT5uYb2NcVd9HeA3oKpMf7GsJi4RtXyU0aBc',
+      authorizedKeysHint: `from="192.0.2.5",restrict,command="rrsync -ro /var/backups" ${pub}` });
+  }
+  if (path === '/backup/hostkey/scan' && method === 'POST') {
+    const host = String(body.host ?? '');
+    if (!host || host.startsWith('-')) return bad('host', 'Neplatný server.');
+    if (host === '192.0.2.99') return err(502, 'scan_failed', 'Server neodpovídá.');
+    return json(200, { keys: [
+      { type: 'ssh-ed25519', key: 'AAAAC3NzaC1lZDI1NTE5AAAAIMockHostKeyMockHostKeyMockHostKeyMockHost', fingerprint: MOCK_FP },
+      { type: 'ssh-rsa', key: 'AAAAB3NzaC1yc2EAAAADAQABAAABAQMockRsaKey', fingerprint: 'SHA256:Lm2Pq9Rt4Vx7Yb1Cd6Fg8Hj3Kn5Ws0ZaEiOuTyUrQeA' },
+    ], known: false, changed: host === '192.0.2.11' });
+  }
+  if (path === '/backup/hostkey/trust' && method === 'POST') return json(200, {});
+  if (path === '/backup/test' && method === 'POST') {
+    const host = String(body.host ?? '');
+    if (host === '192.0.2.99') return json(200, { ok: false, message: 'Připojení vypršelo.' });
+    return json(200, { ok: true, entries: ['last-ok', 'db', 'files', 'photos'], message: '', fullAccess: host === '192.0.2.11' });
+  }
+  return null;
+}
 
 function tasksRoute(path: string, method: string, body: unknown): Response | null {
   if (path === '/tasks' && method === 'GET') return json(200, { tasks: taskView() });
@@ -874,6 +911,12 @@ export function installMock(): void {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = usersRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/backup/')) {
+      let body: Record<string, unknown> = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = backupRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/tasks')) {

@@ -2,12 +2,15 @@ import { CalendarClock, History, Loader2, Pencil, Play, Plus, RefreshCw, Square,
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { StorageDisk, StorageReport, Task, TaskDef, TaskHistory, TaskList, TaskRun, TaskWeekday } from '../api/types';
+import { formatBytes } from '../lib/format';
 import { useVisiblePoll } from '../hooks/useVisiblePoll';
 import { cs } from '../i18n/cs';
 import {
-  MAX_TASKS, WEEKDAYS, formatDuration, formatWhen, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
+  MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
   resultVariant, scheduleLabel, sortDays, validateTask, weekdayShort,
 } from '../lib/tasks';
+import { BackupShareCard } from './BackupShareCard';
+import { BackupTaskFields } from './BackupTaskFields';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
@@ -26,6 +29,11 @@ function apiMessage(e: unknown): string {
     if ([400, 404, 409, 500].includes(e.status)) return e.message || cs.errors.generic;
   }
   return cs.errors.generic;
+}
+
+function RunExtra({ run }: { run: TaskRun }) {
+  if (run.bytes == null && run.usedBytes == null) return null;
+  return <span className="block break-words text-xs text-muted-foreground">{t.runBytes(formatBytes(run.bytes ?? 0), run.usedBytes != null ? formatBytes(run.usedBytes) : undefined)}</span>;
 }
 
 function RunBadge({ run }: { run: TaskRun }) {
@@ -48,7 +56,11 @@ function EditorDialog({ initial, disks, onSave, onClose }: {
   const days = form.schedule.weekdays ?? [];
 
   function changeType(type: TaskDef['type']) {
-    set({ type, smart: type === 'smart' ? form.smart ?? { diskId: disks[0]?.id ?? '', test: 'short' } : undefined });
+    set({
+      type,
+      smart: type === 'smart' ? form.smart ?? { diskId: disks[0]?.id ?? '', test: 'short' } : undefined,
+      backup: type === 'backup-pull' ? form.backup ?? newBackup() : undefined,
+    });
   }
   function changeKind(kind: TaskDef['schedule']['kind']) {
     const time = form.schedule.time;
@@ -78,7 +90,7 @@ function EditorDialog({ initial, disks, onSave, onClose }: {
         <Field label={ed.type} hint={t.typeHint[form.type]}>
           {(p) => (
             <select {...p} className={selectCls} value={form.type} onChange={(e) => changeType(e.target.value as TaskDef['type'])}>
-              {(['smart', 'recycle-cleanup'] as const).map((k) => <option key={k} value={k}>{t.types[k]}</option>)}
+              {(['smart', 'recycle-cleanup', 'backup-pull'] as const).map((k) => <option key={k} value={k}>{t.types[k]}</option>)}
             </select>
           )}
         </Field>
@@ -103,6 +115,9 @@ function EditorDialog({ initial, disks, onSave, onClose }: {
               )}
             </Field>
           </>
+        )}
+        {form.type === 'backup-pull' && form.backup && (
+          <BackupTaskFields value={form.backup} onChange={(backup) => set({ backup })} errors={errors} isNew={initial.id === ''} />
         )}
         <Field label={ed.kind}>
           {(p) => (
@@ -170,6 +185,7 @@ function HistoryDialog({ task, onClose }: { task: Task; onClose: () => void }) {
                     <span className="text-xs text-muted-foreground">{t.duration}: {formatDuration(r.start, r.end)}</span>
                   </div>
                   {r.message && <p className="break-words text-muted-foreground">{r.message}</p>}
+                  <RunExtra run={r} />
                 </li>
               ))}
             </ul>
@@ -183,13 +199,14 @@ function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHis
   onToggle: () => void; onRun: () => void; onStop: () => void; onEdit: () => void; onHistory: () => void; onRemove: () => void;
 }) {
   const n = task.name;
-  const sub = task.type === 'smart' && task.smart ? `${t.types.smart}, ${t.testShort[task.smart.test]} test` : t.types[task.type];
+  const sub = task.type === 'smart' && task.smart ? `${t.types.smart}, ${t.testShort[task.smart.test]} test`
+    : task.type === 'backup-pull' && task.backup ? `${t.types[task.type]}: ${task.backup.user}@${task.backup.host}` : t.types[task.type];
   return (
     <li className="space-y-3 rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
         <div className="min-w-0 flex-1 basis-48">
           <h3 className="break-words font-semibold">{n}</h3>
-          <p className="text-sm text-muted-foreground">{sub}</p>
+          <p className="break-all text-sm text-muted-foreground">{sub}</p>
           <p className="text-sm font-medium">{scheduleLabel(task.schedule)}</p>
         </div>
         <label className="flex h-10 items-center gap-2 text-sm">
@@ -214,6 +231,7 @@ function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHis
               <>
                 <span className="flex flex-wrap items-center gap-2"><RunBadge run={task.lastRun} /><span className="tabular-nums">{formatWhen(task.lastRun.start)}</span></span>
                 {task.lastRun.message && <span className="block break-words text-muted-foreground">{task.lastRun.message}</span>}
+                <RunExtra run={task.lastRun} />
               </>
             ) : <span className="text-muted-foreground">{t.noRun}</span>}
           </dd>
@@ -317,6 +335,7 @@ export function TasksPage({ readOnly }: { readOnly: boolean }) {
             </Button>
           )}
       </Widget>
+      {tasks.some((x) => x.type === 'backup-pull') && <BackupShareCard readOnly={readOnly} />}
       {editing && <EditorDialog initial={editing} disks={disks} onSave={saveEdited} onClose={() => setEditing(null)} />}
       {history && <HistoryDialog task={history} onClose={() => setHistory(null)} />}
       {removing && (

@@ -298,7 +298,7 @@ export interface SshKey { type: string; bits?: number; fingerprint: string; comm
 export interface SshKeyUser { name: string; keys: SshKey[]; sftp: boolean; invalid?: number }
 export interface SshKeys { users: SshKeyUser[] }
 
-export type TaskType = 'smart' | 'recycle-cleanup';
+export type TaskType = 'smart' | 'recycle-cleanup' | 'backup-pull';
 export type TaskWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 export interface TaskSchedule {
   kind: 'daily' | 'weekly' | 'monthly';
@@ -306,12 +306,23 @@ export interface TaskSchedule {
   weekdays?: TaskWeekday[];
   day?: number;
 }
+export interface BackupParams {
+  host: string; port: number; user: string; paths: string[]; keepDays: number;
+  fresh?: { file: string; maxAgeHours: number };
+  bwlimitKiB: number; excludes: string[];
+}
 export interface TaskDef {
   id: string; name: string; type: TaskType; enabled: boolean; schedule: TaskSchedule;
   smart?: { diskId: string; test: 'short' | 'long' };
+  backup?: BackupParams;
 }
 export type TaskResult = 'ok' | 'failed' | 'skipped' | 'stopped';
-export interface TaskRun { start: string; end: string; result: TaskResult; message: string }
+export interface TaskRun { start: string; end: string; result: TaskResult; message: string; bytes?: number; usedBytes?: number }
+export interface BackupKey { publicKey: string; fingerprint: string; authorizedKeysHint: string }
+export interface BackupHostKey { type: string; key: string; fingerprint: string }
+export interface BackupScan { keys: BackupHostKey[]; known?: boolean; changed?: boolean }
+export interface BackupTestResult { ok: boolean; entries?: string[]; message?: string; fullAccess?: boolean }
 export interface Task extends TaskDef { running: boolean; nextRun: string | null; lastRun: TaskRun | null }
 export interface TaskList { tasks: Task[] }
 export interface TaskHistory { runs: TaskRun[] }
+export interface BackupShare { enabled: boolean; name: string; path: string }
