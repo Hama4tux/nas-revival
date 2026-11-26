@@ -30,7 +30,8 @@ cat arch/arm/boot/zImage arch/arm/boot/dts/marvell/kirkwood-nsa310a.dtb > "$OUT/
 mkimage -A arm -O linux -T kernel -C none -a 0x00008000 -e 0x00008000 \
   -n "Linux-$V-nsa310a" -d "$OUT/zImage-nsa310a.dtb" "$OUT/uImage" >/dev/null
 cp .config "$OUT/kernel-$V.config"
-tar -C "$OUT/modroot" -czf "$OUT/modules-$V.tar.gz" lib
+# Owned by root, and rooted at usr/ so extracting into / cannot touch the /lib -> usr/lib symlink.
+tar -C "$OUT/modroot" --owner=0 --group=0 --numeric-owner --transform "s,^lib,usr/lib," -czf "$OUT/modules-$V.tar.gz" lib
 cd "$OUT"; sha256sum uImage "modules-$V.tar.gz" > SHA256SUMS
 ls -l uImage "modules-$V.tar.gz"
 # A slot is 10 MiB; refuse an image that would not fit.
