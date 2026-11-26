@@ -58,7 +58,9 @@ type Server struct {
 	// SystemPower serves /system/{reboot,shutdown}; nil answers 503.
 	SystemPower SystemPowerer
 	// Config serves /config/history and /config/rollback; nil answers 503.
-	Config      ConfigHistory
+	Config ConfigHistory
+	// Users serves /users and /groups; nil answers 503.
+	Users       UserAdmin
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
@@ -76,6 +78,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerSystemPower(api)
 	s.registerStorage(api)
 	s.registerConfig(api)
+	s.registerUsers(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

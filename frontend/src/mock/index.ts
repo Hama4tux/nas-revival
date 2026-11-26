@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine } from '../api/types';
+import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -414,6 +414,83 @@ function powerRoute(path: string, method: string, body: unknown): Response | nul
   return null;
 }
 
+/* ---------- users (W2.1) ---------- */
+let mockUsers: UserInfo[] = [
+  { name: 'jana', uid: 1001, fullName: 'Jana Nováková', groups: ['rodina'], disabled: false,
+    password: { linux: true, samba: 'unavailable', web: true, changedOutside: false, changed: new Date(start - 3 * day).toISOString() } },
+  { name: 'petr', uid: 1002, fullName: '', groups: [], disabled: true,
+    password: { linux: true, samba: 'unavailable', web: true, changedOutside: true } },
+];
+let mockGroups: { name: string; gid: number; members: string[] }[] = [{ name: 'rodina', gid: 1003, members: ['jana'] }];
+const userList = (): UserList => ({
+  samba: false,
+  users: mockUsers.map((u) => ({ ...u, groups: mockGroups.filter((g) => g.members.includes(u.name)).map((g) => g.name) })),
+  groups: [{ name: 'nas-users', gid: 990, builtin: true, members: mockUsers.map((u) => u.name) },
+    ...mockGroups.map((g) => ({ ...g, builtin: false }))].sort((a, b) => a.name.localeCompare(b.name)),
+});
+const NAME = /^[a-z][a-z0-9_-]{0,31}$/;
+const setMembership = (user: string, groups: string[]) => {
+  mockGroups = mockGroups.map((g) => ({ ...g, members: groups.includes(g.name)
+    ? [...new Set([...g.members, user])].sort() : g.members.filter((m) => m !== user) }));
+};
+
+function usersRoute(path: string, method: string, body: Record<string, unknown>): Response | null {
+  const name = String(body.name ?? '');
+  const pw = typeof body.password === 'string' ? body.password : '';
+  if (path === '/users' && method === 'GET') return json(200, userList());
+  if (path === '/groups' && method === 'GET') return json(200, { groups: userList().groups });
+  if (path === '/users' && method === 'POST') {
+    if (!NAME.test(name)) return bad('name', 'Jméno nesplňuje pravidla.');
+    if (name.startsWith('nas-')) return bad('name', 'Jména začínající nas- jsou vyhrazená.');
+    if (mockUsers.some((u) => u.name === name) || mockGroups.some((g) => g.name === name)) return bad('name', 'Uživatel s tímto jménem už existuje.');
+    if ([...pw].length < 12) return bad('password', 'Heslo musí mít alespoň 12 znaků.');
+    mockUsers = [...mockUsers, { name, uid: 1000 + mockUsers.length + 4, fullName: String(body.fullName ?? '').trim(), groups: [], disabled: false,
+      password: { linux: true, samba: 'unavailable' as const, web: true, changedOutside: false, changed: new Date().toISOString() } }]
+      .sort((a, b) => a.name.localeCompare(b.name));
+    setMembership(name, (body.groups as string[] | undefined) ?? []);
+    return json(201, userList());
+  }
+  if (path === '/groups' && method === 'POST') {
+    if (!NAME.test(name) || name.startsWith('nas-')) return bad('name', 'Neplatné jméno skupiny.');
+    if (mockGroups.some((g) => g.name === name) || mockUsers.some((u) => u.name === name)) return bad('name', 'Skupina s tímto jménem už existuje.');
+    mockGroups = [...mockGroups, { name, gid: 1004 + mockGroups.length, members: [] }];
+    return json(201, userList());
+  }
+  const g = /^\/groups\/([^/]+)(\/members)?$/.exec(path);
+  if (g) {
+    if (!mockGroups.some((x) => x.name === g[1])) return err(404, 'not_found', 'Skupina neexistuje nebo ji nelze spravovat.');
+    if (g[2] && method === 'PUT') {
+      const members = (body.members as string[] | undefined) ?? [];
+      mockGroups = mockGroups.map((x) => (x.name === g[1] ? { ...x, members: [...members].sort() } : x));
+      return json(200, userList());
+    }
+    if (!g[2] && method === 'DELETE') { mockGroups = mockGroups.filter((x) => x.name !== g[1]); return json(200, userList()); }
+    return null;
+  }
+  const m = /^\/users\/([^/]+)(?:\/(password|disabled))?$/.exec(path);
+  if (!m) return null;
+  const u = mockUsers.find((x) => x.name === m[1]);
+  if (!u) return err(404, 'not_found', 'Uživatel neexistuje nebo ho nelze spravovat.');
+  const patch = (p: Partial<UserInfo>) => { mockUsers = mockUsers.map((x) => (x.name === u.name ? { ...x, ...p } : x)); };
+  if (m[2] === 'password' && method === 'PUT') {
+    if ([...pw].length < 12) return bad('password', 'Heslo musí mít alespoň 12 znaků.');
+    patch({ password: { ...u.password, web: true, changedOutside: false, changed: new Date().toISOString() } });
+    return json(200, { samba: false });
+  }
+  if (m[2] === 'disabled' && method === 'PUT') { patch({ disabled: !!body.disabled }); return json(200, userList()); }
+  if (!m[2] && method === 'PUT') {
+    patch({ fullName: String(body.fullName ?? '').trim() });
+    setMembership(u.name, (body.groups as string[] | undefined) ?? []);
+    return json(200, userList());
+  }
+  if (!m[2] && method === 'DELETE') {
+    mockUsers = mockUsers.filter((x) => x.name !== u.name);
+    setMembership(u.name, []);
+    return json(200, userList());
+  }
+  return null;
+}
+
 export function installMock(): void {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
@@ -456,6 +533,12 @@ export function installMock(): void {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = smartRoute(path, method, body) ?? powerRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/users') || path.startsWith('/groups')) {
+      let body: Record<string, unknown> = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = usersRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/config/')) {

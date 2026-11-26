@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/user"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -36,6 +37,8 @@ type Dispatcher struct {
 	Config *ConfigManager
 	// Activity measures disk activity on demand; nil disables it.
 	Activity *ActivityManager
+	// Users manages NAS accounts and groups; nil disables it.
+	Users *UserManager
 }
 
 type request struct {
@@ -184,6 +187,47 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return d.Config.Get(a.ID)
 		}
 		return d.Config.Rollback(ctx, a.ID, a.Takeover, user)
+	}
+	if (strings.HasPrefix(req.Op, "user.") || strings.HasPrefix(req.Op, "group.")) && d.Users != nil {
+		return d.handleUsers(ctx, req, user)
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleUsers runs the account operations (USR-01..03). Passwords arrive in
+// the arguments and are never logged.
+func (d *Dispatcher) handleUsers(ctx context.Context, req request, user string) (any, error) {
+	var a struct {
+		Name     string   `json:"name"`
+		FullName string   `json:"fullName"`
+		Password string   `json:"password"`
+		Groups   []string `json:"groups"`
+		Members  []string `json:"members"`
+		Disabled bool     `json:"disabled"`
+	}
+	if err := decodeArgs(req.Args, &a); err != nil {
+		return nil, err
+	}
+	u := d.Users
+	switch req.Op {
+	case "user.list":
+		return u.List(ctx)
+	case "user.create":
+		return u.Create(ctx, UserCreate{Name: a.Name, FullName: a.FullName, Password: a.Password, Groups: a.Groups}, user)
+	case "user.update":
+		return u.Update(ctx, UserUpdate{Name: a.Name, FullName: a.FullName, Groups: a.Groups}, user)
+	case "user.setPassword":
+		return u.SetPassword(ctx, a.Name, a.Password, user)
+	case "user.setDisabled":
+		return u.SetDisabled(ctx, a.Name, a.Disabled, user)
+	case "user.delete":
+		return u.Delete(ctx, a.Name, user)
+	case "group.create":
+		return u.GroupCreate(ctx, a.Name, user)
+	case "group.setMembers":
+		return u.GroupSetMembers(ctx, a.Name, a.Members, user)
+	case "group.delete":
+		return u.GroupDelete(ctx, a.Name, user)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

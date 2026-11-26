@@ -248,6 +248,18 @@ func (s *Sessions) Delete(token string) {
 	delete(s.m, sha256.Sum256([]byte(token)))
 }
 
+// DeleteUser ends every session of username (password change, disable,
+// delete – ADR 0004).
+func (s *Sessions) DeleteUser(username string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, v := range s.m {
+		if v.username == username {
+			delete(s.m, k)
+		}
+	}
+}
+
 func (s *Sessions) expired(sess *session, now time.Time) bool {
 	return now.Sub(sess.lastSeen) >= IdleTimeout || now.Sub(sess.created) >= AbsoluteTimeout
 }

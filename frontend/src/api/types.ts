@@ -214,3 +214,13 @@ export interface DiskActivity {
   swapInPages: number; swapOutPages: number; processes: ActivityProcess[]; files: ActivityFile[];
   filesTruncated: boolean; notScanned: string[]; disks: ActivityDisk[];
 }
+
+/** GET /users (W2.1): NAS accounts (Linux users in nas-users) and editable groups. */
+export type SambaPassword = 'set' | 'missing' | 'unavailable';
+export interface UserInfo {
+  name: string; uid: number; fullName: string; groups: string[]; disabled: boolean;
+  password: { linux: boolean; samba: SambaPassword; web: boolean; changedOutside: boolean; changed?: string };
+}
+export interface GroupInfo { name: string; gid: number; members: string[]; builtin: boolean }
+export interface UserList { users: UserInfo[]; groups: GroupInfo[]; samba: boolean }
+export interface PasswordResult { samba: boolean }

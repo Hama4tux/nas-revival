@@ -9,6 +9,7 @@ import { PendingBanner } from './components/PendingBanner';
 import { Shell, type HostSummary } from './components/Shell';
 import { StoragePage } from './components/StoragePage';
 import { SystemPage } from './components/SystemPage';
+import { UsersPage } from './components/UsersPage';
 import { useNetworkSettings } from './hooks/useNetworkSettings';
 import { useRoute } from './hooks/useRoute';
 import { cs } from './i18n/cs';
@@ -67,6 +68,7 @@ export function App() {
       {route === 'storage' && <StoragePage />}
       {route === 'network' && <NetworkPage net={net} />}
       {route === 'system' && <SystemPage />}
+      {route === 'users' && <UsersPage />}
     </Shell>
   );
 }

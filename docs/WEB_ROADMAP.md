@@ -39,7 +39,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 
 | Step | Screen / UI | API | Helper ops | Matrix |
 |---|---|---|---|---|
-| W2.1 | Users & groups: list, create, edit, disable, delete, password, group membership | `/users`, `/groups` | `user.*`, `group.*` | USR-01..03 |
+| W2.1 🛠 2026-11-26 (code + tests, not deployed) | Users & groups: list, create, edit, disable, delete, password, group membership | `/users`, `/groups` | `user.*`, `group.*` | USR-01..03 |
 | W2.2 | Roles admin / read-only / user, multi-account login | session carries role | `auth.*` | USR-04 |
 | W2.3 | Shared folders: create on data volume, permissions matrix, read-only, hidden, recycle bin, delete (config vs. data) | `/shares` | `share.*` | SHARE-01..05 |
 | W2.4 | Services app: state, PID, RAM, CPU, ports, start/stop/restart/enable, unit log | `/services` | `service.*`, `journal.unit` | SVC-10..12 |

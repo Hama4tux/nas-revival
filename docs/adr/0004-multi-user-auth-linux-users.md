@@ -25,4 +25,13 @@
 
 - Disabling a user must disable all three (shadow lock, `smbpasswd -d`, web flag).
 - Changing a password outside the UI (`passwd`) desynchronizes the web hash; the UI shows the
-  account as "password changed outside, set again" when the shadow change date is newer than ours.
+  account as "password changed outside, set again". Implemented (W2.1) with a SHA-256 fingerprint
+  of the shadow hash stored next to the web hash (lock prefix ignored) instead of the change date,
+  which has only day resolution.
+- `credentials.json` is written only by the helper and owned by `nas-revival` (0600), like
+  `admin.json`, so the web login (W2.2) reads it directly without an `auth.verify` op.
+- NAS accounts get primary group `nas-users`, no home directory (`/nonexistent`) and shell
+  `/usr/sbin/nologin`; editable groups are gid 1000–59999 without the `nas-` prefix and without
+  private groups of non-NAS accounts. Memberships the UI does not manage are kept.
+- The shadow tools write lock and temp files next to `/etc/passwd`, so the helper unit needs
+  `ReadWritePaths=/etc` (previously only `/etc/systemd/network` and `/etc/nas-revival`).

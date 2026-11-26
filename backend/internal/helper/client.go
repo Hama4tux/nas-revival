@@ -190,6 +190,68 @@ func (c *Client) ConfigRollback(ctx context.Context, id int, takeover bool) (Con
 	return r, err
 }
 
+// Account operations (USR-01..03). Hashing argon2id and running the shadow
+// tools takes a few seconds on the NAS, hence the longer timeout.
+func (c *Client) users(ctx context.Context, op string, args any, result any) error {
+	long := *c
+	long.Timeout = 45 * time.Second
+	return long.Call(ctx, op, args, result)
+}
+
+func (c *Client) UserList(ctx context.Context) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "user.list", struct{}{}, &l)
+	return l, err
+}
+
+func (c *Client) UserCreate(ctx context.Context, u UserCreate) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "user.create", u, &l)
+	return l, err
+}
+
+func (c *Client) UserUpdate(ctx context.Context, u UserUpdate) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "user.update", u, &l)
+	return l, err
+}
+
+func (c *Client) UserSetPassword(ctx context.Context, name, password string) (PasswordResult, error) {
+	var r PasswordResult
+	err := c.users(ctx, "user.setPassword", map[string]string{"name": name, "password": password}, &r)
+	return r, err
+}
+
+func (c *Client) UserSetDisabled(ctx context.Context, name string, disabled bool) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "user.setDisabled", map[string]any{"name": name, "disabled": disabled}, &l)
+	return l, err
+}
+
+func (c *Client) UserDelete(ctx context.Context, name string) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "user.delete", map[string]string{"name": name}, &l)
+	return l, err
+}
+
+func (c *Client) GroupCreate(ctx context.Context, name string) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "group.create", map[string]string{"name": name}, &l)
+	return l, err
+}
+
+func (c *Client) GroupSetMembers(ctx context.Context, name string, members []string) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "group.setMembers", map[string]any{"name": name, "members": members}, &l)
+	return l, err
+}
+
+func (c *Client) GroupDelete(ctx context.Context, name string) (UserList, error) {
+	var l UserList
+	err := c.users(ctx, "group.delete", map[string]string{"name": name}, &l)
+	return l, err
+}
+
 // AsError extracts a *Error from err.
 func AsError(err error) (*Error, bool) {
 	var e *Error

@@ -38,6 +38,13 @@ state `/var/lib/nas-revival-helper`. If the web UI shows "helper_unavailable", c
 `systemctl status nas-revival-helper`. The TLS certificate is handled by the web service itself
 (Settings, or `cert.pem`/`key.pem` in `/var/lib/nas-revival/tls`).
 
+NAS users (W2.1): the helper runs `useradd`, `usermod`, `userdel`, `chpasswd`, `gpasswd`,
+`groupadd`, `groupdel` (and `smbpasswd`/`pdbedit` once Samba is installed) with validated names, so
+its unit has `ReadWritePaths=/etc` (the shadow tools write lock and temp files next to
+`/etc/passwd`). The first created user also creates the system group `nas-users`. Web password
+hashes go to `/etc/nas-revival/credentials.json` (0600, owner `nas-revival`). After updating the
+unit: `systemctl daemon-reload && systemctl restart nas-revival-helper`.
+
 Fan control (independent of the web UI; the LM85 regulates the fan itself once configured):
 
 ```sh

@@ -15,6 +15,7 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"strings"
@@ -23,6 +24,7 @@ import (
 
 	"golang.org/x/term"
 
+	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/api"
 	"nas-revival/backend/internal/auth"
 	"nas-revival/backend/internal/config"
@@ -118,6 +120,7 @@ func serve(args []string) error {
 	srv.DiskActivity = hc
 	srv.SystemPower = hc
 	srv.Config = hc
+	srv.Users = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -276,6 +279,11 @@ func runHelper(args []string) error {
 		SysPower: sp,
 		Config:   cm,
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
+		Users: &helper.UserManager{Paths: accounts.SystemPaths,
+			// The web process (uid of -user) reads the web hashes at login.
+			Web: accounts.WebPasswords{Path: accounts.DefaultWebPasswords, OwnerUID: int(uid), OwnerGID: gid},
+			Run: helper.ExecRunner, RunStdin: helper.ExecStdinRunner, Hash: auth.HashPassword, Now: time.Now,
+			Samba: func() bool { _, err := exec.LookPath("smbpasswd"); return err == nil }},
 	})
 }
 

@@ -31,7 +31,7 @@ LAN client ──HTTPS──▶ nas-revival (uid nas-revival, sandbox) ──Uni
 | No shell strings | `exec.Command(abs, args...)`; arguments validated by regex/enum; `--` before positional args |
 | Bounded requests | ≤ 16 KiB JSON, 5 s read deadline, per-op timeout, one config transaction at a time |
 | Audit | every op → journald record (`SYSLOG_IDENTIFIER=nas-revival-audit`, fields `NR_USER`, `NR_OP`, `NR_OBJECT`, `NR_RESULT`); no secrets |
-| Helper sandbox | `ProtectSystem=strict` + `ReadWritePaths` limited to registry directories (extended per module), `ProtectHome`, `PrivateTmp` |
+| Helper sandbox | `ProtectSystem=strict` + `ReadWritePaths` (`/etc` since W2.1: the shadow tools need lock/temp files next to `/etc/passwd`), `ProtectHome`, `PrivateTmp` |
 
 Helper op naming: `<module>.<verb>` (`network.apply`, `smart.test`, `disk.setPower`, `share.create`,
 `user.setPassword`, `service.restart`, `power.reboot`). Each op declares: required role, validator,
@@ -41,8 +41,8 @@ files touched, commands run, whether it needs confirmation, whether it takes the
 
 - **Today:** one administrator, argon2id (t=3, m=16 MiB, p=1) in `/etc/nas-revival/admin.json` (0600).
 - **M2 (ADR 0004):** accounts = Linux users; web hash per Linux username in
-  `/etc/nas-revival/credentials.json` (0600, owned by helper, read by web via helper op
-  `auth.verify` or file readable by `nas-revival` – decide in ADR). Roles by Linux group:
+  `/etc/nas-revival/credentials.json` (0600, written only by the helper, owned by `nas-revival`
+  and read by the web login; ADR 0004). W2.1 writes it; login by these accounts comes in W2.2. Roles by Linux group:
   `nas-admin`, `nas-viewer`; others = standard user.
 - Sessions: random 256-bit id, server-side map, idle 30 min, absolute 12 h, rotate on login,
   invalidate all sessions of a user on password change. Session list and forced logout in M5.
