@@ -244,3 +244,18 @@ export interface ShareList {
 }
 export interface ShareDeleteResult extends ShareList { dataRemoval: 'none' | 'started' }
 export interface RecycleCleanupResult { removedFiles: number; removedBytes: number }
+
+/** Services app (GET /services, SVC-10..12). */
+export type UnitState = 'active' | 'inactive' | 'failed' | 'activating' | 'deactivating' | 'done' | 'not-installed' | 'unknown';
+export type ServiceAction = 'start' | 'stop' | 'restart' | 'reload' | 'enable' | 'disable';
+export interface ServicePort { proto: 'tcp' | 'udp'; address: string; port: number }
+export interface ServiceInfo {
+  name: string; label: string; description: string; state: UnitState; subState: string;
+  /** systemd UnitFileState: enabled, disabled, static, masked, … ('' when not installed). */
+  enabled: string; since: string | null; pid?: number;
+  memoryBytes: number | null; cpuPercent: number | null; ports: ServicePort[];
+  result?: string; exitStatus?: number; protected: boolean; actions: ServiceAction[];
+}
+export interface ServiceList { services: ServiceInfo[] }
+export interface ServiceLogEntry { time: string; priority: number; ident: string; pid?: number; message: string }
+export interface ServiceLog { name: string; entries: ServiceLogEntry[] }

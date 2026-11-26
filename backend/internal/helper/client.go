@@ -297,3 +297,23 @@ func AsError(err error) (*Error, bool) {
 	ok := errors.As(err, &e)
 	return e, ok
 }
+
+func (c *Client) ServiceList(ctx context.Context) (ServiceList, error) {
+	var r ServiceList
+	err := c.Call(ctx, "service.list", nil, &r)
+	return r, err
+}
+
+func (c *Client) ServiceAction(ctx context.Context, name, action string) (Service, error) {
+	long := *c
+	long.Timeout = 45 * time.Second
+	var r Service
+	err := long.Call(ctx, "service.action", map[string]any{"name": name, "action": action}, &r)
+	return r, err
+}
+
+func (c *Client) ServiceLog(ctx context.Context, name string, lines int) (ServiceLog, error) {
+	var r ServiceLog
+	err := c.Call(ctx, "journal.unit", map[string]any{"name": name, "lines": lines}, &r)
+	return r, err
+}

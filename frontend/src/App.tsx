@@ -8,6 +8,7 @@ import { Overview } from './components/Overview';
 import { NetworkPage } from './components/NetworkPage';
 import { PendingBanner } from './components/PendingBanner';
 import { Shell, type HostSummary } from './components/Shell';
+import { ServicesPage } from './components/ServicesPage';
 import { SharesPage } from './components/SharesPage';
 import { StoragePage } from './components/StoragePage';
 import { SystemPage } from './components/SystemPage';
@@ -76,6 +77,7 @@ export function App() {
       {route === 'network' && <NetworkPage net={net} />}
       {route === 'system' && <SystemPage />}
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}
+      {route === 'services' && <ServicesPage readOnly={role !== 'admin'} />}
       {route === 'shares' && <SharesPage readOnly={role !== 'admin'} />}
       {route === 'account' && <AccountPage username={username ?? ''} role={role} />}
     </Shell>

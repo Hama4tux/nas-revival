@@ -1,8 +1,8 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: Webové GUI má přehled, síť, systém, úložiště, uživatele s rolemi a nově sdílené složky (W2.3: oprávnění, skryté/jen pro čtení, koš, smazání s potvrzením; nasazeno a ověřeno e2e testem na NASu). Přístup po síti čeká na Sambu (W2.5).
-- Další krok: W2.4 aplikace Služby, pak W2.5 SMB (instalace Samby jen se souhlasem vlastníka).
+- Stav: Webové GUI má přehled, síť, systém, úložiště, uživatele s rolemi, sdílené složky a nově Služby (W2.4: stav, PID, paměť, CPU, porty, ovládání se chráněnými službami, záznam deníku; nasazeno a ověřeno e2e testem na NASu). Přístup po síti čeká na Sambu (W2.5).
+- Další krok: W2.5 SMB (instalace Samby jen se souhlasem vlastníka).
 
 ## Čeká na rozhodnutí
 - [ ] Záchranný administrátor: ADR 0004 původně chtěl účet z admin.json převést na účet NASu; ve W2.2 zůstal jako záchranný účet (heslo jen přes SSH, vždy administrátor). Ponechat, nebo po založení vlastního administrátora admin.json smazat? (2026-11-26)
@@ -17,6 +17,8 @@
 
 
 ## Nedodělané
+- [ ] Služby (W2.4): stránku Služby projít v prohlížeči po přihlášení skutečným účtem na telefonu (360 px) i desktopu – ověřeno e2e testem helperu na NASu a ukázkovým režimem na desktopu (zmenšení okna v testovacím prohlížeči nešlo). (2026-11-26)
+- [ ] Služby: jeden výpis stojí na NASu ~0,9 s CPU (systemctl show ~50 ms na službu přes D-Bus), stránka proto obnovuje jen každých 10 s; přehled platí totéž každých 5 s. Případně zrychlit jedním dotazem přes D-Bus nebo sdílenou mezipamětí s přehledem. (2026-11-26)
 - [ ] Role (W2.2): v prohlížeči se přihlásit skutečným účtem NASu s rolí Jen pro čtení a Uživatel a projít menu, pruh „jen pro čtení“ a Můj účet na telefonu (360 px) i desktopu – ověřeno jen API testem na NASu a ukázkovým režimem na desktopu. (2026-11-26)
 - [ ] Role (W2.2): u účtu Jen pro čtení zatím schovávají tlačítka změn jen stránka Uživatelé, napájení a pruh se změnou sítě; na stránkách Síť, Systém a Úložiště tlačítka zůstala a server změnu odmítne hláškou – doplnit skrytí. (2026-11-26)
 - [ ] Ochrana proti hádání hesel je jen podle IP klienta (5 pokusů / 5 min); zpomalení podle účtu (SECURITY_MODEL, M2) zatím chybí. (2026-11-26)
@@ -71,6 +73,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Aplikace Služby ve webovém GUI (W2.4): stav a prostředky spravovaných služeb, ovládání s chráněnými službami, záznam deníku; nasazeno a ověřeno na NASu (2026-11-26)
 - Sdílené složky ve webovém GUI (W2.3), nasazeno na NAS (2026-11-26)
 - Role Administrátor / Jen pro čtení / Uživatel a přihlášení účtů NASu do webu, stránka Můj účet se změnou vlastního hesla (W2.2); nasazeno a ověřeno na NASu. (2026-11-26)
 - Veřejná úvodní stránka repa (banner, snímky GUI, funkce, schéma bootu), návod k instalaci na původní NSA310 a build jádra i rootfs jako skripty v repu; rootfs postaven a zkontrolován. (2026-11-26)

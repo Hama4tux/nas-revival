@@ -26,6 +26,12 @@ the helper also writes `/etc/samba/nas-revival-shares.conf` (checked with `testp
 include it – W2.5). After deploying, run `scripts/webui/e2e-shares.sh` from the workstation: it creates a
 throw-away admin, user and share `nrt-e2e`, checks create/edit/permissions/delete over HTTPS and removes them.
 
+Services (W2.4): the helper runs `systemctl show/start/stop/…`, `ss -H -l -t -u -n -p` and
+`journalctl --unit=… --output=json` only for the fixed catalog (`backend/internal/services`). RAM is the RSS
+of the unit's cgroup processes because the NAS kernel has no memory controller. After deploying, run
+`scripts/webui/e2e-services.sh` from the workstation: it lists the services, checks SSH (PID, memory,
+port 22, CPU %), that SSH cannot be stopped, the SSH journal, and restarts cron once.
+
 Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
 balanced profile (APM 254, no standby on the system disk).

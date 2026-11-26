@@ -43,6 +43,8 @@ type Dispatcher struct {
 	Users *UserManager
 	// Shares manages shared folders; nil disables it.
 	Shares *ShareManager
+	// Services lists and controls the allowlisted units; nil disables it.
+	Services *ServiceManager
 }
 
 type request struct {
@@ -197,6 +199,30 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if strings.HasPrefix(req.Op, "share.") && d.Shares != nil {
 		return d.handleShares(ctx, req, user)
+	}
+	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
+		return d.handleServices(ctx, req, user)
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleServices runs the service operations (SVC-10..12).
+func (d *Dispatcher) handleServices(ctx context.Context, req request, user string) (any, error) {
+	var a struct {
+		Name   string `json:"name"`
+		Action string `json:"action"`
+		Lines  int    `json:"lines"`
+	}
+	if err := decodeArgs(req.Args, &a); err != nil {
+		return nil, err
+	}
+	switch req.Op {
+	case "service.list":
+		return d.Services.List(ctx)
+	case "service.action":
+		return d.Services.Action(ctx, a.Name, a.Action, user)
+	case "journal.unit":
+		return d.Services.Log(ctx, a.Name, a.Lines)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

@@ -74,7 +74,9 @@ type Server struct {
 	// Users serves /users and /groups; nil answers 503.
 	Users UserAdmin
 	// Shares serves /shares; nil answers 503.
-	Shares      ShareAdmin
+	Shares ShareAdmin
+	// Services serves /services; nil answers 503.
+	Services    ServiceAdmin
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
@@ -95,6 +97,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerConfig(api)
 	s.registerUsers(api)
 	s.registerShares(api)
+	s.registerServices(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

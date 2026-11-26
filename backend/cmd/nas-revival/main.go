@@ -18,6 +18,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -133,6 +134,7 @@ func serve(args []string) error {
 	srv.Config = hc
 	srv.Users = hc
 	srv.Shares = hc
+	srv.Services = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -301,6 +303,8 @@ func runHelper(args []string) error {
 		Config:   cm,
 		Shares:   shm,
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
+		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
+			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},
 		Users: &helper.UserManager{Paths: accounts.SystemPaths,
 			// The web process (uid of -user) reads the web hashes at login.
 			Web: accounts.WebPasswords{Path: accounts.DefaultWebPasswords, OwnerUID: int(uid), OwnerGID: gid},

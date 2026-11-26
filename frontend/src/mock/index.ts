@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -536,6 +536,71 @@ const shareList = (): ShareList => ({
 });
 const SHARE_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
 
+// Services app (W2.4): catalog order like services.Catalog in the backend.
+const allActs: ServiceAction[] = ['start', 'stop', 'restart', 'reload', 'enable', 'disable'];
+const mockUnits: (ServiceInfo & { allowed: ServiceAction[]; canReload: boolean })[] = [
+  ['smbd.service', 'Samba (SMB)', false, allActs, false, null],
+  ['nfs-server.service', 'NFS', false, allActs, false, null],
+  ['ssh.service', 'SSH', true, ['restart', 'reload'] as ServiceAction[], true, { pid: 220, mem: 6.2e6, ports: [['tcp', '0.0.0.0', 22], ['tcp', '::', 22]] }],
+  ['smartmontools.service', 'SMART dohled', false, allActs, true, { pid: 190, mem: 2.1e6, ports: [] }],
+  ['cron.service', 'Plánovač (cron)', false, allActs, false, { pid: 181, mem: 1.4e6, ports: [] }],
+  ['systemd-timesyncd.service', 'Čas (NTP)', false, allActs, false, { pid: 160, mem: 3.0e6, ports: [] }],
+  ['systemd-resolved.service', 'DNS', false, ['restart'] as ServiceAction[], false,
+    { pid: 3265, mem: 7.8e6, ports: [['udp', '127.0.0.53', 53], ['tcp', '127.0.0.53', 53], ['udp', '127.0.0.54', 53], ['tcp', '127.0.0.54', 53]] }],
+  ['systemd-networkd.service', 'Síť', true, [] as ServiceAction[], false, { pid: 150, mem: 5.5e6, ports: [] }],
+  ['nsa310-fan.service', 'Ventilátor', true, ['restart'] as ServiceAction[], false, { pid: 0, mem: 0, ports: [] }],
+  ['nsa310-leds.service', 'LED', false, allActs, false, { pid: 0, mem: 0, ports: [] }],
+  ['nsa310-button.service', 'Tlačítko COPY', false, allActs, false, { pid: 230, mem: 1.9e6, ports: [] }],
+  ['nas-revival.service', 'Webová správa', true, [] as ServiceAction[], false, { pid: 13634, mem: 24e6, ports: [['tcp', '0.0.0.0', 8443]] }],
+  ['nas-revival-helper.service', 'Pomocná služba správy', true, [] as ServiceAction[], false, { pid: 13600, mem: 9e6, ports: [] }],
+].map(([name, label, prot, allowed, canReload, run]) => {
+  const r = run as { pid: number; mem: number; ports: [string, string, number][] } | null;
+  const oneshot = name === 'nsa310-fan.service' || name === 'nsa310-leds.service';
+  return {
+    name: name as string, label: label as string, protected: prot as boolean, allowed: allowed as ServiceAction[], canReload: canReload as boolean,
+    description: r ? `${label} (demo)` : '', state: !r ? 'not-installed' : name === 'nsa310-leds.service' ? 'done' : 'active',
+    subState: r ? (oneshot ? 'exited' : 'running') : '', enabled: r ? 'enabled' : '', since: r ? new Date(Date.now() - 86400e3).toISOString() : null,
+    pid: r?.pid || undefined, memoryBytes: r && r.pid ? r.mem : null, cpuPercent: r && r.pid ? 0.3 : null,
+    ports: (r?.ports ?? []).map(([proto, address, port]) => ({ proto: proto as 'tcp' | 'udp', address, port })), actions: [],
+  };
+});
+function unitActions(u: (typeof mockUnits)[number]): ServiceAction[] {
+  if (u.state === 'not-installed') return [];
+  const running = u.state === 'active';
+  return u.allowed.filter((a) => a === 'restart' || (a === 'start' && !running) || (a === 'stop' && running)
+    || (a === 'reload' && running && u.canReload) || (a === 'enable' && u.enabled === 'disabled') || (a === 'disable' && u.enabled === 'enabled'));
+}
+const unitView = (u: (typeof mockUnits)[number]): ServiceInfo => {
+  const { allowed: _a, canReload: _c, ...v } = u;
+  return { ...v, cpuPercent: v.cpuPercent != null ? Math.round(Math.random() * 20) / 10 : null, actions: unitActions(u) };
+};
+
+function servicesRoute(path: string, method: string, url: URL): Response | null {
+  if (path === '/services' && method === 'GET') return json(200, { services: mockUnits.map(unitView) });
+  const m = /^\/services\/([^/]+)\/([a-z]+)$/.exec(path);
+  if (!m) return null;
+  const u = mockUnits.find((x) => x.name === decodeURIComponent(m[1] ?? ''));
+  if (!u) return err(404, 'not_found', 'Tato služba se nespravuje.');
+  if (m[2] === 'log' && method === 'GET') {
+    if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+    const n = Number(url.searchParams.get('lines') ?? 100);
+    if (!(n >= 1 && n <= 200)) return bad('lines', 'Počet řádků musí být 1 až 200.');
+    const now = Date.now();
+    return json(200, { name: u.name, entries: Array.from({ length: Math.min(n, 12) }, (_, i) => ({
+      time: new Date(now - (12 - i) * 60e3).toISOString(), priority: i === 7 ? 3 : i === 4 ? 4 : 6,
+      ident: u.name.replace('.service', ''), pid: u.pid, message: i === 7 ? 'error: demo failure' : `demo message ${i + 1}`,
+    })) });
+  }
+  const a = m[2] as ServiceAction;
+  if (method !== 'POST' || !u.allowed.includes(a)) return bad('action', 'Tuto akci služba nepodporuje.');
+  if (u.state === 'not-installed') return err(404, 'not_found', 'Služba není nainstalovaná.');
+  if (a === 'stop') { u.state = 'inactive'; u.subState = 'dead'; u.pid = undefined; u.memoryBytes = null; u.ports = []; }
+  if (a === 'start' || a === 'restart') { u.state = 'active'; u.subState = 'running'; u.pid = u.pid ?? 4242; u.since = new Date().toISOString(); }
+  if (a === 'enable') u.enabled = 'enabled';
+  if (a === 'disable') u.enabled = 'disabled';
+  return json(200, unitView(u));
+}
+
 function sharesRoute(path: string, method: string, body: Record<string, unknown>): Response | null {
   if (path === '/shares' && method === 'GET') return json(200, shareList());
   if (path === '/shares/recycle-cleanup' && method === 'POST') return json(200, { removedFiles: 12, removedBytes: 48 * 1024 * 1024 });
@@ -626,6 +691,10 @@ export function installMock(): void {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = usersRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/services')) {
+      const r = servicesRoute(path, method, url);
       if (r) return r;
     }
     if (path.startsWith('/shares')) {

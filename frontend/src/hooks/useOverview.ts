@@ -3,31 +3,13 @@ import { api } from '../api/client';
 import type { Overview, Smart } from '../api/types';
 import { bytesRate, type NetSample } from '../lib/netrate';
 import { isStale, pushSample } from '../lib/stale';
+import { useVisiblePoll } from './useVisiblePoll';
 
 export interface NetRate { rx: number | null; tx: number | null }
 export interface NetHistory { rx: number[]; tx: number[] }
 
 const POLL_MS = 5000;
 const SMART_MS = 60_000;
-
-/** Run `fn` immediately and then every `ms` while the document is visible. */
-function useVisiblePoll(fn: () => void, ms: number) {
-  const ref = useRef(fn);
-  ref.current = fn;
-  useEffect(() => {
-    let timer: number | undefined;
-    const stop = () => { if (timer !== undefined) { clearInterval(timer); timer = undefined; } };
-    const start = () => {
-      stop();
-      ref.current();
-      timer = window.setInterval(() => ref.current(), ms);
-    };
-    const onVis = () => (document.visibilityState === 'visible' ? start() : stop());
-    if (document.visibilityState === 'visible') start();
-    document.addEventListener('visibilitychange', onVis);
-    return () => { stop(); document.removeEventListener('visibilitychange', onVis); };
-  }, [ms]);
-}
 
 export function useOverview() {
   const [data, setData] = useState<Overview | null>(null);
