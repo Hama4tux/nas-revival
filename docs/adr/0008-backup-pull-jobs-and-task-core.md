@@ -1,7 +1,7 @@
 # ADR 0008: Backup pull jobs and the shared task core
 
 - Status: proposed (2026-11-26), waiting for the owner
-- Scope: BKP-10/11 (web roadmap W4.3) first, on a task core that TASK-01..03 (W3.3) reuse
+- Scope: BKP-10/11 (web roadmap W4.3) as a task type on the scheduler core of TASK-01..03 (W3.3)
 - Context: an interim pull job already runs on the NAS outside NAS Revival: a systemd timer starts a
   script as a dedicated system user, which pulls `/var/backups` of several servers with rsync over SSH
   (NAS-owned key; on each server the key is pinned to the NAS address and forced to
@@ -12,12 +12,14 @@
 
 ## Decision
 
-- **Order:** backup jobs (W4.3) come first and bring a small task core; the scheduler app (W3.3) is
-  built on the same core later and adds SMART and cleanup task types. Nothing is rewritten.
+- **Order (owner, 2026-11-26):** the scheduler (W3.3) comes first and is the task core; backup jobs
+  (W4.3) add the task type `backup-pull` on it. The paragraph "Task core" is updated to the built
+  state when W3.3 is merged.
 - **Task core:** one systemd template unit + timer per task, rendered by the helper from
   `/etc/nas-revival/tasks.json`; runner `nas-revival task-run <id>`. One heavy-task lock
-  `/run/nas-revival/locks/heavy` (flock) shared by backup, SMART long test and COPY; power preflight
-  and SMART scheduling respect it. Run history per task as bounded JSONL (last N runs) with start,
+  `/run/lock/nas-heavy.lock` (flock for the whole run; tmpfiles `0660 root:nas-heavy` – it must be
+  root-owned because of `fs.protected_regular`; runners open it without O_CREAT), shared with the
+  interim pull job; power preflight probes it (`task_running`). Run history per task as bounded JSONL (last N runs) with start,
   duration, bytes, result and error code. No free-form command task type (TASK-02).
 - **Backup job type "pull over SSH"** (validated fields only): name, host (IP or hostname), user,
   remote paths (relative, no `..`), daily or weekly time, version retention days (required,

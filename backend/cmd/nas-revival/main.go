@@ -265,7 +265,7 @@ func runHelper(args []string) error {
 	nm.Recover(ctx)
 	dp := &helper.DiskPowerManager{Resolve: resolvePowerDisk, Disks: powerDisks, Run: helper.ExecRunner,
 		ConfigPath: diskpower.DefaultConfigPath}
-	sp := &helper.SystemPowerManager{Disks: powerDisks, Run: helper.ExecRunner, ProcRoot: "/proc",
+	sp := &helper.SystemPowerManager{Disks: powerDisks, Run: helper.ExecRunner, ProcRoot: "/proc", HeavyLock: helper.DefaultHeavyLock,
 		NetPending: nm.HasPending, Sync: syscall.Sync, Delay: 2 * time.Second,
 		After: func(d time.Duration, f func()) { time.AfterFunc(d, f) }}
 	tm := &helper.TimeManager{Dropin: *dropin, Run: helper.ExecRunner}

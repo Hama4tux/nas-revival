@@ -167,7 +167,7 @@ export interface DiskPower {
 export interface DiskStandbyResult { diskId: string; wasStandby: boolean }
 
 export type SystemPowerAction = 'reboot' | 'shutdown';
-export type PowerBlockerCode = 'smart_test' | 'copy_running' | 'backup_running' | 'package_manager' | 'network_pending' | 'check_failed';
+export type PowerBlockerCode = 'smart_test' | 'copy_running' | 'backup_running' | 'task_running' | 'package_manager' | 'network_pending' | 'check_failed';
 export interface PowerBlocker { code: PowerBlockerCode; diskId?: string }
 export type PowerEffect = 'web_offline' | 'connections_drop' | 'sessions_end' | 'back_in_minutes' | 'power_button';
 export interface SystemPowerPreview {

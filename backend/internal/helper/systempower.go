@@ -2,11 +2,14 @@ package helper
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"nas-revival/backend/internal/diskpower"
@@ -25,6 +28,7 @@ const (
 	BlockSmartTest      = "smart_test"      // SMART self-test running on DiskID
 	BlockCopy           = "copy_running"    // COPY button backup (nsa310-copy) running
 	BlockBackup         = "backup_running"  // backup pull job running
+	BlockTask           = "task_running"    // a scheduled heavy task holds the heavy-task lock
 	BlockPackageManager = "package_manager" // apt/dpkg running
 	BlockNetworkPending = "network_pending" // network change waits for confirmation
 	BlockCheckFailed    = "check_failed"    // a check could not run; DiskID when it was a disk
@@ -36,6 +40,10 @@ const copyUnit = "nsa310-copy.service"
 // backupUnit is the interim backup pull job installed outside NAS Revival;
 // backup jobs of W4.3 replace it (ADR 0008).
 const backupUnit = "nas-pull.service"
+
+// DefaultHeavyLock is held (flock) for the whole run by scheduled tasks
+// (W3.3) and the backup pull job; tmpfiles creates it root-owned.
+const DefaultHeavyLock = "/run/lock/nas-heavy.lock"
 
 // packageManagers are process names (/proc/<pid>/comm, max 15 chars) whose
 // interruption can leave dpkg half-configured.
@@ -65,6 +73,7 @@ type SystemPowerManager struct {
 	Disks      func() ([]PowerDisk, error)
 	Run        Runner
 	ProcRoot   string      // /proc
+	HeavyLock  string      // heavy-task lock file; empty = not checked
 	NetPending func() bool // network change waiting for confirmation
 	Sync       func()      // flushes file-system buffers (syscall.Sync)
 	// After runs f after Delay; the delay lets the HTTP answer reach the
@@ -85,7 +94,10 @@ func (m *SystemPowerManager) Preflight(ctx context.Context) PowerPreflight {
 		b = append(b, PowerBlocker{Code: BlockCopy})
 	}
 	if m.unitRunning(ctx, backupUnit) {
+		// The pull job holds the heavy lock too; one reason is enough.
 		b = append(b, PowerBlocker{Code: BlockBackup})
+	} else if m.heavyLockHeld() {
+		b = append(b, PowerBlocker{Code: BlockTask})
 	}
 	if m.packageManagerRunning() {
 		b = append(b, PowerBlocker{Code: BlockPackageManager})
@@ -138,6 +150,27 @@ func (m *SystemPowerManager) unitRunning(ctx context.Context, unit string) bool 
 	case "active", "activating", "deactivating", "reloading":
 		return true
 	}
+	return false
+}
+
+// heavyLockHeld opens the lock without O_CREAT (a missing file means no task
+// ever ran since boot) and probes it with a non-blocking shared lock.
+func (m *SystemPowerManager) heavyLockHeld() bool {
+	if m.HeavyLock == "" {
+		return false
+	}
+	f, err := os.Open(m.HeavyLock)
+	if err != nil {
+		if !errors.Is(err, fs.ErrNotExist) {
+			slog.Warn("helper: power preflight: heavy lock not opened", "err", err)
+		}
+		return false
+	}
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_SH|syscall.LOCK_NB); err != nil {
+		return true
+	}
+	syscall.Flock(int(f.Fd()), syscall.LOCK_UN)
 	return false
 }
 

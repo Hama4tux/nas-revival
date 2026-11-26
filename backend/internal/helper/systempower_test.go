@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -20,7 +21,7 @@ const (
 type fakeSys struct {
 	state, caps, copyState, backupState string
 	failSystemctl                       bool
-	calls                  []string
+	calls                               []string
 }
 
 func (f *fakeSys) run(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -202,5 +203,39 @@ func TestDispatcherPowerOps(t *testing.T) {
 	}
 	if _, err := (&Dispatcher{}).Handle(context.Background(), request{Op: "power.reboot"}); err == nil {
 		t.Fatal("power op without manager accepted")
+	}
+}
+
+func TestPreflightHeavyLock(t *testing.T) {
+	lock := filepath.Join(t.TempDir(), "nas-heavy.lock")
+	fx := newSysPower(t, &fakeSys{state: stateStandby, copyState: "inactive"})
+	fx.m.HeavyLock = lock
+	if got := codes(fx.m.Preflight(context.Background()).Blockers); got != "" {
+		t.Fatalf("missing lock file must not block, got %s", got)
+	}
+	os.WriteFile(lock, nil, 0o660)
+	if got := codes(fx.m.Preflight(context.Background()).Blockers); got != "" {
+		t.Fatalf("free lock must not block, got %s", got)
+	}
+	f, _ := os.Open(lock)
+	defer f.Close()
+	if err := syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
+		t.Fatal(err)
+	}
+	if got := codes(fx.m.Preflight(context.Background()).Blockers); got != "task_running:" {
+		t.Fatalf("held lock: got %s", got)
+	}
+}
+
+func TestPreflightBackupUnitHidesLockBlocker(t *testing.T) {
+	lock := filepath.Join(t.TempDir(), "nas-heavy.lock")
+	os.WriteFile(lock, nil, 0o660)
+	f, _ := os.Open(lock)
+	defer f.Close()
+	syscall.Flock(int(f.Fd()), syscall.LOCK_EX)
+	fx := newSysPower(t, &fakeSys{state: stateStandby, copyState: "inactive", backupState: "activating"})
+	fx.m.HeavyLock = lock
+	if got := codes(fx.m.Preflight(context.Background()).Blockers); got != "backup_running:" {
+		t.Fatalf("got %s", got)
 	}
 }
