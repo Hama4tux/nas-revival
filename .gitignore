@@ -42,3 +42,7 @@ secret.env
 
 # Frontend mock-mode switch (no secrets, only VITE_MOCK=1)
 !/frontend/.env.mock
+
+# AI agent instructions stay local (internal environment details)
+/AGENTS.md
+/CLAUDE.md
