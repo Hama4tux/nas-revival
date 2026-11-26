@@ -34,6 +34,7 @@ import (
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
+	"nas-revival/backend/internal/netinfo"
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smart"
@@ -150,6 +151,8 @@ func serve(args []string) error {
 	srv.Ssh = hc
 	srv.Tasks = hc
 	srv.Backup = hc
+	srv.NetInfo = netinfo.Reader{Root: "/", Run: netinfo.Runner(helper.ExecRunner), Now: time.Now}
+	srv.NetAdmin = hc
 	srv.TaskStatus = api.TaskStatus{Run: helper.ExecRunner, HistoryPath: filepath.Join(*stateDir, "task-history.json"),
 		BackupHistoryPath: tasks.DefaultBackupHistoryPath}
 
@@ -343,6 +346,8 @@ func runHelper(args []string) error {
 		Ssh:      sshm,
 		Tasks:    tkm,
 		Backup:   bkm,
+		Hostname: &helper.HostnameManager{HostsFile: "/etc/hosts", Run: helper.ExecRunner},
+		Diag:     helper.NewDiagManager(*iface, helper.ExecRunner),
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
 			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},

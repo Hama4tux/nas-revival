@@ -209,3 +209,8 @@ install -m 0644 50-nas-revival-resolved.conf /etc/systemd/resolved.conf.d/50-nas
 install -m 0644 50-nas-revival-journald.conf /etc/systemd/journald.conf.d/50-nas-revival.conf   # 15 min sync, 64M cap
 systemctl restart systemd-resolved systemd-journald
 ```
+
+Network page (W2.8): nothing to install (ping, ss, hostnamectl and resolvectl are in the base system). After deploying,
+run `scripts/webui/e2e-network.sh` from the workstation: it reads the network overview as `nas-revival`, sets the current
+host name again (no change) and runs every diagnostic once (pings of the gateway and of a TEST-NET address, a DNS lookup,
+one HTTPS connect to deb.debian.org, the listening ports and connections).

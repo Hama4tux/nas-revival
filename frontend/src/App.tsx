@@ -75,7 +75,7 @@ export function App() {
       banner={pending && <PendingBanner pending={pending} onConfirm={confirmPending} />}>
       {route === 'overview' && <Overview onHost={setHost} />}
       {route === 'storage' && <StoragePage />}
-      {route === 'network' && <NetworkPage net={net} />}
+      {route === 'network' && <NetworkPage net={net} readOnly={role !== 'admin'} />}
       {route === 'system' && <SystemPage />}
       {route === 'tasks' && <TasksPage readOnly={role !== 'admin'} />}
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}

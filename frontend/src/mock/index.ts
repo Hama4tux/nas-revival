@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -64,6 +64,44 @@ function putNetwork(c: NetConfig): Response {
   return json(202, netBody());
 }
 
+let mockHostname = 'nas';
+const netInfo = (): NetworkInfo => ({
+  hostname: mockHostname, domains: ['home'], checkedAt: new Date().toISOString(),
+  interfaces: [{ name: 'enp1s0', mac: '02:00:00:00:00:01', mtu: 1500, state: 'up', carrier: true, speedMbps: 1000, duplex: 'full',
+    linkChanges: 1, addresses: [...netCurrent.addresses, 'fe80::1/64'] }],
+  routes: [
+    ...(netCurrent.gateway ? [{ family: 'inet' as const, destination: 'default', gateway: netCurrent.gateway, device: 'enp1s0', protocol: 'static', metric: null }] : []),
+    { family: 'inet', destination: '192.0.2.0/24', device: 'enp1s0', protocol: 'kernel', scope: 'link', source: HOST_ADDR, metric: null },
+    { family: 'inet6', destination: 'fe80::/64', device: 'enp1s0', protocol: 'kernel', metric: 256 },
+  ],
+});
+
+function mockDiag({ test, target = '' }: { test: DiagResult['test']; target?: string }): DiagResult {
+  const ping = (ok: boolean) => ({ address: ok ? '192.0.2.1' : target, sent: 4, received: ok ? 4 : 0, lossPercent: ok ? 0 : 100,
+    minMs: ok ? 0.31 : null, avgMs: ok ? 0.42 : null, maxMs: ok ? 0.6 : null });
+  switch (test) {
+    case 'gateway': return { test, ok: true, durationMs: 3012, ping: ping(true), addresses: ['192.0.2.1'] };
+    case 'ping': {
+      const ok = !target.startsWith('192.0.2.9');
+      return { test, target, ok, durationMs: ok ? 3008 : 5030, ping: ping(ok),
+        message: ok ? undefined : 'Cíl neodpověděl. Může být vypnutý, mimo síť, nebo odpovědi na ping blokuje.' };
+    }
+    case 'dns': return target.endsWith('.invalid')
+      ? { test, target, ok: false, durationMs: 40, message: 'Název se nepodařilo přeložit. Zkontrolujte DNS servery v nastavení sítě.' }
+      : { test, target, ok: true, durationMs: 23, addresses: ['192.0.2.80', '2001:db8::80'] };
+    case 'internet': return { test, ok: true, durationMs: 85, steps: [
+      { name: 'dns', ok: true, detail: 'deb.debian.org → 192.0.2.80', durationMs: 21 },
+      { name: 'connect', ok: true, detail: '192.0.2.80:443', durationMs: 64 }] };
+    case 'ports': return { test, ok: true, durationMs: 140, ports: [
+      { proto: 'tcp', address: '0.0.0.0', port: 22, process: 'sshd' }, { proto: 'udp', address: '127.0.0.53', port: 53, process: 'systemd-resolve' },
+      { proto: 'tcp', address: '0.0.0.0', port: 445, process: 'smbd' }, { proto: 'tcp', address: '0.0.0.0', port: 2049, process: '' },
+      { proto: 'tcp', address: '::', port: 8443, process: 'nas-revival' }] };
+    case 'connections': return { test, ok: true, durationMs: 120, connections: [
+      { localPort: 22, peer: '192.0.2.155', peerPort: 55120, process: 'sshd-session' },
+      { localPort: 8443, peer: '192.0.2.155', peerPort: 60300, process: 'nas-revival' }] };
+  }
+}
+
 const isHost = (s: string) => s.length <= 253 && s.split('.').every((l) => /^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/.test(l));
 
 function settings(path: string, method: string, body: unknown): Response | null {
@@ -100,6 +138,14 @@ function settings(path: string, method: string, body: unknown): Response | null 
     downUntil = { from: Date.now() + 4000, to: action === 'reboot' ? Date.now() + 15000 : Infinity };
     return json(202, { action, forced: !!b.force, blockers: [] });
   }
+  if (path === '/network' && method === 'GET') return json(200, netInfo());
+  if (path === '/network/hostname' && method === 'PUT') {
+    const h = String((body as { hostname?: string }).hostname ?? '').trim().toLowerCase();
+    if (!/^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(h) || /^\d+$/.test(h) || h === 'localhost') return bad('hostname', 'Neplatný název NASu.');
+    mockHostname = h;
+    return json(200, netInfo());
+  }
+  if (path === '/network/diagnostics' && method === 'POST') return json(200, mockDiag(body as { test: DiagResult['test']; target?: string }));
   if (path === '/settings/network' && method === 'GET') return json(200, netBody());
   if (path === '/settings/network' && method === 'PUT') return putNetwork(body as NetConfig);
   if (path === '/settings/network/confirm' && method === 'POST') {
@@ -985,7 +1031,7 @@ export function installMock(): void {
       const r = configRoute(path, method);
       if (r) return r;
     }
-    if (path.startsWith('/settings/') || path.startsWith('/system/')) {
+    if (path.startsWith('/settings/') || path.startsWith('/system/') || path === '/network' || path.startsWith('/network/')) {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = settings(path, method, body);

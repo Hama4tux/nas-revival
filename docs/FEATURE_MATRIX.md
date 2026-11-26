@@ -122,8 +122,8 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | SVC-10 | Services | Service manager: state, PID, RAM, CPU, ports, last error | P0 | Tested | — | systemctl show, /proc | L | info disclosure | data for allowlisted units only | SVC-01 |
 | SVC-11 | Services | Start/stop/restart/reload/enable/disable for allowlisted units | P0 | Tested | — | systemctl | L | stopping critical service | ssh/networkd/nas-revival/helper/fan protected | PRIV-01 |
 | SVC-12 | Services | Unit log tail | P1 | Tested | — | journalctl -u (fixed args) | M | secrets in logs | bounded to 200 lines | LOG-01 |
-| NET-10 | Network | Hostname, domain, routes view, MTU, duplex, MAC | P1 | Not started | — | networkctl, ip -j | L | — | matches `ip -j` | NET-02 |
-| NET-11 | Network | Diagnostics: ping, DNS lookup, gateway, internet, listening ports, connections | P1 | Not started | — | ping, ss | M | used as scanner | fixed targets only gateway/user host, count ≤ 4, rate-limited | PRIV-01 |
+| NET-10 | Network | Hostname, domain, routes view, MTU, duplex, MAC | P1 | Implemented (W2.8: `GET /network` read by the web process from sysfs, `ip -j`, resolvectl; hostname change `net.hostname` via hostnamectl + /etc/hosts) | — | networkctl, ip -j | L | — | matches `ip -j` | NET-02 |
+| NET-11 | Network | Diagnostics: ping, DNS lookup, gateway, internet, listening ports, connections | P1 | Implemented (W2.8: helper `net.diag`, one test at a time, ≤ 20/min, ping 4 packets, internet = fixed host deb.debian.org) | — | ping, ss | M | used as scanner | fixed targets only gateway/user host, count ≤ 4, rate-limited | PRIV-01 |
 | NET-12 | Network | IPv6 | P2 | Not started | — | — | L | — | — | NET-02 |
 | NET-13 | Network | VLAN, static routes, bonding | P3 | Not started | 1 NIC | — | L | — | only on demand | NET-02 |
 

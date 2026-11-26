@@ -87,7 +87,10 @@ type Server struct {
 	Tasks      TaskAdmin
 	TaskStatus TaskStatus
 	// Backup serves /backup; nil answers 503.
-	Backup      BackupAdmin
+	Backup BackupAdmin
+	// NetInfo serves /network, NetAdmin the changes under /network; nil answers 503.
+	NetInfo     NetworkInfo
+	NetAdmin    NetworkAdmin
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
@@ -114,6 +117,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerSsh(api)
 	s.registerTasks(api)
 	s.registerBackup(api)
+	s.registerNetwork(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

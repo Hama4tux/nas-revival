@@ -56,7 +56,9 @@ endpoint is implemented, it moves into `api/v1.md`.
 | | `POST /services/{key}/{start\|stop\|restart\|reload\|enable\|disable}` | admin | `service.*` | M2 |
 | | `GET /services/{key}/logs?lines=` (≤ 200) | admin | `journal.unit` | M2 |
 | Network | `GET/PUT /settings/network`, `POST …/confirm` | admin | `network.*` | in development |
-| | `POST /network/diagnostics` `{test: ping\|dns\|gateway\|internet, target}` | admin | `net.diag` | M2 |
+| | `GET /network` (hostname, domains, interfaces, routes) | viewer | – | implemented |
+| | `PUT /network/hostname` `{hostname}` | admin | `net.hostname` | implemented |
+| | `POST /network/diagnostics` `{test: ping\|dns\|gateway\|internet\|ports\|connections, target}` (409 busy, 429 > 20/min) | admin | `net.diag` | implemented |
 | Monitor | `GET /monitor` (snapshot + ring buffer), `GET /monitor/processes` | viewer | – | M3 |
 | | `POST /monitor/processes/{pid}/kill` | admin | `process.kill` | M3 |
 | Tasks | `GET/POST /tasks`, `PATCH/DELETE /tasks/{id}`, `POST /tasks/{id}/run`, `/stop` | admin | `task.*` | M3 |

@@ -61,6 +61,10 @@ type Dispatcher struct {
 	Tasks *TaskManager
 	// Backup manages the backup pull jobs' key, host keys and share; nil disables it.
 	Backup *BackupManager
+	// Hostname changes the NAS name (net.hostname); nil disables it.
+	Hostname *HostnameManager
+	// Diag runs the network diagnostics (net.diag); nil disables it.
+	Diag *DiagManager
 }
 
 type request struct {
@@ -107,6 +111,29 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			d.Config.Changed(user, FileNetwork)
 		}
 		return st, err
+	case "net.hostname":
+		if d.Hostname == nil {
+			break
+		}
+		var a struct {
+			Hostname string `json:"hostname"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Hostname.Set(ctx, a.Hostname, user)
+	case "net.diag":
+		if d.Diag == nil {
+			break
+		}
+		var a struct {
+			Test   string `json:"test"`
+			Target string `json:"target"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Diag.Test(ctx, a.Test, a.Target, user)
 	case "time.get":
 		return d.Time.Get(ctx)
 	case "time.apply":

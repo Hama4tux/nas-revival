@@ -70,8 +70,10 @@ func writeHelperError(w http.ResponseWriter, err error) {
 	case helper.CodeInvalid:
 		writeInvalid(w, he.Field, he.Message)
 	case helper.CodeChangePending, helper.CodeNothingPending, helper.CodeTestRunning, helper.CodeConfigDrift,
-		helper.CodeActivityRunning:
+		helper.CodeActivityRunning, helper.CodeDiagBusy:
 		writeError(w, http.StatusConflict, he.Code, he.Message)
+	case helper.CodeRateLimited:
+		writeError(w, http.StatusTooManyRequests, he.Code, he.Message)
 	case helper.CodeNotFound:
 		writeError(w, http.StatusNotFound, he.Code, he.Message)
 	case helper.CodeNotInstalled:

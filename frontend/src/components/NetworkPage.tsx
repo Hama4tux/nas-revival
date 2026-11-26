@@ -12,6 +12,8 @@ import { Dialog } from './ui/dialog';
 import { Field } from './ui/field';
 import { Input } from './ui/input';
 import { ListEditor } from './ui/list-editor';
+import { NetworkDiagPanel } from './NetworkDiagPanel';
+import { NetworkInfoPanel } from './NetworkInfoPanel';
 import { Skeleton } from './ui/skeleton';
 
 const t = cs.net;
@@ -38,7 +40,7 @@ function dnsMsg(code: string): string {
 const List = ({ items }: { items: string[] }) =>
   items.length ? <>{items.map((x) => <div key={x} className="font-mono">{x}</div>)}</> : <span className="text-muted-foreground">{dash}</span>;
 
-export function NetworkPage({ net }: { net: ReturnType<typeof useNetworkSettings> }) {
+export function NetworkPage({ net, readOnly }: { net: ReturnType<typeof useNetworkSettings>; readOnly: boolean }) {
   const { data, error, setData } = net;
   const [form, setForm] = useState<Form | null>(null);
   const [server, setServer] = useState<{ field: string; message: string } | null>(null);
@@ -115,6 +117,7 @@ export function NetworkPage({ net }: { net: ReturnType<typeof useNetworkSettings
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-5">
+      <NetworkInfoPanel readOnly={readOnly} />
       <Widget id="net-current" title={t.current} icon={<Network />} className="lg:col-span-2"
         right={<Badge variant="neutral" className="font-mono">{data.interface}</Badge>}>
         <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2 text-sm">
@@ -179,6 +182,8 @@ export function NetworkPage({ net }: { net: ReturnType<typeof useNetworkSettings
           </div>
         </form>
       </Widget>
+
+      {!readOnly && <NetworkDiagPanel />}
 
       {confirm && (
         <Dialog title={t.confirmTitle} onClose={() => setConfirm(false)} busy={busy}

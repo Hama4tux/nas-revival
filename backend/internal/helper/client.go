@@ -370,6 +370,22 @@ func (c *Client) NfsStatus(ctx context.Context) (NfsStatus, error) {
 	return r, err
 }
 
+// HostnameSet changes the NAS name (hostnamectl over D-Bus).
+func (c *Client) HostnameSet(ctx context.Context, name string) (HostnameState, error) {
+	var r HostnameState
+	err := c.Call(ctx, "net.hostname", map[string]string{"hostname": name}, &r)
+	return r, err
+}
+
+// NetDiag runs one network test; a ping takes up to 10 s.
+func (c *Client) NetDiag(ctx context.Context, test, target string) (DiagResult, error) {
+	long := *c
+	long.Timeout = 25 * time.Second
+	var r DiagResult
+	err := long.Call(ctx, "net.diag", map[string]string{"test": test, "target": target}, &r)
+	return r, err
+}
+
 func (c *Client) SshGet(ctx context.Context) (SshService, error) {
 	var r SshService
 	err := c.Call(ctx, "ssh.get", nil, &r)

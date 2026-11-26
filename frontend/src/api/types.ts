@@ -74,6 +74,27 @@ export interface NetworkSettings {
   current: { addresses: string[]; gateway: string | null; dns: string[] };
   pending: { deadline: string; previous: NetConfig; next: NetConfig } | null;
 }
+export interface NetInterface {
+  name: string; mac: string; mtu: number; state: string; carrier: boolean | null;
+  speedMbps: number | null; duplex: '' | 'full' | 'half'; linkChanges: number | null; addresses: string[];
+}
+export interface NetRoute {
+  family: 'inet' | 'inet6'; destination: string; gateway?: string; device?: string;
+  protocol?: string; scope?: string; source?: string; metric: number | null;
+}
+export interface NetworkInfo {
+  hostname: string; domains: string[]; interfaces: NetInterface[]; routes: NetRoute[]; checkedAt: string;
+}
+export type DiagTest = 'ping' | 'gateway' | 'dns' | 'internet' | 'ports' | 'connections';
+export interface DiagResult {
+  test: DiagTest; target?: string; ok: boolean; message?: string; durationMs: number;
+  ping?: { address: string; sent: number; received: number; lossPercent: number; minMs: number | null; avgMs: number | null; maxMs: number | null };
+  addresses?: string[];
+  steps?: { name: 'dns' | 'connect'; ok: boolean; detail: string; durationMs: number }[];
+  ports?: { proto: 'tcp' | 'udp'; address: string; port: number; process: string }[];
+  connections?: { localPort: number; peer: string; peerPort: number; process: string }[];
+  truncated?: boolean;
+}
 export interface TimeSettings {
   ntpServers: string[]; defaultServers: boolean; synchronized: boolean;
   serverName: string | null; serverAddress: string | null; timezone: string; now: string;
