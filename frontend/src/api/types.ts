@@ -380,3 +380,12 @@ export interface MonitorHistory {
   intervalSeconds: number; psiAvailable: boolean; memTotalBytes: number; swapTotalBytes: number;
   netTotals: MonitorNetTotal[]; samples: MonitorSample[];
 }
+
+/** GET /monitor/processes (W3.2). `start` = start time in clock ticks, sent back with a kill. */
+export type ProcessProtection = 'init' | 'kernel' | 'system' | 'revival';
+export interface ProcessInfo {
+  pid: number; ppid: number; name: string; cmd: string; user: string; state: string; threads: number;
+  rssBytes: number; cpuPercent: number; start: number; startedAt: number; protected?: ProcessProtection;
+}
+export interface ProcessList { processes: ProcessInfo[]; memTotalBytes: number; sampledAt: string }
+export interface ProcessKillResult { pid: number; name: string; signal: 'TERM' | 'KILL' }

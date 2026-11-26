@@ -217,3 +217,7 @@ one HTTPS connect to deb.debian.org, the listening ports and connections).
 
 Resource Monitor (W3.1): nothing to install. After deploying, run `scripts/webui/e2e-monitor.sh` from the
 workstation: it takes two readings of `/proc` and `/sys` 10 s apart as `nas-revival` and checks the sample.
+
+Processes (W3.2): nothing to install. After deploying (wait until the helper logs `helper listening`, ~40 s after a
+restart), run `scripts/webui/e2e-processes.sh`: as `nas-revival` it reads the list, has the helper refuse PID 1, a kernel
+thread, sshd and nas-revival and a wrong start time, then starts its own `sleep` and stops it through the helper.

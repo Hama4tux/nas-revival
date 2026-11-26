@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -950,6 +950,26 @@ function monitorHistory(since: number): MonitorHistory {
     netTotals: [{ name: 'enp1s0', rxBytes: 48e9, txBytes: 3.1e9, rxErrors: 0, txErrors: 0, drops: 14 }], samples };
 }
 
+/** Process list (W3.2): a few typical NSA310 processes; stopping one removes it. */
+const MIB = 1048576;
+let mockProcs: ProcessInfo[] = [
+  { pid: 1, ppid: 0, name: 'systemd', cmd: '/sbin/init', user: 'root', state: 'S', threads: 1, rssBytes: 9 * MIB, cpuPercent: 0.1, start: 1, startedAt: 0, protected: 'init' },
+  { pid: 2, ppid: 0, name: 'kthreadd', cmd: '[kthreadd]', user: 'root', state: 'S', threads: 1, rssBytes: 0, cpuPercent: 0, start: 1, startedAt: 0, protected: 'kernel' },
+  { pid: 31, ppid: 2, name: 'kworker/0:1-events', cmd: '[kworker/0:1-events]', user: 'root', state: 'I', threads: 1, rssBytes: 0, cpuPercent: 0.2, start: 90, startedAt: 0, protected: 'kernel' },
+  { pid: 212, ppid: 1, name: 'systemd-journal', cmd: '/usr/lib/systemd/systemd-journald', user: 'root', state: 'S', threads: 1, rssBytes: 7 * MIB, cpuPercent: 0.3, start: 400, startedAt: 0, protected: 'system' },
+  { pid: 402, ppid: 1, name: 'sshd', cmd: 'sshd: /usr/sbin/sshd -D [listener] 0 of 10-100 startups', user: 'root', state: 'S', threads: 1, rssBytes: 6 * MIB, cpuPercent: 0, start: 900, startedAt: 0, protected: 'system' },
+  { pid: 455, ppid: 1, name: 'nas-revival', cmd: '/usr/local/bin/nas-revival -listen :8443 -config /etc/nas-revival -state /var/lib/nas-revival', user: 'nas-revival', state: 'S', threads: 6, rssBytes: 21 * MIB, cpuPercent: 1.6, start: 950, startedAt: 0, protected: 'revival' },
+  { pid: 611, ppid: 1, name: 'smbd', cmd: '/usr/sbin/smbd --foreground --no-process-group', user: 'root', state: 'S', threads: 1, rssBytes: 18 * MIB, cpuPercent: 0.4, start: 1500, startedAt: 0 },
+  { pid: 2840, ppid: 2801, name: 'rsync', cmd: 'rsync -a --delete --link-dest=/srv/backup/2026-11-25 root@192.0.2.10:nas-export/ /srv/backup/2026-11-26/', user: 'nas-backup', state: 'D', threads: 1, rssBytes: 34 * MIB, cpuPercent: 23.4, start: 88000, startedAt: 0 },
+  { pid: 3011, ppid: 3005, name: 'sshd-session', cmd: 'sshd-session: admin@pts/0', user: 'admin', state: 'S', threads: 1, rssBytes: 5 * MIB, cpuPercent: 0, start: 90000, startedAt: 0 },
+];
+function processList() {
+  const boot = Math.floor(Date.now() / 1000) - 3 * 86400;
+  return { processes: mockProcs.map((p) => ({ ...p, startedAt: boot + Math.floor(p.start / 100),
+    cpuPercent: Math.max(0, Math.round((p.cpuPercent + (p.pid === 2840 ? (Math.random() - 0.5) * 8 : 0)) * 10) / 10) })),
+  memTotalBytes: 252043264, sampledAt: new Date().toISOString() };
+}
+
 export function installMock(): void {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
@@ -992,6 +1012,17 @@ export function installMock(): void {
     }
     if (path === '/overview') return json(200, overview());
     if (path === '/monitor') return json(200, monitorHistory(Number(url.searchParams.get('since') ?? 0)));
+    if (path === '/monitor/processes') return json(200, processList());
+    const pk = /^\/monitor\/processes\/(\d+)\/kill$/.exec(path);
+    if (pk && method === 'POST') {
+      const b = JSON.parse(String(init?.body ?? '{}')) as { start?: number; force?: boolean };
+      const p = mockProcs.find((x) => x.pid === Number(pk[1]));
+      if (!p) return err(404, 'not_found', 'Proces už neběží.');
+      if (p.start !== b.start) return err(409, 'process_changed', 'Proces s tímto číslem mezitím skončil a běží jiný. Obnovte seznam.');
+      if (p.protected) return err(409, 'process_protected', 'Tento proces je chráněný, NAS ho potřebuje k chodu.');
+      mockProcs = mockProcs.filter((x) => x !== p);
+      return json(200, { pid: p.pid, name: p.name, signal: b.force ? 'KILL' : 'TERM' });
+    }
     if (path === '/smart') return json(200, smart());
     if (path === '/storage') return json(200, storage());
     if (path === '/storage/activity') {

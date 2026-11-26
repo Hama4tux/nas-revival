@@ -92,7 +92,10 @@ type Server struct {
 	NetInfo  NetworkInfo
 	NetAdmin NetworkAdmin
 	// Monitor serves /monitor; nil answers 503.
-	Monitor     MonitorSource
+	Monitor MonitorSource
+	// Processes serves /monitor/processes, ProcessKill its kill; nil answers 503.
+	Processes   ProcessSource
+	ProcessKill ProcessKiller
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler

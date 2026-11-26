@@ -77,7 +77,7 @@ export function App() {
       {route === 'overview' && <Overview onHost={setHost} />}
       {route === 'storage' && <StoragePage />}
       {route === 'network' && <NetworkPage net={net} readOnly={role !== 'admin'} />}
-      {route === 'monitor' && <MonitorPage />}
+      {route === 'monitor' && <MonitorPage readOnly={role !== 'admin'} />}
       {route === 'system' && <SystemPage />}
       {route === 'tasks' && <TasksPage readOnly={role !== 'admin'} />}
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}

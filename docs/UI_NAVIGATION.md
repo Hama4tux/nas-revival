@@ -19,7 +19,7 @@ into **10 apps**; the rest are sections inside them. Each app has *Basic* tabs a
 | 4 | Users & groups (`users`) | User & Group Management, roles | M2 | users, groups and roles ready (W2.1–W2.2); standard users see only „Můj účet“ |
 | 5 | Services (`services`) | Service Manager + File Services (SMB, NFS, SSH/SFTP, FTP, discovery) as tabs | M2 | Service Manager ready (W2.4, `#/services`): state, PID, RAM, CPU, ports, actions, unit log; SMB tab ready (W2.5); NFS tab (W2.6, exports, Proxmox command, connected clients; needs a kernel with NFSD); SSH/SFTP tab ready (W2.7, port, password login, SFTP groups; W2.7b public keys per NAS user) |
 | 6 | Network (`network`) | Network Manager, diagnostics | in development | ready (settings) |
-| 7 | Monitor (`monitor`) | Resource Monitor, process manager | M3 | Resource Monitor ready (W3.1, `#/monitor`): CPU breakdown, memory and swap, PSI when the kernel has it, disk and network I/O, 1 h history; process list W3.2 |
+| 7 | Monitor (`monitor`) | Resource Monitor, process manager | M3 | Resource Monitor ready (W3.1, `#/monitor`): CPU breakdown, memory and swap, PSI when the kernel has it, disk and network I/O, 1 h history; Processes tab (W3.2): search, sort by CPU/memory/name/PID, kernel threads hidden by default, stop (TERM) or force (KILL) for admins, protected processes marked |
 | 8 | Files (`files`) | File Station | M4 | – |
 | 9 | Backup (`backup`) | Backup & Restore, config export, task scheduler tab | M3–M4 | – |
 | 10 | Control panel (`system`) | System info, power, Hardware & Power (fan, LEDs, schedule), Security Center, Update Manager, Log Center tab, Package Center (M6) | M1+ | ready (system page) |

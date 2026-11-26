@@ -377,6 +377,13 @@ func (c *Client) HostnameSet(ctx context.Context, name string) (HostnameState, e
 	return r, err
 }
 
+// ProcessKill stops one process (SIGTERM, or SIGKILL with force).
+func (c *Client) ProcessKill(ctx context.Context, pid int, start uint64, force bool) (ProcessKillResult, error) {
+	var r ProcessKillResult
+	err := c.Call(ctx, "process.kill", map[string]any{"pid": pid, "start": start, "force": force}, &r)
+	return r, err
+}
+
 // NetDiag runs one network test; a ping takes up to 10 s.
 func (c *Client) NetDiag(ctx context.Context, test, target string) (DiagResult, error) {
 	long := *c

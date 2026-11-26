@@ -130,7 +130,7 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
   5-min aggregates for 7 days in RAM (~2 000 samples), flushed to `/var/lib/nas-revival/history.bin`
   at most once per hour and on shutdown (one small sequential write; skipped while the data disk sleeps
   if the state dir lives on it).
-- Expensive sources run only on demand: process list (only while the Resource Monitor is open,
+- Expensive sources run only on demand: process list (implemented W3.2, `internal/procs`: only while the Processes tab is open, one walk reused for 4 s,
   ≥ 5 s), folder sizes, activity diagnostics, `df` on sleeping disks (never; cached value shown).
 - SMART: `smartctl --nocheck=standby` with a 10 min cache (implemented); temperatures of a sleeping
   disk are shown as "sleeping", never woken.

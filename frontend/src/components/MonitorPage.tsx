@@ -10,6 +10,7 @@ import { formatRate } from '../lib/netrate';
 import { AreaChart } from './AreaChart';
 import { Widget } from './ui/card';
 import { Progress } from './ui/progress';
+import { ProcessesPanel } from './ProcessesPanel';
 import { Skeleton } from './ui/skeleton';
 
 const t = cs.monitor;
@@ -165,7 +166,7 @@ function NetCard({ h, span }: { h: MonitorHistory; span: string }) {
   );
 }
 
-export function MonitorPage() {
+function ResourcesPanel() {
   const [hist, setHist] = useState<MonitorHistory | null>(null);
   const [error, setError] = useState<ApiError | null>(null);
   const ref = useRef<MonitorHistory | null>(null);
@@ -211,6 +212,38 @@ export function MonitorPage() {
         <MemoryCard h={hist} span={span} />
         <DisksCard samples={s} span={span} />
         <NetCard h={hist} span={span} />
+      </div>
+    </div>
+  );
+}
+
+type Tab = 'resources' | 'processes';
+const TABS: Tab[] = ['resources', 'processes'];
+
+/** Monitor app: resource history and the process list; only the shown tab polls. */
+export function MonitorPage({ readOnly }: { readOnly: boolean }) {
+  const [tab, setTab] = useState<Tab>('resources');
+  const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const n = tab === 'resources' ? 'processes' : 'resources';
+    setTab(n);
+    refs.current[n]?.focus();
+  }
+  return (
+    <div className="space-y-4">
+      <div role="tablist" aria-label={cs.pages.monitor.title} className="flex flex-wrap gap-2" onKeyDown={onKey}>
+        {TABS.map((k) => (
+          <button key={k} ref={(el) => { refs.current[k] = el; }} type="button" role="tab" id={`mon-tab-${k}`}
+            aria-selected={tab === k} aria-controls={`mon-panel-${k}`} tabIndex={tab === k ? 0 : -1}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setTab(k)}>
+            {t.tabs[k]}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`mon-panel-${tab}`} aria-labelledby={`mon-tab-${tab}`}>
+        {tab === 'resources' ? <ResourcesPanel /> : <ProcessesPanel readOnly={readOnly} />}
       </div>
     </div>
   );

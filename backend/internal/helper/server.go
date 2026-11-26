@@ -65,6 +65,8 @@ type Dispatcher struct {
 	Hostname *HostnameManager
 	// Diag runs the network diagnostics (net.diag); nil disables it.
 	Diag *DiagManager
+	// Procs stops processes (process.kill); nil disables it.
+	Procs *ProcessManager
 }
 
 type request struct {
@@ -134,6 +136,19 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return nil, err
 		}
 		return d.Diag.Test(ctx, a.Test, a.Target, user)
+	case "process.kill":
+		if d.Procs == nil {
+			break
+		}
+		var a struct {
+			PID   int    `json:"pid"`
+			Start uint64 `json:"start"`
+			Force bool   `json:"force"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Procs.Stop(ctx, a.PID, a.Start, a.Force, user)
 	case "time.get":
 		return d.Time.Get(ctx)
 	case "time.apply":

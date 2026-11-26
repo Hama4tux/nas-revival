@@ -52,7 +52,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 ## W3 – Monitoring & hardware (M3)
 
 W3.1 ✅ 2026-11-26 (deployed, e2e on the NAS; page checked with mock data on desktop and 360 px, not yet logged in on the NAS; PSI hidden: kernel without CONFIG_PSI; 7-day aggregates of MON-02 open) Resource Monitor (CPU breakdown, RAM/PSI, disk and network I/O, 1 h history) ·
-W3.2 Process list + protected kill · W3.3 ✅ 2026-11-26 (NAS: timer, run now, lock; phone width unchecked) Task scheduler (list, run now, history, SMART and cleanup
+W3.2 ✅ 2026-11-26 (deployed, e2e on the NAS: list, protected processes refused, own sleep stopped; page checked with mock data on desktop and 360 px, not yet logged in on the NAS) Process list + protected kill · W3.3 ✅ 2026-11-26 (NAS: timer, run now, lock; phone width unchecked) Task scheduler (list, run now, history, SMART and cleanup
 tasks) · W3.4 Hardware: temperature history and thresholds, fan profiles, LEDs and night mode ·
 W3.5 Power schedule (scheduled shutdown/restart) · W3.6 Standby history and load-cycle growth warning (PWR-04).
 
