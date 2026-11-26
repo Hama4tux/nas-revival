@@ -474,3 +474,44 @@ func TestConfigRoundTrip(t *testing.T) {
 		t.Error("duplicate accepted")
 	}
 }
+
+func TestBackupNamesReserved(t *testing.T) {
+	for _, n := range []string{"apps", "Versions", "zalohy", "ZALOHY"} {
+		s := baseShare()
+		s.Name = n
+		if _, err := ValidateRequest(s); err == nil || !strings.Contains(err.Error(), "vyhrazen pro zálohy") {
+			t.Errorf("name %q: %v", n, err)
+		}
+		s = baseShare()
+		s.Folder = n
+		if _, err := ValidateRequest(s); err == nil || !strings.Contains(err.Error(), "folder") {
+			t.Errorf("folder %q: %v", n, err)
+		}
+	}
+	s := baseShare()
+	s.Name, s.Folder = "Fotky2", "Fotky2"
+	if _, err := ValidateRequest(s); err != nil {
+		t.Fatal(err)
+	}
+	// An existing shares.json that already holds such a name keeps loading.
+	s = baseShare()
+	s.Name, s.Folder = "apps", "apps"
+	if _, err := ValidateShape(s); err != nil {
+		t.Fatalf("load of an older share named apps: %v", err)
+	}
+}
+
+func TestRenderBackupShareReadOnly(t *testing.T) {
+	out := RenderBackupShare("/srv/data/versions")
+	for _, want := range []string{"[zalohy]", "path = /srv/data/versions", "read only = yes", "valid users = @nas-admin",
+		"force user = nas-backup", "force group = nas-backup"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %q in %s", want, out)
+		}
+	}
+	for _, bad := range []string{"write list", "admin users", "read only = no", "writeable", "writable", "recycle"} {
+		if strings.Contains(out, bad) {
+			t.Errorf("must not contain %q", bad)
+		}
+	}
+}

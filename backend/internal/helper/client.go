@@ -421,3 +421,51 @@ func (c *Client) TaskRun(ctx context.Context, id string) error {
 func (c *Client) TaskStop(ctx context.Context, id string) error {
 	return c.Call(ctx, "task.stop", map[string]string{"id": id}, nil)
 }
+
+// BackupKey returns the NAS public key (generated on first use).
+func (c *Client) BackupKey(ctx context.Context) (BackupKey, error) {
+	long := *c
+	long.Timeout = 30 * time.Second
+	var r BackupKey
+	err := long.Call(ctx, "backup.key.get", nil, &r)
+	return r, err
+}
+
+// BackupHostScan fetches the host keys of a server.
+func (c *Client) BackupHostScan(ctx context.Context, host string, port int) (HostScan, error) {
+	long := *c
+	long.Timeout = 50 * time.Second
+	var r HostScan
+	err := long.Call(ctx, "backup.host.scan", map[string]any{"host": host, "port": port}, &r)
+	return r, err
+}
+
+// BackupHostTrust stores a confirmed host key.
+func (c *Client) BackupHostTrust(ctx context.Context, host string, port int, typ, key string) error {
+	return c.Call(ctx, "backup.host.trust", map[string]any{"host": host, "port": port, "type": typ, "key": key}, nil)
+}
+
+// BackupTest tries the connection as the nas-backup account.
+func (c *Client) BackupTest(ctx context.Context, host string, port int, user, path string) (BackupTestResult, error) {
+	long := *c
+	long.Timeout = 65 * time.Second
+	var r BackupTestResult
+	err := long.Call(ctx, "backup.test", map[string]any{"host": host, "port": port, "user": user, "path": path}, &r)
+	return r, err
+}
+
+// BackupShareGet returns the state of the read-only versions share.
+func (c *Client) BackupShareGet(ctx context.Context) (BackupShareState, error) {
+	var r BackupShareState
+	err := c.Call(ctx, "backup.share.get", nil, &r)
+	return r, err
+}
+
+// BackupShareSet switches the versions share (re-renders the Samba config).
+func (c *Client) BackupShareSet(ctx context.Context, enabled bool) (BackupShareState, error) {
+	long := *c
+	long.Timeout = 30 * time.Second
+	var r BackupShareState
+	err := long.Call(ctx, "backup.share.set", map[string]any{"enabled": enabled}, &r)
+	return r, err
+}

@@ -67,7 +67,7 @@ func newNfsFix(t *testing.T, installed bool) *nfsFix {
 	os.WriteFile(filepath.Join(dir, "group"), []byte(baseGroup), 0o644)
 	sh := filepath.Join(dir, "shares.json")
 	cfg := shares.Config{Version: 1, Shares: []shares.Share{
-		{Name: "zalohy", Volume: "/srv/data", Folder: "zalohy", Permissions: []shares.Permission{{Kind: shares.KindGroup, Name: "nas-nfs", Access: shares.AccessRW}}},
+		{Name: "zkopie", Volume: "/srv/data", Folder: "zkopie", Permissions: []shares.Permission{{Kind: shares.KindGroup, Name: "nas-nfs", Access: shares.AccessRW}}},
 		{Name: "smb", Volume: "/srv/data", Folder: "smb", Permissions: []shares.Permission{{Kind: shares.KindGroup, Name: "nas-users", Access: shares.AccessRW}}},
 		{Name: "archiv", Volume: "/srv/data", Folder: "archiv", ReadOnly: true, Permissions: []shares.Permission{}},
 	}}
@@ -92,7 +92,7 @@ func newNfsFix(t *testing.T, installed bool) *nfsFix {
 
 func proxmox(enabled bool) nfs.Settings {
 	return nfs.Settings{Enabled: enabled, Exports: []nfs.Export{
-		{Share: "zalohy", Clients: []nfs.Client{{Host: "192.168.1.30"}}},
+		{Share: "zkopie", Clients: []nfs.Client{{Host: "192.168.1.30"}}},
 	}}
 }
 
@@ -104,7 +104,7 @@ func TestNfsGetUnconfigured(t *testing.T) {
 	}
 	// Sorted by name like shares.json.
 	// nas-users rw is not NFS write access: squashed clients write with nas-nfs.
-	if st.Shares[2].Path != "/srv/data/zalohy" || !st.Shares[0].ReadOnly || !st.Shares[2].GroupWrite || st.Shares[1].GroupWrite {
+	if st.Shares[2].Path != "/srv/data/zkopie" || !st.Shares[0].ReadOnly || !st.Shares[2].GroupWrite || st.Shares[1].GroupWrite {
 		t.Fatalf("shares %+v", st.Shares)
 	}
 }
@@ -118,7 +118,7 @@ func TestNfsSetEnableAndDisable(t *testing.T) {
 	}
 	b, _ := os.ReadFile(x.m.Exports)
 	// anongid is nas-nfs, created by the first nfs.set (989), not nas-users (990).
-	if !strings.Contains(string(b), "/srv/data/zalohy 192.168.1.30(rw,sync,secure,no_subtree_check,sec=sys,root_squash,anonuid=65534,anongid=989)") {
+	if !strings.Contains(string(b), "/srv/data/zkopie 192.168.1.30(rw,sync,secure,no_subtree_check,sec=sys,root_squash,anonuid=65534,anongid=989)") {
 		t.Fatalf("exports:\n%s", b)
 	}
 	if got := strings.Join(x.f.calls, "|"); got != "groupadd --system nas-nfs|systemctl enable --now nfs-server.service|exportfs -ra" {
@@ -212,12 +212,12 @@ func TestNfsRefreshAndExported(t *testing.T) {
 	if _, err := x.m.Set(ctx, proxmox(true), "admin"); err != nil {
 		t.Fatal(err)
 	}
-	if !x.m.Exported("zalohy") || x.m.Exported("archiv") {
+	if !x.m.Exported("zkopie") || x.m.Exported("archiv") {
 		t.Fatal("Exported")
 	}
 	x.f.calls = nil
 	cfg, _ := shares.Load(x.shares)
-	cfg.Shares[cfg.Find("zalohy")].ReadOnly = true
+	cfg.Shares[cfg.Find("zkopie")].ReadOnly = true
 	x.m.Refresh(ctx, cfg)
 	if b, _ := os.ReadFile(x.m.Exports); !strings.Contains(string(b), "192.168.1.30(ro,") {
 		t.Fatalf("read-only share not re-exported read-only:\n%s", b)
@@ -245,10 +245,10 @@ func TestNfsRestore(t *testing.T) {
 	if fileExists(x.m.Path) || x.f.active {
 		t.Fatal("restore of an absent version kept NFS on")
 	}
-	if err := x.m.Restore(ctx, []byte(`{"version":1,"enabled":true,"exports":[{"share":"zalohy","clients":[{"host":"*"}]}]}`), true); codeOf(err) != CodeInvalid {
+	if err := x.m.Restore(ctx, []byte(`{"version":1,"enabled":true,"exports":[{"share":"zkopie","clients":[{"host":"*"}]}]}`), true); codeOf(err) != CodeInvalid {
 		t.Fatalf("invalid version restored: %v", err)
 	}
-	b := []byte(`{"version":1,"enabled":true,"exports":[{"share":"zalohy","clients":[{"host":"192.168.1.30"}]}]}`)
+	b := []byte(`{"version":1,"enabled":true,"exports":[{"share":"zkopie","clients":[{"host":"192.168.1.30"}]}]}`)
 	if err := x.m.Restore(ctx, b, true); err != nil || !x.f.active {
 		t.Fatalf("restore: %v", err)
 	}

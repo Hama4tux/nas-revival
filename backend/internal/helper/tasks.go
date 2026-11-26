@@ -177,7 +177,9 @@ func (m *TaskManager) reconcile(ctx context.Context, l []tasks.Task) error {
 			slog.Error("helper: remove timer", "name", e.Name(), "err", err)
 			note(err)
 		}
+		// The type of a removed task is unknown: stop both templates.
 		note(m.systemctl(ctx, "stop", "--", tasks.ServiceName(sub[1])))
+		note(m.systemctl(ctx, "stop", "--", tasks.BackupServiceName(sub[1])))
 	}
 	note(m.systemctl(ctx, "daemon-reload"))
 	for _, t := range l {
@@ -190,18 +192,19 @@ func (m *TaskManager) reconcile(ctx context.Context, l []tasks.Task) error {
 	return first
 }
 
-func (m *TaskManager) exists(id string) error {
+func (m *TaskManager) find(id string) (tasks.Task, error) {
 	if !tasks.ValidID(id) {
-		return notFound("Úloha neexistuje.")
+		return tasks.Task{}, notFound("Úloha neexistuje.")
 	}
 	l, err := m.load()
 	if err != nil {
-		return err
+		return tasks.Task{}, err
 	}
-	if _, ok := tasks.Find(l, id); !ok {
-		return notFound("Úloha neexistuje.")
+	t, ok := tasks.Find(l, id)
+	if !ok {
+		return tasks.Task{}, notFound("Úloha neexistuje.")
 	}
-	return nil
+	return t, nil
 }
 
 // Start runs the task now through its service unit (does not wait).
@@ -217,10 +220,11 @@ func (m *TaskManager) Stop(ctx context.Context, id, actor string) error {
 func (m *TaskManager) control(ctx context.Context, verb, id, actor string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.exists(id); err != nil {
+	t, err := m.find(id)
+	if err != nil {
 		return err
 	}
-	if err := m.systemctl(ctx, verb, "--no-block", "--", tasks.ServiceName(id)); err != nil {
+	if err := m.systemctl(ctx, verb, "--no-block", "--", tasks.ServiceNameFor(t)); err != nil {
 		return internalErr("Úlohu se nepodařilo ovládat.")
 	}
 	slog.Info("helper: task."+map[string]string{"start": "run", "stop": "stop"}[verb], "id", id, "user", actor)

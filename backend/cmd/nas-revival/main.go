@@ -51,6 +51,8 @@ func main() {
 	var err error
 	if len(os.Args) > 1 && os.Args[1] == "set-password" {
 		err = setPassword(os.Args[2:])
+	} else if len(os.Args) > 2 && os.Args[1] == "task" && os.Args[2] == "import-pull" {
+		err = importPull(os.Args[3:])
 	} else if len(os.Args) > 2 && os.Args[1] == "task" && os.Args[2] == "run" {
 		err = runTask(os.Args[3:])
 	} else if len(os.Args) > 1 && os.Args[1] == "helper" {
@@ -146,7 +148,9 @@ func serve(args []string) error {
 	srv.Nfs = hc
 	srv.Ssh = hc
 	srv.Tasks = hc
-	srv.TaskStatus = api.TaskStatus{Run: helper.ExecRunner, HistoryPath: filepath.Join(*stateDir, "task-history.json")}
+	srv.Backup = hc
+	srv.TaskStatus = api.TaskStatus{Run: helper.ExecRunner, HistoryPath: filepath.Join(*stateDir, "task-history.json"),
+		BackupHistoryPath: tasks.DefaultBackupHistoryPath}
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -316,6 +320,10 @@ func runHelper(args []string) error {
 	if err := tkm.Reconcile(ctx); err != nil {
 		slog.Error("helper: task timers", "err", err)
 	}
+	// Backup pull jobs (W4.3): key, host keys, optional read-only versions share.
+	bkm := helper.NewBackupManager(*iface, helper.ExecRunner)
+	bkm.ApplyShare = shm.Resamba
+	shm.BackupShare = bkm.ShareEnabled
 	ln, err := helper.Listen(*sock, gid)
 	if err != nil {
 		return err
@@ -333,6 +341,7 @@ func runHelper(args []string) error {
 		Nfs:      nfsm,
 		Ssh:      sshm,
 		Tasks:    tkm,
+		Backup:   bkm,
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
 			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},
@@ -463,6 +472,7 @@ func runTask(args []string) error {
 	defer stop()
 	r := tasks.NewRunner(filepath.Join(*configDir, "tasks.json"), filepath.Join(*stateDir, "task-history.json"),
 		taskBackend{c: &helper.Client{Socket: *helperSock}})
+	r.Backup = tasks.NewBackupWorker(backupVolumeMounted)
 	run, err := r.Run(ctx, fl.Arg(0))
 	if err != nil {
 		return err
@@ -470,5 +480,56 @@ func runTask(args []string) error {
 	if run.Result == tasks.ResultFailed || run.Result == tasks.ResultStopped {
 		return fmt.Errorf("task %s: %s: %s", fl.Arg(0), run.Result, run.Message)
 	}
+	return nil
+}
+
+// backupVolumeMounted checks that the backup volume is a mounted data volume.
+func backupVolumeMounted() bool {
+	f, err := os.Open("/proc/self/mountinfo")
+	if err != nil {
+		return false
+	}
+	defer f.Close()
+	for _, m := range shares.DataMounts(shares.ParseMountinfo(f)) {
+		if m.Point == tasks.BackupVolume {
+			return true
+		}
+	}
+	return false
+}
+
+// importPull merges the jobs of the interim nas-pull timer into tasks.json as
+// backup-pull tasks (root only; same validation and timers as task.set).
+func importPull(args []string) error {
+	fl := flag.NewFlagSet("task import-pull", flag.ContinueOnError)
+	at := fl.String("time", tasks.DefaultImportTime, "daily start (HH:MM, NAS local time)")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	if fl.NArg() != 1 {
+		return errors.New("usage: nas-revival task import-pull [-time HH:MM] <jobs.conf>")
+	}
+	if os.Geteuid() != 0 {
+		return errors.New("task import-pull must run as root")
+	}
+	f, err := os.Open(fl.Arg(0))
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	existing, err := tasks.Load(tasks.DefaultConfigPath)
+	if err != nil {
+		return err
+	}
+	merged, err := tasks.ImportPull(f, existing, *at)
+	if err != nil {
+		return err
+	}
+	tkm := &helper.TaskManager{Path: tasks.DefaultConfigPath, UnitDir: "/etc/systemd/system", Run: helper.ExecRunner}
+	res, err := tkm.Set(context.Background(), merged, "import-pull")
+	if err != nil {
+		return err
+	}
+	fmt.Printf("tasks.json: %d tasks\n", len(res.Tasks))
 	return nil
 }

@@ -242,3 +242,59 @@ func TestHeavyLockPathsAgree(t *testing.T) {
 		t.Fatalf("preflight lock %q != runner lock %q", DefaultHeavyLock, tasks.HeavyLockPath)
 	}
 }
+
+func backupTaskFor(id string) tasks.Task {
+	return tasks.Task{ID: id, Name: "Záloha", Type: tasks.TypeBackup, Enabled: true,
+		Schedule: tasks.Schedule{Kind: tasks.KindDaily, Time: "06:45"},
+		Backup: &tasks.BackupParams{Host: "192.0.2.10", User: "root", Paths: []string{"nas-export"}, KeepDays: 35}}
+}
+
+func TestBackupTaskUnitSelection(t *testing.T) {
+	x := newTaskFix(t)
+	ctx := context.Background()
+	l, err := x.m.Set(ctx, []tasks.Task{backupTaskFor("pull"), smartTask("sm", true)}, "admin")
+	if err != nil || l.Tasks[0].Backup.Port != 22 {
+		t.Fatalf("%+v %v", l, err)
+	}
+	b, _ := os.ReadFile(filepath.Join(x.unit, "nas-revival-task-pull.timer"))
+	if !strings.Contains(string(b), "Unit=nas-revival-backup@pull.service\n") {
+		t.Fatal(string(b))
+	}
+	b, _ = os.ReadFile(filepath.Join(x.unit, "nas-revival-task-sm.timer"))
+	if !strings.Contains(string(b), "Unit=nas-revival-task@sm.service\n") {
+		t.Fatal(string(b))
+	}
+	x.f.calls = nil
+	if err := x.m.Start(ctx, "pull", "a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.m.Stop(ctx, "pull", "a"); err != nil {
+		t.Fatal(err)
+	}
+	if err := x.m.Start(ctx, "sm", "a"); err != nil {
+		t.Fatal(err)
+	}
+	if calls(x.f) != "systemctl start --no-block -- nas-revival-backup@pull.service|systemctl stop --no-block -- nas-revival-backup@pull.service|systemctl start --no-block -- nas-revival-task@sm.service" {
+		t.Fatal(calls(x.f))
+	}
+	// removal stops the right service
+	x.f.calls = nil
+	if _, err := x.m.Set(ctx, []tasks.Task{smartTask("sm", true)}, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(calls(x.f), "systemctl stop -- nas-revival-backup@pull.service") {
+		t.Fatal(calls(x.f))
+	}
+}
+
+func TestBackupTaskRejectedBySet(t *testing.T) {
+	x := newTaskFix(t)
+	bad := backupTaskFor("pull")
+	bad.Backup.Host = "-oProxyCommand=x"
+	if _, err := x.m.Set(context.Background(), []tasks.Task{bad}, "admin"); err == nil {
+		t.Fatal("accepted")
+	}
+	if len(x.f.calls) != 0 {
+		t.Fatal(x.f.calls)
+	}
+}

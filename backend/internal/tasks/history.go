@@ -36,6 +36,10 @@ type Run struct {
 	End     time.Time `json:"end"`
 	Result  string    `json:"result"`
 	Message string    `json:"message"`
+	// Bytes is what a backup-pull run transferred; UsedBytes the space of the
+	// mirror plus its versions (backup-pull only).
+	Bytes     int64 `json:"bytes,omitempty"`
+	UsedBytes int64 `json:"usedBytes,omitempty"`
 }
 
 // History is task-history.json: runs per task id, newest first.
@@ -73,10 +77,19 @@ func clip(s string) string {
 	return string(r[:MaxMessageLen-1]) + "…"
 }
 
-// Record puts run first in the history of id, keeps MaxRuns per task and
+// Record is RecordMode with file mode 0600.
+func Record(path string, known []string, id string, run Run) error {
+	return RecordMode(path, 0o600, known, id, run)
+}
+
+// DefaultBackupHistoryPath is the history of the backup-pull tasks (0640,
+// group nas-backup; the web process reads it through a supplementary group).
+const DefaultBackupHistoryPath = "/var/lib/nas-backup/task-history.json"
+
+// RecordMode puts run first in the history of id, keeps MaxRuns per task and
 // drops the runs of ids that are not in known. The file is written under an
 // exclusive lock on path+".lock" (0600).
-func Record(path string, known []string, id string, run Run) error {
+func RecordMode(path string, mode os.FileMode, known []string, id string, run Run) error {
 	lf, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return err
@@ -110,5 +123,5 @@ func Record(path string, known []string, id string, run Run) error {
 	if err != nil {
 		return err
 	}
-	return atomicfile.Write(path, append(b, '\n'), 0o600)
+	return atomicfile.Write(path, append(b, '\n'), mode)
 }

@@ -86,6 +86,9 @@ type ShareManager struct {
 	// re-renders the exports after a change. Both are nil without NFS.
 	NfsExported func(name string) bool
 	NfsRefresh  func(ctx context.Context, cfg shares.Config)
+	// BackupShare says whether the read-only share of the backup versions is
+	// part of the Samba fragment (W4.3); nil means no.
+	BackupShare func() bool
 	mu          sync.Mutex
 }
 
@@ -97,7 +100,7 @@ func (m *ShareManager) nfsRefresh(ctx context.Context, cfg shares.Config) {
 
 // ValidateShare checks the shape of a share (the web process runs it too).
 func ValidateShare(s shares.Share) (shares.Share, error) {
-	n, err := shares.ValidateShape(s)
+	n, err := shares.ValidateRequest(s)
 	return n, shareErr(err)
 }
 
@@ -256,6 +259,9 @@ func (m *ShareManager) writeSamba(ctx context.Context, cfg shares.Config) error 
 		return nil
 	}
 	text := shares.Render(cfg.Shares, m.hasACL)
+	if m.BackupShare != nil && m.BackupShare() {
+		text += shares.RenderBackupShare(BackupSharePath)
+	}
 	if _, err := m.LookPath("testparm"); err == nil {
 		tmp, err := os.CreateTemp("", "nas-revival-smb-*.conf")
 		if err != nil {
@@ -284,6 +290,17 @@ func (m *ShareManager) writeSamba(ctx context.Context, cfg shares.Config) error 
 		}
 	}
 	return nil
+}
+
+// Resamba renders the Samba fragment again (the backup share was switched).
+func (m *ShareManager) Resamba(ctx context.Context) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cfg, err := m.loadCfg()
+	if err != nil {
+		return err
+	}
+	return m.writeSamba(ctx, cfg)
 }
 
 // checkNew runs the checks that need the volume list and account database.

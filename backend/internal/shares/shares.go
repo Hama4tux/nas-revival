@@ -94,6 +94,54 @@ var (
 // ValidName checks a share name or folder name.
 func ValidName(s string) bool { return nameRe.MatchString(s) }
 
+// BackupShareName is the fixed name of the optional read-only share of the
+// backup versions (W4.3); with "apps" and "versions" (the backup data
+// directories on every volume) it is not available for ordinary shares.
+const BackupShareName = "zalohy"
+
+var backupReserved = map[string]bool{"apps": true, "versions": true, BackupShareName: true}
+
+// ReservedForBackup reports names the backups use (case-insensitive).
+func ReservedForBackup(s string) bool { return backupReserved[strings.ToLower(s)] }
+
+// RenderBackupShare is the fixed Samba section of the backup versions. It is
+// read-only on purpose: the versions are hardlinks, a write would change
+// every version that shares the file.
+func RenderBackupShare(path string) string {
+	var b strings.Builder
+	b.WriteString("\n[" + BackupShareName + "]\n")
+	for _, kv := range [][2]string{
+		{"comment", "Zálohy ze serverů (jen ke čtení)"},
+		{"path", path},
+		{"read only", "yes"},
+		{"force user", "nas-backup"},
+		{"force group", "nas-backup"},
+		{"valid users", "@nas-admin"},
+		{"browseable", "yes"},
+		{"guest ok", "no"},
+	} {
+		b.WriteString("   " + kv[0] + " = " + kv[1] + "\n")
+	}
+	return b.String()
+}
+
+// ValidateRequest is ValidateShape plus the names reserved for backups. It
+// runs on create and update only, so an older shares.json that already holds
+// such a name still loads.
+func ValidateRequest(s Share) (Share, error) {
+	n, err := ValidateShape(s)
+	if err != nil {
+		return n, err
+	}
+	if ReservedForBackup(n.Name) {
+		return n, bad("name", "Název je vyhrazen pro zálohy.")
+	}
+	if ReservedForBackup(n.Folder) {
+		return n, bad("folder", "Název je vyhrazen pro zálohy.")
+	}
+	return n, nil
+}
+
 // Reserved reports names Samba gives a special meaning (case-insensitive).
 func Reserved(s string) bool { return reserved[strings.ToLower(s)] }
 

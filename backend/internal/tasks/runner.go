@@ -7,6 +7,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
+	"os/user"
 	"strings"
 	"syscall"
 	"time"
@@ -51,7 +52,11 @@ type Runner struct {
 	Wait     time.Duration
 	Retry    time.Duration
 	Backend  Backend
-	Now      func() time.Time
+	// Backup runs backup-pull tasks; User returns the effective account name
+	// (backup-pull runs only as nas-backup, everything else never does).
+	Backup *BackupWorker
+	User   func() string
+	Now    func() time.Time
 	// Sleep waits d or returns the context error.
 	Sleep func(ctx context.Context, d time.Duration) error
 }
@@ -59,7 +64,14 @@ type Runner struct {
 // NewRunner returns a Runner with the production defaults.
 func NewRunner(tasksPath, historyPath string, b Backend) *Runner {
 	return &Runner{TasksPath: tasksPath, HistoryPath: historyPath, LockPath: HeavyLockPath,
-		Wait: 3 * time.Hour, Retry: 30 * time.Second, Backend: b, Now: time.Now, Sleep: sleepCtx}
+		Wait: 3 * time.Hour, Retry: 30 * time.Second, Backend: b, User: currentUser, Now: time.Now, Sleep: sleepCtx}
+}
+
+func currentUser() string {
+	if u, err := user.Current(); err == nil {
+		return u.Username
+	}
+	return ""
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {
@@ -90,16 +102,30 @@ func (r *Runner) Run(ctx context.Context, id string) (Run, error) {
 		known = append(known, x.ID)
 	}
 	run := Run{Start: r.Now()}
-	run.Result, run.Message = r.execute(ctx, t)
+	cur := ""
+	if r.User != nil {
+		cur = r.User()
+	}
+	if (t.Type == TypeBackup) != (cur == BackupUser) {
+		// Not recorded: the history file of the other account is not ours.
+		run.Result, run.Message, run.End = ResultFailed, MsgWrongAccount, r.Now()
+		slog.Error("task refused", "id", id, "type", t.Type, "user", cur)
+		return run, nil
+	}
+	run.Result, run.Message = r.execute(ctx, t, &run)
 	run.End = r.Now()
-	if err := Record(r.HistoryPath, known, id, run); err != nil {
+	mode := os.FileMode(0o600)
+	if t.Type == TypeBackup {
+		mode = 0o640
+	}
+	if err := RecordMode(r.HistoryPath, mode, known, id, run); err != nil {
 		slog.Error("task history not written", "id", id, "err", err)
 	}
 	slog.Info("task finished", "id", id, "type", t.Type, "result", run.Result)
 	return run, nil
 }
 
-func (r *Runner) execute(ctx context.Context, t Task) (string, string) {
+func (r *Runner) execute(ctx context.Context, t Task, run *Run) (string, string) {
 	lock, res, msg := r.lock(ctx)
 	if lock == nil {
 		return res, msg
@@ -108,6 +134,13 @@ func (r *Runner) execute(ctx context.Context, t Task) (string, string) {
 	// the drive itself after that.
 	defer lock.Close()
 	switch t.Type {
+	case TypeBackup:
+		if r.Backup == nil {
+			return ResultFailed, MsgFailed
+		}
+		o := r.Backup.Run(ctx, t)
+		run.Bytes, run.UsedBytes = o.Bytes, o.UsedBytes
+		return o.Result, o.Message
 	case TypeSmart:
 		est, err := r.Backend.SmartTest(ctx, t.Smart.DiskID, t.Smart.Test)
 		switch {

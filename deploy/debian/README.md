@@ -29,6 +29,33 @@ systemd-tmpfiles --create /etc/tmpfiles.d/nas-revival.conf
 systemctl daemon-reload && systemctl restart nas-revival-helper
 ```
 
+Backup pull jobs (W4.3, ADR 0008): task type `backup-pull`, one `nas-revival-backup@<id>.service` per task
+(unit `nas-revival-backup@.service`), run as the unprivileged account `nas-backup` (home `/var/lib/nas-backup`,
+0700; key `.ssh/id_ed25519` 0600; history `task-history.json` 0640, read by the web UI through its supplementary
+group `nas-backup`). Data: `/srv/data/apps/<id>/<path>/` is the mirror (`rsync --delete`),
+`/srv/data/versions/<date>/<id>/` the hardlink snapshots (kept `keepDays` newest days); both directory names and the share
+name `zalohy` are reserved for shares. Server host keys are trusted in the UI (Tasks, "Ověřit server") and stored in
+`/etc/nas-revival/backup_known_hosts` (root, 0644, written only by the helper). The NAS public key goes to the server's
+`authorized_keys` with `from="<NAS IP>",restrict,command="rrsync -ro <folder>"` (the UI shows the line). Install once, as root:
+
+```sh
+groupadd --system nas-backup
+useradd --system --gid nas-backup --home-dir /var/lib/nas-backup --no-create-home --shell /usr/sbin/nologin nas-backup
+usermod -aG nas-heavy nas-backup
+apt install rsync openssh-client
+install -d -m 0700 -o nas-backup -g nas-backup /var/lib/nas-backup /srv/data/apps /srv/data/versions
+install -m 0644 nas-revival-backup@.service nas-revival.service nas-revival-helper.service /etc/systemd/system/
+systemctl daemon-reload && systemctl restart nas-revival-helper nas-revival
+```
+
+Migration of the interim `nas-pull` job (once, as root, after installing the new binary and the unit):
+`./migrate-nas-pull.sh [HH:MM]` creates the account, copies the key and known hosts, takes over `/srv/data/apps` and
+`/srv/data/versions`, imports `/etc/nas-pull/jobs.conf` as backup-pull tasks (`nas-revival task import-pull`; daily
+06:45, 35 days, freshness file `nas-export/last-ok` 26 h when a path is `nas-export`) and disables `nas-pull.timer`.
+It is idempotent. Afterwards check Tasks in the web UI and run the task once. Optional: Plánované úlohy → card "Přístup k zálohám v síti"
+publishes `/srv/data/versions` as the read-only SMB share `zalohy` for `nas-admin` (state in
+`/etc/nas-revival/backup.json`; read-only because versions are hardlinks).
+
 Web login (W2.2, ADR 0004): `admin.json` is the recovery administrator (set over SSH as above);
 NAS accounts log in with the web hash the helper keeps in `/etc/nas-revival/credentials.json`, role by
 membership in `nas-admin` / `nas-viewer` (created by the helper on first use). After deploying, run

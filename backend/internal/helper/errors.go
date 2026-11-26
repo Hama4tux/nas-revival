@@ -12,6 +12,7 @@ const (
 	CodeInternal          = "internal"
 	CodeNotFound          = "not_found"
 	CodeConfigDrift       = "config_drift"
+	CodeNotInstalled      = "not_installed"
 )
 
 // Error is a typed error that travels over the helper protocol.

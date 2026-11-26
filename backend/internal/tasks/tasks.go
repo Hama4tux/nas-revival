@@ -26,6 +26,8 @@ const DefaultConfigPath = "/etc/nas-revival/tasks.json"
 const (
 	TypeSmart   = "smart"
 	TypeRecycle = "recycle-cleanup"
+	// TypeBackup pulls a backup from a server (W4.3, ADR 0008).
+	TypeBackup = "backup-pull"
 )
 
 // Schedule kinds.
@@ -39,6 +41,8 @@ const (
 const (
 	MaxTasks   = 32
 	MaxNameLen = 40
+	// MaxBackupTasks limits the backup-pull tasks.
+	MaxBackupTasks = 8
 )
 
 // RecycleID is the id of the default task that replaces the old recycle loop.
@@ -73,12 +77,13 @@ type SmartParams struct {
 // Task is one scheduled task. Later types (backup-pull) add their own
 // parameter object here the same way as Smart.
 type Task struct {
-	ID       string       `json:"id"`
-	Name     string       `json:"name"`
-	Type     string       `json:"type"`
-	Enabled  bool         `json:"enabled"`
-	Schedule Schedule     `json:"schedule"`
-	Smart    *SmartParams `json:"smart,omitempty"`
+	ID       string        `json:"id"`
+	Name     string        `json:"name"`
+	Type     string        `json:"type"`
+	Enabled  bool          `json:"enabled"`
+	Schedule Schedule      `json:"schedule"`
+	Smart    *SmartParams  `json:"smart,omitempty"`
+	Backup   *BackupParams `json:"backup,omitempty"`
 }
 
 // File is tasks.json.
@@ -107,6 +112,7 @@ func Validate(in []Task) ([]Task, error) {
 	if len(in) > MaxTasks {
 		return nil, bad("tasks", fmt.Sprintf("Nejvýše %d úloh.", MaxTasks))
 	}
+	backups := 0
 	out := make([]Task, 0, len(in))
 	seen := map[string]bool{}
 	for i, t := range in {
@@ -140,10 +146,26 @@ func Validate(in []Task) ([]Task, error) {
 			if t.Smart.Test != "short" && t.Smart.Test != "long" {
 				return nil, bad(p+"smart.test", "Typ testu musí být short nebo long.")
 			}
+			if t.Backup != nil {
+				return nil, bad(p+"backup", "Tento typ úlohy nemá parametry zálohy.")
+			}
 		case TypeRecycle:
-			if t.Smart != nil {
+			if t.Smart != nil || t.Backup != nil {
 				return nil, bad(p+"smart", "Tento typ úlohy nemá parametry.")
 			}
+		case TypeBackup:
+			if t.Smart != nil {
+				return nil, bad(p+"smart", "Tento typ úlohy nemá parametry SMART.")
+			}
+			backups++
+			if backups > MaxBackupTasks {
+				return nil, bad("tasks", fmt.Sprintf("Nejvýše %d záloh.", MaxBackupTasks))
+			}
+			b, err := validateBackup(p+"backup.", t.Backup)
+			if err != nil {
+				return nil, err
+			}
+			t.Backup = b
 		default:
 			return nil, bad(p+"type", "Neznámý typ úlohy.")
 		}
@@ -230,8 +252,20 @@ func OnCalendar(s Schedule) string {
 // TimerName is the generated timer unit of a task.
 func TimerName(id string) string { return "nas-revival-task-" + id + ".timer" }
 
-// ServiceName is the instance of the template service that runs a task.
+// ServiceName is the instance of the template service that runs a task
+// (not a backup-pull task, see ServiceNameFor).
 func ServiceName(id string) string { return "nas-revival-task@" + id + ".service" }
+
+// BackupServiceName is the instance of the backup template service.
+func BackupServiceName(id string) string { return "nas-revival-backup@" + id + ".service" }
+
+// ServiceNameFor picks the template service by the task type.
+func ServiceNameFor(t Task) string {
+	if t.Type == TypeBackup {
+		return BackupServiceName(t.ID)
+	}
+	return ServiceName(t.ID)
+}
 
 // TimerUnit renders the timer unit file. The task name is not part of it.
 func TimerUnit(t Task) string {
@@ -239,7 +273,7 @@ func TimerUnit(t Task) string {
 		"[Unit]\nDescription=NAS Revival task " + t.ID + "\n" +
 		"[Timer]\nOnCalendar=" + OnCalendar(t.Schedule) + "\n" +
 		"Persistent=true\nAccuracySec=1min\n" +
-		"Unit=" + ServiceName(t.ID) + "\n" +
+		"Unit=" + ServiceNameFor(t) + "\n" +
 		"[Install]\nWantedBy=timers.target\n"
 }
 

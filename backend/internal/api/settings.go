@@ -74,6 +74,8 @@ func writeHelperError(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusConflict, he.Code, he.Message)
 	case helper.CodeNotFound:
 		writeError(w, http.StatusNotFound, he.Code, he.Message)
+	case helper.CodeNotInstalled:
+		writeError(w, http.StatusConflict, he.Code, he.Message)
 	case helper.CodeHelperUnavailable:
 		writeError(w, http.StatusServiceUnavailable, he.Code, he.Message)
 	default:

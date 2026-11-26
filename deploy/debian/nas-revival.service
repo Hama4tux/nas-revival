@@ -9,7 +9,9 @@ ExecStart=/usr/local/bin/nas-revival -listen :8443 -config /etc/nas-revival -sta
 User=nas-revival
 Group=nas-revival
 # Read-only overview: SMART needs raw disk access, nothing else is privileged.
-SupplementaryGroups=disk
+# nas-backup: read the backup history /var/lib/nas-backup/task-history.json (0640); the key
+# directory stays 0700, so nothing else of that account is readable.
+SupplementaryGroups=disk nas-backup
 AmbientCapabilities=CAP_SYS_RAWIO
 CapabilityBoundingSet=CAP_SYS_RAWIO
 StateDirectory=nas-revival

@@ -25,6 +25,9 @@ type TaskStatus struct {
 	// Run executes a fixed systemctl command; nil uses helper.ExecRunner.
 	Run         helper.Runner
 	HistoryPath string
+	// BackupHistoryPath is the history of the backup-pull tasks (written by
+	// the nas-backup account, group-readable); empty disables it.
+	BackupHistoryPath string
 }
 
 const tasksBodyLimit = 32 << 10
@@ -129,12 +132,18 @@ func (s *Server) tasksHistory(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	if _, ok := tasks.Find(l.Tasks, id); !ok {
+	t, ok := tasks.Find(l.Tasks, id)
+	if !ok {
 		writeError(w, http.StatusNotFound, helper.CodeNotFound, "Úloha neexistuje.")
 		return
 	}
+	histPath := s.TaskStatus.HistoryPath
+	if t.Type == tasks.TypeBackup {
+		histPath = s.TaskStatus.BackupHistoryPath
+	}
 	runs := []tasks.Run{}
-	if h, err := tasks.LoadHistory(s.TaskStatus.HistoryPath); err != nil {
+	if histPath == "" {
+	} else if h, err := tasks.LoadHistory(histPath); err != nil {
 		slog.Warn("task history unreadable", "err", err)
 	} else if rs := h.Runs[id]; rs != nil {
 		runs = rs
@@ -154,7 +163,7 @@ func (s *Server) taskViews(ctx context.Context, l []tasks.Task) map[string]any {
 		services := []string{"show", "--property=Id,ActiveState", "--"}
 		for _, t := range l {
 			timers = append(timers, tasks.TimerName(t.ID))
-			services = append(services, tasks.ServiceName(t.ID))
+			services = append(services, tasks.ServiceNameFor(t))
 		}
 		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
@@ -168,20 +177,18 @@ func (s *Server) taskViews(ctx context.Context, l []tasks.Task) map[string]any {
 		}
 		if out, err := run(cctx, "systemctl", services...); err == nil {
 			for _, b := range parseShowBlocks(string(out)) {
-				if id := unitTaskID(b["Id"], "nas-revival-task@", ".service"); id != "" {
+				id := unitTaskID(b["Id"], "nas-revival-task@", ".service")
+				if id == "" {
+					id = unitTaskID(b["Id"], "nas-revival-backup@", ".service")
+				}
+				if id != "" {
 					running[id] = b["ActiveState"] == "activating" || b["ActiveState"] == "active"
 				}
 			}
 		}
 	}
-	var hist tasks.History
-	if st.HistoryPath != "" {
-		h, err := tasks.LoadHistory(st.HistoryPath)
-		if err != nil {
-			slog.Warn("task history unreadable", "err", err)
-		}
-		hist = h
-	}
+	hist := loadHistory(st.HistoryPath)
+	bhist := loadHistory(st.BackupHistoryPath)
 	views := make([]taskView, 0, len(l))
 	for _, t := range l {
 		v := taskView{Task: t, Running: running[t.ID]}
@@ -189,13 +196,28 @@ func (s *Server) taskViews(ctx context.Context, l []tasks.Task) map[string]any {
 			n := n
 			v.NextRun = &n
 		}
-		if rs := hist.Runs[t.ID]; len(rs) > 0 {
+		h := hist
+		if t.Type == tasks.TypeBackup {
+			h = bhist
+		}
+		if rs := h.Runs[t.ID]; len(rs) > 0 {
 			last := rs[0]
 			v.LastRun = &last
 		}
 		views = append(views, v)
 	}
 	return map[string]any{"tasks": views}
+}
+
+func loadHistory(path string) tasks.History {
+	if path == "" {
+		return tasks.History{}
+	}
+	h, err := tasks.LoadHistory(path)
+	if err != nil {
+		slog.Warn("task history unreadable", "err", err)
+	}
+	return h
 }
 
 func unitTaskID(unit, prefix, suffix string) string {

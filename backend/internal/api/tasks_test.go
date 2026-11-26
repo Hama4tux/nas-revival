@@ -160,3 +160,121 @@ func TestTasksUnavailable(t *testing.T) {
 		t.Fatalf("%d", rec.Code)
 	}
 }
+
+type fakeBackup struct{ calls []string }
+
+func (f *fakeBackup) BackupKey(context.Context) (helper.BackupKey, error) {
+	f.calls = append(f.calls, "key")
+	return helper.BackupKey{PublicKey: "ssh-ed25519 AAAA", Fingerprint: "SHA256:x"}, nil
+}
+func (f *fakeBackup) BackupHostScan(_ context.Context, host string, port int) (helper.HostScan, error) {
+	f.calls = append(f.calls, "scan "+host)
+	return helper.HostScan{Keys: []helper.HostKey{}}, nil
+}
+func (f *fakeBackup) BackupHostTrust(_ context.Context, host string, port int, typ, key string) error {
+	f.calls = append(f.calls, "trust "+host)
+	return nil
+}
+func (f *fakeBackup) BackupTest(_ context.Context, host string, port int, user, path string) (helper.BackupTestResult, error) {
+	f.calls = append(f.calls, "test "+host)
+	return helper.BackupTestResult{OK: true}, nil
+}
+func (f *fakeBackup) BackupShareGet(context.Context) (helper.BackupShareState, error) {
+	return helper.BackupShareState{Name: "zalohy", Path: "/srv/data/versions"}, nil
+}
+func (f *fakeBackup) BackupShareSet(_ context.Context, en bool) (helper.BackupShareState, error) {
+	f.calls = append(f.calls, "share")
+	return helper.BackupShareState{Enabled: en, Name: "zalohy", Path: "/srv/data/versions"}, nil
+}
+
+func TestBackupRoutesRoles(t *testing.T) {
+	s, h, _, _ := newRoleServer(t)
+	fb := &fakeBackup{}
+	s.Backup = fb
+	ck := map[string]*http.Cookie{"jana": loginAs(t, h, "jana"), "petr": loginAs(t, h, "petr"), "eva": loginAs(t, h, "eva")}
+	body := `{"host":"192.0.2.10","port":22}`
+	test := `{"host":"192.0.2.10","port":22,"user":"root","path":"nas-export"}`
+	cases := []struct {
+		method, path, body  string
+		admin, viewer, user int
+	}{
+		{"GET", "/api/v1/backup/key", "", 200, 403, 403},
+		{"POST", "/api/v1/backup/hostkey/scan", body, 200, 403, 403},
+		{"POST", "/api/v1/backup/hostkey/trust", `{"host":"192.0.2.10","port":22,"type":"ssh-ed25519","key":"AAAA"}`, 200, 403, 403},
+		{"POST", "/api/v1/backup/test", test, 200, 403, 403},
+		{"GET", "/api/v1/backup/share", "", 200, 200, 403},
+		{"PUT", "/api/v1/backup/share", `{"enabled":true}`, 200, 403, 403},
+		// option injection never reaches the helper
+		{"POST", "/api/v1/backup/hostkey/scan", `{"host":"-oProxyCommand=x","port":22}`, 400, 403, 403},
+		{"POST", "/api/v1/backup/test", `{"host":"192.0.2.10","port":22,"user":"root","path":"../x"}`, 400, 403, 403},
+		{"POST", "/api/v1/backup/test", `{"host":"192.0.2.10","port":22,"user":"-x","path":"a"}`, 400, 403, 403},
+		{"POST", "/api/v1/backup/hostkey/scan", `{"host":"a","port":99999}`, 400, 403, 403},
+		{"PUT", "/api/v1/backup/share", `{}`, 400, 403, 403},
+	}
+	for i, c := range cases {
+		for who, want := range map[string]int{"jana": c.admin, "petr": c.viewer, "eva": c.user} {
+			rec := do(h, c.method, c.path, c.body, xrw, ck[who])
+			if rec.Code != want {
+				t.Errorf("case %d %s %s as %s: %d want %d (%s)", i, c.method, c.path, who, rec.Code, want, rec.Body)
+			}
+		}
+	}
+	for _, c := range fb.calls {
+		if strings.Contains(c, "-o") {
+			t.Fatalf("option host reached the helper: %s", c)
+		}
+	}
+}
+
+func TestBackupTaskViewUsesBackupHistoryAndService(t *testing.T) {
+	s, h, _, _ := newRoleServer(t)
+	dir := t.TempDir()
+	bt := tasks.Task{ID: "pull", Name: "Záloha", Type: tasks.TypeBackup, Enabled: true,
+		Schedule: tasks.Schedule{Kind: tasks.KindDaily, Time: "06:45"},
+		Backup:   &tasks.BackupParams{Host: "192.0.2.10", Port: 22, User: "root", Paths: []string{"a"}, KeepDays: 35}}
+	s.Tasks = &fakeTasks{list: []tasks.Task{bt}}
+	bh := filepath.Join(dir, "backup-history.json")
+	now := time.Now().UTC().Truncate(time.Second)
+	tasks.RecordMode(bh, 0o640, []string{"pull"}, "pull", tasks.Run{Start: now, End: now, Result: tasks.ResultOK, Message: "ok", Bytes: 1234, UsedBytes: 5678})
+	var argv []string
+	s.TaskStatus = TaskStatus{HistoryPath: filepath.Join(dir, "missing.json"), BackupHistoryPath: bh,
+		Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
+			argv = append(argv, strings.Join(args, " "))
+			if args[1] == "--timestamp=unix" {
+				return nil, nil
+			}
+			return []byte("Id=nas-revival-backup@pull.service\nActiveState=active\n"), nil
+		}}
+	c := loginAs(t, h, "jana")
+	rec := do(h, "GET", "/api/v1/tasks", "", xrw, c)
+	var out struct {
+		Tasks []struct {
+			ID      string `json:"id"`
+			Running bool   `json:"running"`
+			LastRun *struct {
+				Bytes     int64 `json:"bytes"`
+				UsedBytes int64 `json:"usedBytes"`
+			} `json:"lastRun"`
+		} `json:"tasks"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || len(out.Tasks) != 1 {
+		t.Fatalf("%v %s", err, rec.Body)
+	}
+	tk := out.Tasks[0]
+	if !tk.Running || tk.LastRun == nil || tk.LastRun.Bytes != 1234 || tk.LastRun.UsedBytes != 5678 {
+		t.Fatalf("%+v", tk)
+	}
+	if !strings.Contains(strings.Join(argv, "|"), "nas-revival-backup@pull.service") {
+		t.Fatal(argv)
+	}
+	rec = do(h, "GET", "/api/v1/tasks/pull/history", "", xrw, c)
+	if rec.Code != 200 || !strings.Contains(rec.Body.String(), `"bytes":1234`) {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	// missing history file -> null lastRun
+	s.TaskStatus.BackupHistoryPath = filepath.Join(dir, "none.json")
+	rec = do(h, "GET", "/api/v1/tasks", "", xrw, c)
+	if !strings.Contains(rec.Body.String(), `"lastRun":null`) {
+		t.Fatal(rec.Body)
+	}
+}

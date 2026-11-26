@@ -58,6 +58,8 @@ type Dispatcher struct {
 	Ssh *SshManager
 	// Tasks manages the scheduled tasks; nil disables it.
 	Tasks *TaskManager
+	// Backup manages the backup pull jobs' key, host keys and share; nil disables it.
+	Backup *BackupManager
 }
 
 type request struct {
@@ -224,6 +226,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if strings.HasPrefix(req.Op, "task.") && d.Tasks != nil {
 		return d.handleTasks(ctx, req, user)
+	}
+	if strings.HasPrefix(req.Op, "backup.") && d.Backup != nil {
+		return d.handleBackup(ctx, req, user)
 	}
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
