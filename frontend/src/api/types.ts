@@ -259,3 +259,17 @@ export interface ServiceInfo {
 export interface ServiceList { services: ServiceInfo[] }
 export interface ServiceLogEntry { time: string; priority: number; ident: string; pid?: number; message: string }
 export interface ServiceLog { name: string; entries: ServiceLogEntry[] }
+
+// SMB service (W2.5, SMB-01/02).
+export type SmbProtocol = 'SMB2_10' | 'SMB3_00' | 'SMB3_11';
+export interface SmbSettings {
+  enabled: boolean; workgroup: string; description: string; minProtocol: SmbProtocol; netbios: boolean;
+}
+export interface SmbService {
+  installed: boolean; settings: SmbSettings; running: boolean; netbiosRunning: boolean; managed: boolean;
+}
+export interface SmbSession {
+  id: string; user: string; machine: string; dialect: string; encryption: string; signing: string; since: string; shares: string[];
+}
+export interface SmbOpenFile { share: string; path: string; user: string; access: string; since: string }
+export interface SmbStatus { sessions: SmbSession[]; openFiles: SmbOpenFile[]; truncated: boolean }

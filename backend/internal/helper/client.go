@@ -11,6 +11,7 @@ import (
 	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/shares"
+	"nas-revival/backend/internal/smb"
 )
 
 type userKey struct{}
@@ -315,5 +316,26 @@ func (c *Client) ServiceAction(ctx context.Context, name, action string) (Servic
 func (c *Client) ServiceLog(ctx context.Context, name string, lines int) (ServiceLog, error) {
 	var r ServiceLog
 	err := c.Call(ctx, "journal.unit", map[string]any{"name": name, "lines": lines}, &r)
+	return r, err
+}
+
+func (c *Client) SmbGet(ctx context.Context) (SmbService, error) {
+	var r SmbService
+	err := c.Call(ctx, "smb.get", nil, &r)
+	return r, err
+}
+
+// SmbSet can start or restart smbd, which takes a few seconds on the NAS.
+func (c *Client) SmbSet(ctx context.Context, s smb.Settings) (SmbService, error) {
+	long := *c
+	long.Timeout = 45 * time.Second
+	var r SmbService
+	err := long.Call(ctx, "smb.set", map[string]any{"settings": s}, &r)
+	return r, err
+}
+
+func (c *Client) SmbStatus(ctx context.Context) (smb.Status, error) {
+	var r smb.Status
+	err := c.Call(ctx, "smb.status", nil, &r)
 	return r, err
 }

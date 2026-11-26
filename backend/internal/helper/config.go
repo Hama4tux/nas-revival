@@ -16,6 +16,7 @@ const (
 	FileTime      = "time"
 	FileDiskPower = "disk-power"
 	FileShares    = "shares"
+	FileSmb       = "smb"
 )
 
 // ConfigManager serves config.list, config.get and config.rollback and
@@ -27,7 +28,9 @@ type ConfigManager struct {
 	Power *DiskPowerManager
 	// Shares restores shares.json; nil when shares are disabled.
 	Shares *ShareManager
-	mu     sync.Mutex // one rollback at a time
+	// Smb restores smb.json; nil when SMB is disabled.
+	Smb *SmbManager
+	mu  sync.Mutex // one rollback at a time
 }
 
 // ConfigRollbackResult is the result of config.rollback.
@@ -132,6 +135,12 @@ func (c *ConfigManager) Rollback(ctx context.Context, id int, takeover bool, use
 				err = internalErr("Sdílené složky nejsou dostupné.")
 			} else {
 				err = c.Shares.Restore(ctx, r.Data, r.Present)
+			}
+		case FileSmb:
+			if c.Smb == nil {
+				err = internalErr("Nastavení SMB není dostupné.")
+			} else {
+				err = c.Smb.Restore(ctx, r.Data, r.Present)
 			}
 		default:
 			err = internalErr("Neznámý spravovaný soubor.")

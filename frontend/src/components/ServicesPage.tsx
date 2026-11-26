@@ -11,6 +11,7 @@ import { Button } from './ui/button';
 import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
 import { Skeleton } from './ui/skeleton';
+import { SmbPanel } from './SmbPanel';
 
 const t = cs.services;
 // systemctl show costs ~50 ms per unit on the NSA310; 10 s keeps an open page cheap.
@@ -175,7 +176,7 @@ function LogDialog({ s, onClose }: { s: ServiceInfo; onClose: () => void }) {
 
 type Open = { kind: 'confirm'; s: ServiceInfo; action: ServiceAction } | { kind: 'log'; s: ServiceInfo };
 
-export function ServicesPage({ readOnly }: { readOnly: boolean }) {
+function ServiceListPanel({ readOnly }: { readOnly: boolean }) {
   const [data, setData] = useState<ServiceList | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -244,6 +245,39 @@ export function ServicesPage({ readOnly }: { readOnly: boolean }) {
           onClose={() => { setOpen(null); setErr(null); }} onConfirm={() => void run(open.s, open.action)} />
       )}
       {open?.kind === 'log' && <LogDialog s={open.s} onClose={() => setOpen(null)} />}
+    </div>
+  );
+}
+
+type Tab = 'list' | 'smb';
+const TABS: Tab[] = ['list', 'smb'];
+
+/** Services app: the unit list and the file service tabs (SMB; NFS and SSH follow in W2.6–W2.7). */
+export function ServicesPage({ readOnly }: { readOnly: boolean }) {
+  const [tab, setTab] = useState<Tab>('list');
+  const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const i = TABS.indexOf(tab);
+    const n = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length] ?? 'list';
+    setTab(n);
+    refs.current[n]?.focus();
+  }
+  return (
+    <div className="space-y-4">
+      <div role="tablist" aria-label={cs.pages.services.title} className="flex flex-wrap gap-2" onKeyDown={onKey}>
+        {TABS.map((k) => (
+          <button key={k} ref={(el) => { refs.current[k] = el; }} type="button" role="tab" id={`svc-tab-${k}`}
+            aria-selected={tab === k} aria-controls={`svc-panel-${k}`} tabIndex={tab === k ? 0 : -1}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setTab(k)}>
+            {cs.smb.tabs[k]}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`svc-panel-${tab}`} aria-labelledby={`svc-tab-${tab}`}>
+        {tab === 'list' ? <ServiceListPanel readOnly={readOnly} /> : <SmbPanel readOnly={readOnly} />}
+      </div>
     </div>
   );
 }

@@ -16,7 +16,8 @@ recorded as ADRs in [adr/](adr/).
 | Privileged | `nas-revival helper` – same binary, root, Unix socket, typed ops for network/DNS/NTP ([ADR 0003](adr/0003-privileged-helper-settings.md)) | deployed 2026-11-25 (`nas-revival-helper.service`) |
 | Board services | `nsa310-leds`, `nsa310-fan` (LM85 automatic mode), `nsa310-button` + `nsa310-copy` (COPY button backup) | in use, [deploy/debian](../deploy/debian/README.md) |
 | System services | ssh, systemd-networkd/resolved/timesyncd, smartmontools, cron, journald (persistent) | in use |
-| Not installed | samba, nfs-kernel-server, hdparm, avahi, acl, quota | – |
+| File services | samba 4.22 (Debian, GPL-3.0; smbd, nmbd only with NetBIOS), configured only by the helper (`smb.json` → `smb.conf`) | installed 2026-11-26 ([install-samba.sh](../deploy/debian/install-samba.sh)), off until enabled in the UI |
+| Not installed | nfs-kernel-server, avahi, acl, quota | – |
 
 Measured baseline is in [PERFORMANCE_BUDGET](PERFORMANCE_BUDGET.md). Short version: 51 MiB used
 without page cache, web backend 9.4 MiB RSS idle (41 MiB peak after login, argon2), idle CPU ~99 %.

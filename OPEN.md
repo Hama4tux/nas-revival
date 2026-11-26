@@ -1,10 +1,11 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: Webové GUI má přehled, síť, systém, úložiště, uživatele s rolemi, sdílené složky a nově Služby (W2.4: stav, PID, paměť, CPU, porty, ovládání se chráněnými službami, záznam deníku; nasazeno a ověřeno e2e testem na NASu). Přístup po síti čeká na Sambu (W2.5).
-- Další krok: W2.5 SMB (instalace Samby jen se souhlasem vlastníka).
+- Stav: Webové GUI má přehled, síť, systém, úložiště, uživatele s rolemi, sdílené složky, Služby a nově kartu SMB (W2.5): Samba je nainstalovaná, nastavení, připojení a otevřené soubory jdou z GUI; ověřeno skutečným klientem SMB. SMB je zatím vypnuté.
+- Další krok: vlastník zapne SMB v GUI (Služby → SMB) a nastaví účtům hesla; pak W2.6 NFS pro zálohy z Proxmoxu.
 
 ## Čeká na rozhodnutí
+- [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
 - [ ] Reprodukovatelný release: KERNEL_VERSION v jednom souboru, scripts/debian/release.sh (jádro + rootfs + manifest + SHA256SUMS), build v GitHub Actions na tag, skript pro aktualizaci jádra (A→B, zápis A, zpětné čtení) – navrženo, čeká na souhlas. (2026-11-26)
@@ -24,9 +25,11 @@
 - [ ] Návod docs/debian/install.md a rootfs ze scripts/debian/build-rootfs.sh zatím nebyly vyzkoušené na čistém NSA310 (rootfs ověřen jen sestavením a kontrolou obsahu tarballu, nenabootován). (2026-11-26)
 - [ ] GUI je jen česky – pro veřejné repo doplnit angličtinu (i18n už je připravené v frontend/src/i18n). (2026-11-26)
 - [ ] Uživatelé a skupiny (W2.1) ověřené na NASu jen přes root helper – po přihlášení projít stránku Uživatelé v prohlížeči na telefonu (360 px) i desktopu (založit, heslo, zakázat, skupina, smazat). (2026-11-26)
-- [ ] Sdílené složky (W2.3): skrytá složka, jen pro čtení, koš a oprávnění po uživatelích se projeví až se Sambou (W2.5) – tehdy ověřit přístupem z klienta SMB (čtení/zápis/odepření, koš a jeho vysypání); smb.conf musí obsahovat include = /etc/samba/nas-revival-shares.conf. Stránku Sdílené složky projít v prohlížeči na telefonu (360 px) i desktopu – ověřena jen API e2e testem a typecheckem, ne v prohlížeči. (2026-11-26)
+- [ ] Sdílené složky (W2.3): stránku projít v prohlížeči na telefonu (360 px) i desktopu – ověřena API e2e testem a přístupem klientem SMB (oprávnění, skrytá a jen pro čtení složka, koš), ne v prohlížeči; automatické vysypání koše skutečným klientem neověřeno. (2026-11-26)
+- [ ] SMB (W2.5): kartu Služby → SMB projít v prohlížeči po přihlášení na telefonu (360 px) i desktopu – ověřeno jen e2e testem API se skutečným klientem, typecheckem a testy, v prohlížeči zatím vůbec ne (ani v ukázkovém režimu). (2026-11-26)
+- [ ] SMB: paměť smbd na NASu (odhad 20–30 MiB) zatím nezměřená – změřit snapshot.sh po zapnutí SMB s připojeným klientem a zapsat do PERFORMANCE_BUDGET. (2026-11-26)
+- [ ] SMB: NAS se bez NetBIOS neukáže ve Windows v okně Síť (připojení přes \\název\složka funguje) – doplnit WS-Discovery (wsdd2, DISC-02) a pro macOS Avahi/fruit (SMB-03). (2026-11-26)
 - [ ] Sdílené složky: denní vysypání košů drží zámek správy složek po dobu průchodu košem (max. 10 min) – u velkých košů by se úprava složek mezitím zdržela; případně přesunout do plánovače úloh (W3.3). (2026-11-26)
-- [ ] Samba není na NASu nainstalovaná – hesla pro SMB se u účtů nastaví až při první změně hesla po jejím zapnutí (W2.5); UI to uživateli říká. (2026-11-26)
 - [ ] Aktivita disků (W1.9) ověřená jen přes root helper na NASu – v prohlížeči po přihlášení zkontrolovat Úložiště → „Aktivita disků“ na telefonu (360 px) i desktopu. (2026-11-26)
 - [ ] Historie konfigurace (W1.8) je nasazená, ale změna a návrat byly ověřené jen testy a v mock režimu: v GUI uložit NTP servery, ověřit novou verzi s uživatelem, zobrazit rozdíly a vrátit se na verzi 1 (návrat sítě musí ukázat pruh s potvrzením). (2026-11-25)
 - [ ] Historie konfigurace: uložení nastavení přes ručně změněný soubor se zatím neptá na „převzetí“ (ruční verze se jen uloží do historie) – doplnit potvrzení u PUT síť/NTP/napájení (CFG-04). (2026-11-25)
@@ -38,7 +41,7 @@
 - [ ] `timedatectl show-timesync` na NASu končí chybou „Connection timed out“ (synchronizace přitom běží), proto stránka NTP neukazuje aktuální server – zjistit proč. (2026-11-25)
 - [ ] Rollback sítě po restartu NASu během čekající změny zatím neověřen (ověřen jen vypršením 180 s) – vyzkoušet při nejbližším plánovaném restartu. (2026-11-25)
 - [ ] NAS má od 2026-11-25 statickou IP (systemd-networkd, mimo repo) – ověřit, že adresa je mimo DHCP rozsah routeru nebo má rezervaci; na stejné adrese dřív běželo jiné zařízení (starý SSH klíč v known_hosts), zkontrolovat, že už neexistuje. (2026-11-25)
-- [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443. (2026-11-25)
+- [ ] NAS nemá záznam v inventáři služeb HomeSecurity (servers/vms jsou jen VM); doplnit, kam zapsat službu nas-revival na portu 8443 a po zapnutí SMB i Sambu (TCP 445, s NetBIOS i 139 a UDP 137–138). (2026-11-25)
 - [ ] Rozložení na mobilu ověřeno jen v prohlížeči na šířce 390 px s ukázkovými daty – zkontrolovat na skutečném telefonu. (2026-11-25)
 - [ ] Zálohy z Proxmoxu na NAS: navrhnout export NFS na /srv/data (vzdump jako úložiště Proxmoxu, root_squash, přístup jen z IP Proxmoxu) a jeho správu v GUI; Proxmox Backup Server na armel neběží. (2026-11-25)
 - [ ] Aktualizace jádra z webu (podklad pro backend, který staví druhý agent): zápis z Linuxu je ověřený (ECC sedí s U-Bootem, postup v docs/debian/boot.md). Strategie: slot B drží poslední funkční jádro; při upgradu nejdřív zkopírovat A → B, pak nové jádro do A, každý zápis ověřit zpětným čtením (sha256, corrected_bits/ecc_failures) a nikdy nezapisovat oba sloty najednou. První upgrade tímto postupem udělat s konzolí po ruce. (2026-11-25)
@@ -72,6 +75,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Služba SMB ve webovém GUI (W2.5): Samba nainstalovaná, smb.conf spravuje NAS Revival (bez hosta, bez SMB1, volitelná nejnižší verze, NetBIOS), připojení a otevřené soubory pro administrátora; ověřeno skutečným klientem SMB včetně oprávnění, skrytých složek a koše (2026-11-26)
 - Rozhodnuto: záchranný administrátor admin.json zůstává natrvalo vedle účtů NASu (heslo jen přes SSH, vždy administrátor); role účtů schváleny vlastníkem. (2026-11-26)
 - Aplikace Služby ve webovém GUI (W2.4): stav a prostředky spravovaných služeb, ovládání s chráněnými službami, záznam deníku; nasazeno a ověřeno na NASu (2026-11-26)
 - Sdílené složky ve webovém GUI (W2.3), nasazeno na NAS (2026-11-26)

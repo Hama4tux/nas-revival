@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -575,6 +575,44 @@ const unitView = (u: (typeof mockUnits)[number]): ServiceInfo => {
   return { ...v, cpuPercent: v.cpuPercent != null ? Math.round(Math.random() * 20) / 10 : null, actions: unitActions(u) };
 };
 
+// SMB (W2.5): demo data uses documentation addresses only.
+const mockSmb: SmbService = {
+  installed: true, running: true, netbiosRunning: false, managed: true,
+  settings: { enabled: true, workgroup: 'WORKGROUP', description: 'NAS Revival', minProtocol: 'SMB2_10', netbios: false },
+};
+const mockSmbStatus = (): SmbStatus => (!mockSmb.running ? { sessions: [], openFiles: [], truncated: false } : {
+  sessions: [
+    { id: '1', user: 'jana', machine: '192.0.2.21', dialect: 'SMB3_11', encryption: 'AES-128-GCM', signing: 'AES-128-GMAC', since: ago(5400), shares: ['dokumenty', 'fotky'] },
+    { id: '2', user: 'petr', machine: '192.0.2.35', dialect: 'SMB3_00', encryption: '', signing: 'AES-128-CMAC', since: ago(600), shares: ['dokumenty'] },
+  ],
+  openFiles: [
+    { share: 'dokumenty', path: 'faktury/2026-11.pdf', user: 'jana', access: 'R', since: ago(300) },
+    { share: 'fotky', path: 'dovolena/IMG_0042.jpg', user: 'jana', access: 'RW', since: ago(60) },
+  ],
+  truncated: false,
+});
+
+function smbRoute(path: string, method: string, body: unknown): Response | null {
+  if (path === '/services/smb' && method === 'GET') return json(200, mockSmb);
+  if (path === '/services/smb/status' && method === 'GET') {
+    if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+    return json(200, mockSmbStatus());
+  }
+  if (path === '/services/smb' && method === 'PUT') {
+    if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+    const b = body as SmbSettings;
+    const wg = String(b.workgroup ?? '').trim().toUpperCase();
+    if (!/^[A-Z0-9][A-Z0-9_-]{0,14}$/.test(wg)) return bad('workgroup', 'Pracovní skupina má 1–15 znaků: písmena bez diakritiky, číslice, - a _.');
+    if (!['SMB2_10', 'SMB3_00', 'SMB3_11'].includes(b.minProtocol)) return bad('minProtocol', 'Neznámá nejnižší verze protokolu.');
+    mockSmb.settings = { ...b, workgroup: wg, description: String(b.description ?? '').trim() };
+    mockSmb.running = b.enabled;
+    mockSmb.netbiosRunning = b.enabled && b.netbios;
+    mockSmb.managed = true;
+    return json(200, mockSmb);
+  }
+  return null;
+}
+
 function servicesRoute(path: string, method: string, url: URL): Response | null {
   if (path === '/services' && method === 'GET') return json(200, { services: mockUnits.map(unitView) });
   const m = /^\/services\/([^/]+)\/([a-z]+)$/.exec(path);
@@ -691,6 +729,12 @@ export function installMock(): void {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = usersRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/services/smb')) {
+      let body: unknown = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = smbRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/services')) {

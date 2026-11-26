@@ -19,6 +19,7 @@ import (
 	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/shares"
+	"nas-revival/backend/internal/smb"
 )
 
 const (
@@ -45,6 +46,8 @@ type Dispatcher struct {
 	Shares *ShareManager
 	// Services lists and controls the allowlisted units; nil disables it.
 	Services *ServiceManager
+	// Smb manages the SMB service settings; nil disables it.
+	Smb *SmbManager
 }
 
 type request struct {
@@ -200,8 +203,38 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	if strings.HasPrefix(req.Op, "share.") && d.Shares != nil {
 		return d.handleShares(ctx, req, user)
 	}
+	if strings.HasPrefix(req.Op, "smb.") && d.Smb != nil {
+		return d.handleSmb(ctx, req, user)
+	}
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleSmb runs the SMB service operations (SMB-01, SMB-02).
+func (d *Dispatcher) handleSmb(ctx context.Context, req request, user string) (any, error) {
+	var a struct {
+		Settings *smb.Settings `json:"settings"`
+	}
+	if err := decodeArgs(req.Args, &a); err != nil {
+		return nil, err
+	}
+	switch req.Op {
+	case "smb.get":
+		return d.Smb.Get(ctx)
+	case "smb.status":
+		return d.Smb.Status(ctx)
+	case "smb.set":
+		if a.Settings == nil {
+			return nil, invalid("settings", "Chybí nastavení SMB.")
+		}
+		d.Config.Prepare()
+		st, err := d.Smb.Set(ctx, *a.Settings, user)
+		if err == nil {
+			d.Config.Changed(user, FileSmb)
+		}
+		return st, err
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

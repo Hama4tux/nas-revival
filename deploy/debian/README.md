@@ -23,7 +23,7 @@ the role policy, own password change, role change and disable over HTTPS, and de
 Shared folders (W2.3) live in `/etc/nas-revival/shares.json` (root, 0644, written only by the helper);
 folders are `<data volume>/<name>`, the helper unit needs `ReadWritePaths=-/srv`. With Samba installed
 the helper also writes `/etc/samba/nas-revival-shares.conf` (checked with `testparm`, smb.conf has to
-include it – W2.5). After deploying, run `scripts/webui/e2e-shares.sh` from the workstation: it creates a
+include it – done by the SMB settings, see below). After deploying, run `scripts/webui/e2e-shares.sh` from the workstation: it creates a
 throw-away admin, user and share `nrt-e2e`, checks create/edit/permissions/delete over HTTPS and removes them.
 
 Services (W2.4): the helper runs `systemctl show/start/stop/…`, `ss -H -l -t -u -n -p` and
@@ -31,6 +31,21 @@ Services (W2.4): the helper runs `systemctl show/start/stop/…`, `ss -H -l -t -
 of the unit's cgroup processes because the NAS kernel has no memory controller. After deploying, run
 `scripts/webui/e2e-services.sh` from the workstation: it lists the services, checks SSH (PID, memory,
 port 22, CPU %), that SSH cannot be stopped, the SSH journal, and restarts cron once.
+
+SMB (W2.5): install Samba with `install-samba.sh` (as root on the NAS; `--no-install-recommends`, a
+temporary `policy-rc.d` keeps Debian from starting smbd/nmbd with its default config, both stay disabled and
+the Debian template is kept as `smb.conf.debian`). The helper owns `/etc/samba/smb.conf` from the first save in
+Services → SMB: it renders it from `/etc/nas-revival/smb.json` (enabled, workgroup, description, minimum
+protocol SMB2_10/SMB3_00/SMB3_11, NetBIOS), checks it with `testparm`, includes the share fragment and runs
+`systemctl enable/disable --now smbd [nmbd]` or `smbcontrol smbd reload-config`. Fixed: standalone server,
+no guest (`map to guest = never`), `restrict anonymous = 2`, no printers, no user shares, SMB1 off, port 445 only
+unless NetBIOS is on (then also 139 and nmbd). Sessions and open files come from `smbstatus --json` (admins only).
+The helper unit needs `ReadWritePaths=-/var/lib/samba -/var/cache/samba -/run/samba` for `smbpasswd`/`smbstatus`.
+NAS accounts get their Samba password with the next password change; accounts created before Samba was
+installed have none (the SMB tab lists them). After deploying, run `scripts/webui/e2e-smb.sh` from the
+workstation (needs `smbclient`): it creates throw-away accounts and shares, enables SMB, checks read/write/deny,
+guest, wrong password, SMB1/SMB2 refused, hidden and read-only share, recycle bin, session and open-file list
+with a real client, then restores the previous SMB settings and removes everything.
 
 Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
