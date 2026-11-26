@@ -5,6 +5,7 @@
 - Další krok: vlastník schválí nové jádro (zápis do NAND slotu A + restart) a instalaci NFS serveru; pak ověřit NFS skutečným klientem a W2.7 SSH/SFTP.
 
 ## Čeká na rozhodnutí
+- [ ] NAS nedostupný (2026-11-26): při instalaci modulů nového jádra tar nahradil odkaz /lib → usr/lib adresářem, nejde spustit žádný program ani SSH. Vlastník spustí na notebooku s konzolí `sudo python3 -I uboot-session.py fix-lib-symlink.cmds` (scripts/debian/rescue) a pak NAS vypne a zapne ze zásuvky; agent pak ověří nové jádro a dokončí NFS. (2026-11-26)
 - [ ] NFS (W2.6): schválit nové jádro s NFS serverem (CONFIG_NFSD jako modul, spolu s ACL pro ext4; sestavené a zkontrolované na pracovní stanici, 5,9 MB) – postup: zkopírovat slot A → B, zapsat nové jádro do A s ověřením zpětným čtením, nainstalovat moduly do /lib/modules, restart NASu; bez toho NFS na NASu nepoběží. (2026-11-26)
 - [ ] NFS (W2.6): schválit instalaci nfs-kernel-server skriptem deploy/debian/install-nfs.sh (zamaskuje rpcbind a rpc-statd, nfs-server nechá vypnutý do zapnutí v GUI). (2026-11-26)
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
