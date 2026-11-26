@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Refuses commits that would put private data into this public repository:
+# SSH keys and known_hosts, .env files, home-directory files, device dumps,
+# the committer's own home path, and owner-specific patterns (real subnets,
+# server names) kept OUTSIDE the repo in ~/.config/nas-revival/private-patterns
+# (one extended regex per line, # comments allowed).
+#
+# Enable once per clone:  git config core.hooksPath scripts/git-hooks
+# Bypass only after checking the hit is a false positive:  git commit --no-verify
+set -uo pipefail
+
+patterns_file=${NAS_REVIVAL_PRIVATE_PATTERNS:-$HOME/.config/nas-revival/private-patterns}
+max_bytes=$((5 * 1024 * 1024))
+problems=()
+
+# 1) File names that never belong here.
+name_re='(^|/)(\.ssh/|id_(rsa|dsa|ecdsa|ed25519)[^/]*$|[^/]*known_hosts[^/]*$|authorized_keys[^/]*$|\.netrc$|\.pgpass$|\.bash_history$|\.zsh_history$|\.git-credentials$|[^/]*\.(pem|key|p12|pfx|kdbx|raw|nand|oob)$|(\.env|[^/]*\.env)$|\.env\.[^/]+$|jobs\.conf$|secret[^/]*$)'
+name_ok_re='(^|/)\.env\.(example|mock)$'
+while IFS= read -r -d '' path; do
+  if [[ $path =~ $name_re && ! $path =~ $name_ok_re ]]; then
+    problems+=("$path: file type must stay private")
+  fi
+  size=$(git cat-file -s ":$path" 2>/dev/null || echo 0)
+  if (( size > max_bytes )); then
+    problems+=("$path: larger than 5 MB (device dump or backup?)")
+  fi
+done < <(git diff --cached --name-only --diff-filter=ACMR -z)
+
+# 2) Added lines: real private keys, own home path, owner patterns.
+added=$(git diff --cached --diff-filter=ACMR -U0 --no-color | grep -E '^\+' | grep -vE '^\+\+\+ ')
+
+# A private key with a real body (test fixtures carry only a stub of a few characters).
+if git diff --cached --diff-filter=ACMR -U0 --no-color | awk '
+    /^\+\+\+ / { next }
+    /^\+.*BEGIN [A-Z ]*PRIVATE KEY/ { inkey = 1; body = 0; next }
+    inkey && /END [A-Z ]*PRIVATE KEY/ { if (body > 100) found = 1; inkey = 0; next }
+    inkey && /^\+/ { line = substr($0, 2); gsub(/[^A-Za-z0-9+\/=]/, "", line); body += length(line) }
+    END { exit found ? 0 : 1 }'; then
+  problems+=("staged content: private key")
+fi
+
+user=$(id -un 2>/dev/null || echo "")
+if [[ -n $user && $user != root ]]; then
+  if grep -qE "(/home/|/Users/|[Cc]:\\\\Users\\\\)$user([/\\\\]|\$)" <<<"$added"; then
+    problems+=("staged content: path inside your home directory (/home/$user...)")
+  fi
+fi
+
+if [[ -r $patterns_file ]]; then
+  while IFS= read -r re; do
+    [[ -z $re || $re == \#* ]] && continue
+    if grep -qE -- "$re" <<<"$added"; then
+      problems+=("staged content: matches a private pattern from $patterns_file")
+    fi
+  done <"$patterns_file"
+else
+  echo "pre-commit: warning: $patterns_file missing, owner-specific check skipped" >&2
+fi
+
+if (( ${#problems[@]} )); then
+  echo "pre-commit: commit refused, private data would go into the public repo:" >&2
+  printf '  - %s\n' "${problems[@]}" >&2
+  echo "  Matched text is not printed on purpose. Inspect: git diff --cached" >&2
+  exit 1
+fi
+exit 0

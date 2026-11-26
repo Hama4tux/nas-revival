@@ -46,3 +46,9 @@ secret.env
 # AI agent instructions stay local (internal environment details)
 /AGENTS.md
 /CLAUDE.md
+
+# SSH material and backup job config from the NAS or a home directory
+.ssh/
+known_hosts*
+authorized_keys*
+jobs.conf

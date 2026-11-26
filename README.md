@@ -152,6 +152,11 @@ docs/       architecture, ADRs, API, security model, recovery, test plan, roadma
 Build and test the web UI: `scripts/webui/build.sh` (Go + Node via nvm). Try the UI without a NAS:
 `cd frontend && npm ci && npm run dev:mock` – log in with any user name and password `demo`.
 
+Before the first commit in a clone: `git config core.hooksPath scripts/git-hooks`. The pre-commit hook
+refuses SSH keys, `known_hosts`, `.env` files, device dumps and your home path; site-specific patterns
+(real subnets, host names) go into `~/.config/nas-revival/private-patterns`, never into the repo.
+Test it with `bash tests/test_pre_commit.sh`.
+
 | Read next | |
 | --- | --- |
 | [Install guide](docs/debian/install.md) | Step-by-step flashing of a stock NSA310 |
