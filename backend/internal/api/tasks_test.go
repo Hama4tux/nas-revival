@@ -3,7 +3,9 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -161,7 +163,10 @@ func TestTasksUnavailable(t *testing.T) {
 	}
 }
 
-type fakeBackup struct{ calls []string }
+type fakeBackup struct {
+	calls []string
+	dir   string
+}
 
 func (f *fakeBackup) BackupKey(context.Context) (helper.BackupKey, error) {
 	f.calls = append(f.calls, "key")
@@ -187,9 +192,48 @@ func (f *fakeBackup) BackupShareSet(_ context.Context, en bool) (helper.BackupSh
 	return helper.BackupShareState{Enabled: en, Name: "zalohy", Path: "/srv/data/versions"}, nil
 }
 
+func (f *fakeBackup) BackupVersions(_ context.Context, id string) (helper.BackupVersions, error) {
+	f.calls = append(f.calls, "versions "+id)
+	return helper.BackupVersions{Versions: []helper.BackupVersion{{Date: "2026-11-25"}}, Complete: true}, nil
+}
+func (f *fakeBackup) BackupBrowse(_ context.Context, id, date, path string, offset int) (helper.BrowseResult, error) {
+	f.calls = append(f.calls, fmt.Sprintf("browse %s %s %q %d", id, date, path, offset))
+	return helper.BrowseResult{Path: path, Entries: []helper.BrowseEntry{}}, nil
+}
+func (f *fakeBackup) BackupOpen(_ context.Context, id, date, path string) (*os.File, helper.BackupFileMeta, error) {
+	f.calls = append(f.calls, "open "+path)
+	p := filepath.Join(f.dir, "file")
+	if err := os.WriteFile(p, []byte("dump-body"), 0o600); err != nil {
+		return nil, helper.BackupFileMeta{}, err
+	}
+	fh, err := os.Open(p)
+	return fh, helper.BackupFileMeta{Name: "Fakturace č.1.sql", Size: 9, Modified: time.Unix(1700000000, 0)}, err
+}
+
+func TestBackupFileDownload(t *testing.T) {
+	s, h, _, _ := newRoleServer(t)
+	fb := &fakeBackup{dir: t.TempDir()}
+	s.Backup = fb
+	ck := loginAs(t, h, "jana")
+	rec := do(h, "GET", "/api/v1/backup/pull/versions/2026-11-25/file?path=app%2FFakturace%20%C4%8D.1.sql", "", xrw, ck)
+	if rec.Code != 200 || rec.Body.String() != "dump-body" {
+		t.Fatalf("%d %q", rec.Code, rec.Body)
+	}
+	cd := rec.Header().Get("Content-Disposition")
+	if cd != `attachment; filename="Fakturace _.1.sql"; filename*=UTF-8''Fakturace%20%C4%8D.1.sql` {
+		t.Errorf("Content-Disposition = %s", cd)
+	}
+	if rec.Header().Get("Content-Type") != "application/octet-stream" || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Errorf("headers = %v", rec.Header())
+	}
+	if fb.calls[len(fb.calls)-1] != "open app/Fakturace č.1.sql" {
+		t.Errorf("calls = %v", fb.calls)
+	}
+}
+
 func TestBackupRoutesRoles(t *testing.T) {
 	s, h, _, _ := newRoleServer(t)
-	fb := &fakeBackup{}
+	fb := &fakeBackup{dir: t.TempDir()}
 	s.Backup = fb
 	ck := map[string]*http.Cookie{"jana": loginAs(t, h, "jana"), "petr": loginAs(t, h, "petr"), "eva": loginAs(t, h, "eva")}
 	body := `{"host":"192.0.2.10","port":22}`
@@ -210,6 +254,11 @@ func TestBackupRoutesRoles(t *testing.T) {
 		{"POST", "/api/v1/backup/test", `{"host":"192.0.2.10","port":22,"user":"-x","path":"a"}`, 400, 403, 403},
 		{"POST", "/api/v1/backup/hostkey/scan", `{"host":"a","port":99999}`, 400, 403, 403},
 		{"PUT", "/api/v1/backup/share", `{}`, 400, 403, 403},
+		{"GET", "/api/v1/backup/pull/versions", "", 200, 403, 403},
+		{"GET", "/api/v1/backup/pull/versions/2026-11-25/browse?path=app&offset=200", "", 200, 403, 403},
+		{"GET", "/api/v1/backup/pull/versions/2026-11-25/file?path=app/x", "", 200, 403, 403},
+		{"GET", "/api/v1/backup/-x/versions", "", 400, 403, 403},
+		{"GET", "/api/v1/backup/pull/versions/2026-11-25/browse?offset=-1", "", 400, 403, 403},
 	}
 	for i, c := range cases {
 		for who, want := range map[string]int{"jana": c.admin, "petr": c.viewer, "eva": c.user} {

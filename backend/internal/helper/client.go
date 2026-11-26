@@ -1,10 +1,14 @@
 package helper
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
+	"os"
+	"syscall"
 	"time"
 
 	"nas-revival/backend/internal/config"
@@ -468,4 +472,118 @@ func (c *Client) BackupShareSet(ctx context.Context, enabled bool) (BackupShareS
 	var r BackupShareState
 	err := long.Call(ctx, "backup.share.set", map[string]any{"enabled": enabled}, &r)
 	return r, err
+}
+
+// callFile performs a request whose reply carries an open file descriptor
+// (backup.open). The caller closes the file.
+func (c *Client) callFile(ctx context.Context, op string, args, result any) (*os.File, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	var dl net.Dialer
+	conn, err := dl.DialContext(ctx, "unix", c.Socket)
+	if err != nil {
+		return nil, unavailable()
+	}
+	defer conn.Close()
+	uc, ok := conn.(*net.UnixConn)
+	if !ok {
+		return nil, unavailable()
+	}
+	if t, ok := ctx.Deadline(); ok {
+		uc.SetDeadline(t)
+	}
+	req := map[string]any{"op": op, "args": args}
+	if u, ok := ctx.Value(userKey{}).(string); ok {
+		req["user"] = u
+	}
+	body, err := json.Marshal(req)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := uc.Write(body); err != nil {
+		return nil, unavailable()
+	}
+	// The descriptor arrives with the first bytes; read the rest until the
+	// helper closes the connection.
+	buf, oob := make([]byte, 16<<10), make([]byte, syscall.CmsgSpace(4*4))
+	n, oobn, _, _, err := uc.ReadMsgUnix(buf, oob)
+	if err != nil && n == 0 {
+		return nil, unavailable()
+	}
+	var file *os.File
+	if msgs, perr := syscall.ParseSocketControlMessage(oob[:oobn]); perr == nil {
+		for _, m := range msgs {
+			fds, ferr := syscall.ParseUnixRights(&m)
+			if ferr != nil {
+				continue
+			}
+			for _, fd := range fds {
+				if file == nil {
+					file = os.NewFile(uintptr(fd), "backup-file")
+				} else {
+					syscall.Close(fd)
+				}
+			}
+		}
+	}
+	data := append([]byte{}, buf[:n]...)
+	rest, err := io.ReadAll(io.LimitReader(uc, 64<<10))
+	if err != nil && len(rest) == 0 && !errors.Is(err, io.EOF) {
+		// A broken tail is fine as long as the JSON already arrived.
+		rest = nil
+	}
+	data = append(data, rest...)
+	var resp clientResponse
+	if err := json.Unmarshal(bytes.TrimSpace(data), &resp); err != nil {
+		closeFile(file)
+		return nil, unavailable()
+	}
+	if !resp.OK {
+		closeFile(file)
+		if resp.Error == nil {
+			return nil, unavailable()
+		}
+		return nil, resp.Error
+	}
+	if file == nil {
+		return nil, unavailable()
+	}
+	if result != nil {
+		if err := json.Unmarshal(resp.Result, result); err != nil {
+			file.Close()
+			return nil, err
+		}
+	}
+	return file, nil
+}
+
+func closeFile(f *os.File) {
+	if f != nil {
+		f.Close()
+	}
+}
+
+// BackupVersions lists the versions of a backup job with their sizes.
+func (c *Client) BackupVersions(ctx context.Context, id string) (BackupVersions, error) {
+	long := *c
+	long.Timeout = 65 * time.Second
+	var r BackupVersions
+	err := long.Call(ctx, "backup.versions", map[string]any{"id": id}, &r)
+	return r, err
+}
+
+// BackupBrowse lists one directory of a version.
+func (c *Client) BackupBrowse(ctx context.Context, id, date, path string, offset int) (BrowseResult, error) {
+	long := *c
+	long.Timeout = 30 * time.Second
+	var r BrowseResult
+	err := long.Call(ctx, "backup.browse", map[string]any{"id": id, "date": date, "path": path, "offset": offset}, &r)
+	return r, err
+}
+
+// BackupOpen opens a file of a version; the caller closes it.
+func (c *Client) BackupOpen(ctx context.Context, id, date, path string) (*os.File, BackupFileMeta, error) {
+	var m BackupFileMeta
+	f, err := c.callFile(ctx, "backup.open", map[string]any{"id": id, "date": date, "path": path}, &m)
+	return f, m, err
 }

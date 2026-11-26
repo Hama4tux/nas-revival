@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-26
+- Verze záloh ze serverů (W4.3, fáze 2): root helper umí vypsat verze zálohovací úlohy s velikostí a tím, co každá verze přidala na disk, procházet jejich složky a otevřít soubor ke stažení. Web soubor dostane jen jako otevřený popisovač, ke stromu záloh sám přístup nemá; odkazy uložené v záloze nikdy nevedou mimo verzi. Ověřeno testy včetně skutečného socketu.
 - Přehled ukazuje zálohy ze serverů (W4.3, fáze 2): nová karta „Zálohy“ s výsledkem posledního běhu každé zálohovací úlohy, jeho stářím a obsazeným místem. Selhaná záloha je v Stavu systému jako problém, záloha bez úspěšného běhu déle než 48 h (denní) nebo 8 dní (týdenní) jako varování; vypnuté úlohy se nehlásí. Ověřeno testy a v ukázkovém režimu.
 - Kontrola před restartem hlásí „Stahování záloh ze serverů“ podle běžících zálohovacích úloh NAS Revival (nas-revival-backup@…) místo dočasné úlohy nas-pull, která je vypnutá. Ověřeno na NASu během skutečné zálohy.
 - Zálohy ze serverů (W4.3, fáze 1): v Plánovaných úlohách nový typ „Stažení zálohy ze serveru“ – rsync přes SSH pod účtem nas-backup, zrcadlo + denní verze s dobou držení 1–90 dní, kontrola stáří exportu, klíč NASu s hotovým omezeným řádkem do authorized_keys, ověření otisku serveru, test připojení s varováním při plném přístupu klíče a volitelná sdílená složka „zalohy“ (SMB, jen ke čtení, jen administrátoři). Dočasná úloha nas-pull převzata, zálohy nově denně v 5:00.

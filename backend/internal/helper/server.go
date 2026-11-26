@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"nas-revival/backend/internal/accounts"
@@ -491,7 +492,26 @@ func serveConn(ctx context.Context, conn net.Conn, allowedUID uint32, d *Dispatc
 	octx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
 	res, err := d.Handle(octx, req)
+	if fr, ok := res.(*fileResult); ok && err == nil {
+		replyFile(uc, fr)
+		return
+	}
 	reply(uc, res, err)
+}
+
+// replyFile sends the JSON result together with the open file descriptor
+// (SCM_RIGHTS) and closes the helper's copy.
+func replyFile(c *net.UnixConn, fr *fileResult) {
+	defer fr.f.Close()
+	c.SetWriteDeadline(time.Now().Add(10 * time.Second))
+	body, err := json.Marshal(response{OK: true, Result: fr.meta})
+	if err != nil {
+		reply(c, nil, internalErr("Interní chyba."))
+		return
+	}
+	if _, _, err := c.WriteMsgUnix(append(body, '\n'), syscall.UnixRights(int(fr.f.Fd())), nil); err != nil {
+		slog.Warn("helper: passing a file failed", "err", err)
+	}
 }
 
 func reply(c net.Conn, res any, err error) {

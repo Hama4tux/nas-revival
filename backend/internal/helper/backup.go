@@ -98,6 +98,8 @@ type BackupManager struct {
 	KeyPath    string
 	KnownHosts string
 	ConfigPath string
+	// Volume is the data volume with apps/ and versions/ (default tasks.BackupVolume).
+	Volume string
 	// Lookup resolves the nas-backup account.
 	Lookup   func(name string) (uid uint32, gid int, err error)
 	Chown    func(path string, uid, gid int) error
@@ -505,6 +507,9 @@ func (d *Dispatcher) handleBackup(ctx context.Context, req request, user string)
 		Type    string `json:"type"`
 		Key     string `json:"key"`
 		Enabled *bool  `json:"enabled"`
+		ID      string `json:"id"`
+		Date    string `json:"date"`
+		Offset  int    `json:"offset"`
 	}
 	if err := decodeArgs(req.Args, &a); err != nil {
 		return nil, err
@@ -525,6 +530,12 @@ func (d *Dispatcher) handleBackup(ctx context.Context, req request, user string)
 			return nil, invalid("enabled", "Chybí hodnota enabled.")
 		}
 		return d.Backup.ShareSet(ctx, *a.Enabled, user)
+	case "backup.versions":
+		return d.Backup.Versions(ctx, a.ID)
+	case "backup.browse":
+		return d.Backup.Browse(ctx, a.ID, a.Date, a.Path, a.Offset)
+	case "backup.open":
+		return d.Backup.Open(ctx, a.ID, a.Date, a.Path)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }
