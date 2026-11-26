@@ -239,3 +239,8 @@ systemctl daemon-reload && systemctl restart nsa310-fan nsa310-leds nas-revival-
 After deploying, run `scripts/webui/e2e-hardware.sh`: it reads the hardware state as `nas-revival`, switches the fan
 profile to quiet and back (read back from the LM85), switches night mode on for the current minute and off again, and
 blinks the red LED for a moment.
+
+Scheduled restart and shutdown (W3.5) are task types `reboot` and `shutdown` in `tasks.json`; their timers have
+`Persistent=false`, the runner skips them within 15 min of boot and waits up to 1 h for an empty power preflight.
+After deploying, run `scripts/webui/e2e-power-tasks.sh`: it adds two disabled power tasks, checks the timers and that
+"run now" is refused, and restores the task list. It never restarts the NAS.

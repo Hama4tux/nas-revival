@@ -1,9 +1,10 @@
 import { cs } from '../i18n/cs';
-import type { BackupParams, TaskDef, TaskRun, TaskSchedule, TaskWeekday } from '../api/types';
+import type { BackupParams, TaskDef, TaskRun, TaskSchedule, TaskType, TaskWeekday } from '../api/types';
 
 export const WEEKDAYS: TaskWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const MAX_TASKS = 32;
 export const MAX_BACKUP_TASKS = 8;
+export const MAX_POWER_TASKS = 4;
 export const DEFAULT_BACKUP_ROOT = '/var/backups';
 export const NAME_MAX = 40;
 const ID_RE = /^[a-z0-9]{1,16}$/;
@@ -90,6 +91,9 @@ export function validateTask(t: TaskDef): TaskErrors {
   return e;
 }
 
+/** Restart and shutdown tasks (W3.5): no "run now", the top bar power menu does that with confirmation. */
+export const isPowerTask = (type: TaskType) => type === 'reboot' || type === 'shutdown';
+
 export const taskOk = (t: TaskDef) => Object.keys(validateTask(t)).length === 0;
 
 /** Error for the whole list (count limit, unique ids); undefined when fine. */
@@ -99,6 +103,7 @@ export function listError(tasks: TaskDef[]): string | undefined {
   const ids = tasks.map((t) => t.id).filter((i) => i !== '');
   if (new Set(ids).size !== ids.length) return v.dupIds;
   if (tasks.filter((t) => t.type === 'backup-pull').length > MAX_BACKUP_TASKS) return v.tooManyBackups(MAX_BACKUP_TASKS);
+  if (tasks.filter((t) => isPowerTask(t.type)).length > MAX_POWER_TASKS) return v.tooManyPower(MAX_POWER_TASKS);
   return undefined;
 }
 

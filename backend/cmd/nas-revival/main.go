@@ -485,6 +485,35 @@ func (b taskBackend) RecycleCleanup(ctx context.Context) (int, int64, error) {
 	return r.RemovedFiles, r.RemovedBytes, nil
 }
 
+func (b taskBackend) PowerBlockers(ctx context.Context) ([]string, error) {
+	pf, err := b.c.PowerPreflight(ctx)
+	if err != nil {
+		if m := helperMsg(err); m != nil {
+			return nil, m
+		}
+		return nil, errors.New(tasks.MsgPowerFailed)
+	}
+	codes := make([]string, 0, len(pf.Blockers))
+	for _, x := range pf.Blockers {
+		codes = append(codes, x.Code)
+	}
+	return codes, nil
+}
+
+func (b taskBackend) Power(ctx context.Context, action, user string) error {
+	_, err := b.c.PowerAction(ctx, action, false, user)
+	if err == nil {
+		return nil
+	}
+	if he, ok := helper.AsError(err); ok && he.Code == helper.CodeBlocked {
+		return tasks.ErrPowerBlocked
+	}
+	if m := helperMsg(err); m != nil {
+		return m
+	}
+	return errors.New(tasks.MsgPowerFailed)
+}
+
 // runTask is the ExecStart of nas-revival-task@.service: it runs one task and
 // exits 1 unless it succeeded or was skipped.
 func runTask(args []string) error {

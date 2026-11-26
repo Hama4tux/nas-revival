@@ -207,10 +207,15 @@ func (m *TaskManager) find(id string) (tasks.Task, error) {
 	return t, nil
 }
 
-// Start runs the task now through its service unit (does not wait).
+// Start runs the task now through its service unit (does not wait). A
+// restart or shutdown task cannot be started this way: the immediate power
+// actions keep their typed confirmation (CORE-12).
 func (m *TaskManager) Start(ctx context.Context, id, actor string) error {
 	return m.control(ctx, "start", id, actor)
 }
+
+// CodeRunNotAllowed: the task type has no "run now".
+const CodeRunNotAllowed = "run_not_allowed"
 
 // Stop stops a running task.
 func (m *TaskManager) Stop(ctx context.Context, id, actor string) error {
@@ -223,6 +228,9 @@ func (m *TaskManager) control(ctx context.Context, verb, id, actor string) error
 	t, err := m.find(id)
 	if err != nil {
 		return err
+	}
+	if verb == "start" && tasks.IsPower(t.Type) {
+		return &Error{Code: CodeRunNotAllowed, Message: "Okamžitý restart nebo vypnutí spusťte tlačítkem Napájení NASu v horní liště."}
 	}
 	if err := m.systemctl(ctx, verb, "--no-block", "--", tasks.ServiceNameFor(t)); err != nil {
 		return internalErr("Úlohu se nepodařilo ovládat.")

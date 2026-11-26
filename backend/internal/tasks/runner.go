@@ -59,12 +59,20 @@ type Runner struct {
 	Now    func() time.Time
 	// Sleep waits d or returns the context error.
 	Sleep func(ctx context.Context, d time.Duration) error
+	// Power tasks (W3.5): Backend must also be a PowerBackend. Uptime is the
+	// time since boot; runs before MinUptime are skipped. PowerWait and
+	// PowerRetry bound the wait for preflight blockers.
+	Uptime     func() (time.Duration, error)
+	MinUptime  time.Duration
+	PowerWait  time.Duration
+	PowerRetry time.Duration
 }
 
 // NewRunner returns a Runner with the production defaults.
 func NewRunner(tasksPath, historyPath string, b Backend) *Runner {
 	return &Runner{TasksPath: tasksPath, HistoryPath: historyPath, LockPath: HeavyLockPath,
-		Wait: 3 * time.Hour, Retry: 30 * time.Second, Backend: b, User: currentUser, Now: time.Now, Sleep: sleepCtx}
+		Wait: 3 * time.Hour, Retry: 30 * time.Second, Backend: b, User: currentUser, Now: time.Now, Sleep: sleepCtx,
+		Uptime: ProcUptime, MinUptime: MinUptime, PowerWait: PowerWait, PowerRetry: PowerRetry}
 }
 
 func currentUser() string {
@@ -126,6 +134,9 @@ func (r *Runner) Run(ctx context.Context, id string) (Run, error) {
 }
 
 func (r *Runner) execute(ctx context.Context, t Task, run *Run) (string, string) {
+	if IsPower(t.Type) {
+		return r.power(ctx, t)
+	}
 	lock, res, msg := r.lock(ctx)
 	if lock == nil {
 		return res, msg

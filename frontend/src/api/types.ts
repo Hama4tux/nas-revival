@@ -328,7 +328,7 @@ export interface SshKey { type: string; bits?: number; fingerprint: string; comm
 export interface SshKeyUser { name: string; keys: SshKey[]; sftp: boolean; invalid?: number }
 export interface SshKeys { users: SshKeyUser[] }
 
-export type TaskType = 'smart' | 'recycle-cleanup' | 'backup-pull';
+export type TaskType = 'smart' | 'recycle-cleanup' | 'backup-pull' | 'reboot' | 'shutdown';
 export type TaskWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 export interface TaskSchedule {
   kind: 'daily' | 'weekly' | 'monthly';

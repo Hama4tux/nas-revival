@@ -298,3 +298,46 @@ func TestBackupTaskRejectedBySet(t *testing.T) {
 		t.Fatal(x.f.calls)
 	}
 }
+
+func TestPowerTaskHasNoRunNow(t *testing.T) {
+	x := newTaskFix(t)
+	ctx := context.Background()
+	rb := tasks.Task{ID: "rb", Name: "Restart", Type: tasks.TypeReboot, Enabled: true,
+		Schedule: tasks.Schedule{Kind: tasks.KindDaily, Time: "04:00"}}
+	if _, err := x.m.Set(ctx, []tasks.Task{rb}, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	unit, _ := os.ReadFile(filepath.Join(x.unit, tasks.TimerName("rb")))
+	if !strings.Contains(string(unit), "Persistent=false\n") {
+		t.Fatalf("timer:\n%s", unit)
+	}
+	x.f.calls = nil
+	var he *Error
+	if err := x.m.Start(ctx, "rb", "admin"); !errors.As(err, &he) || he.Code != CodeRunNotAllowed {
+		t.Fatalf("run now of a reboot task: %v", err)
+	}
+	if len(x.f.calls) != 0 {
+		t.Fatalf("systemctl called: %v", x.f.calls)
+	}
+	// Stopping a power task that waits for blockers stays possible.
+	if err := x.m.Stop(ctx, "rb", "admin"); err != nil || calls(x.f) != "systemctl stop --no-block -- nas-revival-task@rb.service" {
+		t.Fatalf("%v %s", err, calls(x.f))
+	}
+}
+
+// The runner describes every blocker code the preflight can report.
+func TestPowerBlockerCodesAgree(t *testing.T) {
+	want := []string{BlockSmartTest, BlockCopy, BlockBackup, BlockTask, BlockPackageManager, BlockNetworkPending, BlockCheckFailed}
+	have := map[string]bool{}
+	for _, c := range tasks.BlockerCodes() {
+		have[c] = true
+	}
+	for _, c := range want {
+		if !have[c] {
+			t.Errorf("runner has no text for blocker %q", c)
+		}
+	}
+	if len(have) != len(want) {
+		t.Errorf("runner knows %d codes, preflight %d", len(have), len(want))
+	}
+}

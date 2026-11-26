@@ -6,7 +6,7 @@ import { formatBytes } from '../lib/format';
 import { useVisiblePoll } from '../hooks/useVisiblePoll';
 import { cs } from '../i18n/cs';
 import {
-  MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
+  MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, isPowerTask, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
   resultVariant, scheduleLabel, sortDays, validateTask, weekdayShort,
 } from '../lib/tasks';
 import { BackupShareCard } from './BackupShareCard';
@@ -91,7 +91,7 @@ function EditorDialog({ initial, disks, onSave, onClose }: {
         <Field label={ed.type} hint={t.typeHint[form.type]}>
           {(p) => (
             <select {...p} className={selectCls} value={form.type} onChange={(e) => changeType(e.target.value as TaskDef['type'])}>
-              {(['smart', 'recycle-cleanup', 'backup-pull'] as const).map((k) => <option key={k} value={k}>{t.types[k]}</option>)}
+              {(['smart', 'recycle-cleanup', 'backup-pull', 'reboot', 'shutdown'] as const).map((k) => <option key={k} value={k}>{t.types[k]}</option>)}
             </select>
           )}
         </Field>
@@ -116,6 +116,12 @@ function EditorDialog({ initial, disks, onSave, onClose }: {
               )}
             </Field>
           </>
+        )}
+        {isPowerTask(form.type) && (
+          <div role="note" className="space-y-1 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+            {form.type === 'shutdown' && <p className="font-medium">{t.power.noPowerOn}</p>}
+            <p>{t.power.noCatchUp}</p>
+          </div>
         )}
         {form.type === 'backup-pull' && form.backup && (
           <BackupTaskFields value={form.backup} onChange={(backup) => set({ backup })} errors={errors} isNew={initial.id === ''} />
@@ -239,7 +245,7 @@ function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHis
         </div>
       </dl>
       <div className="flex flex-wrap gap-2">
-        {!readOnly && (task.running
+        {!readOnly && (task.running || !isPowerTask(task.type)) && (task.running
           ? <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.stopAria(n)} onClick={onStop}><Square className="h-4 w-4" aria-hidden />{t.stop}</Button>
           : <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.runAria(n)} onClick={onRun}><Play className="h-4 w-4" aria-hidden />{t.runNow}</Button>)}
         <Button type="button" size="sm" variant="outline" aria-label={t.historyAria(n)} onClick={onHistory}><History className="h-4 w-4" aria-hidden />{t.history}</Button>
@@ -247,6 +253,7 @@ function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHis
         {!readOnly && <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.editAria(n)} onClick={onEdit}><Pencil className="h-4 w-4" aria-hidden />{t.edit}</Button>}
         {!readOnly && <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.removeAria(n)} onClick={onRemove}><Trash2 className="h-4 w-4" aria-hidden />{t.remove}</Button>}
       </div>
+      {!readOnly && !task.running && isPowerTask(task.type) && <p className="text-xs text-muted-foreground">{t.power.runHint}</p>}
     </li>
   );
 }

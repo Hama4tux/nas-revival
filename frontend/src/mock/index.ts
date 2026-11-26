@@ -700,6 +700,7 @@ let mockTasks: MockTask[] = [
   { id: 'export', name: 'Záloha ze serveru', type: 'backup-pull', enabled: true, schedule: { kind: 'daily', time: '06:45' },
     backup: { host: '192.0.2.10', port: 22, user: 'root', paths: ['nas-export', 'hrcm'], keepDays: 35,
       fresh: { file: 'nas-export/last-ok', maxAgeHours: 26 }, bwlimitKiB: 0, excludes: ['*.tmp'] } },
+  { id: 'night', name: 'Noční vypnutí', type: 'shutdown', enabled: false, schedule: { kind: 'weekly', time: '01:00', weekdays: ['sun'] } },
 ];
 const mockRuns: Record<string, MockRun[]> = {
   recycle: [{ start: new Date(Date.now() - 20 * 3600e3).toISOString(), end: new Date(Date.now() - 20 * 3600e3 + 42e3).toISOString(), result: 'ok', message: 'Odstraněno 12 souborů (84 MB)' }],

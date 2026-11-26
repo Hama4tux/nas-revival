@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BackupParams, TaskDef } from '../api/types';
-import { authorizedLine, formatDuration, newBackup, listError, newTask, nextRunLabel, normalizeTask, pollInterval, scheduleLabel, taskOk, validateTask } from './tasks';
+import { MAX_POWER_TASKS, authorizedLine, formatDuration, isPowerTask, newBackup, listError, newTask, nextRunLabel, normalizeTask, pollInterval, scheduleLabel, taskOk, validateTask } from './tasks';
 
 const smart = (p: Partial<TaskDef> = {}): TaskDef => ({
   id: '', name: 'Test', type: 'smart', enabled: true, schedule: { kind: 'daily', time: '03:30' },
@@ -151,6 +151,24 @@ describe('backup-pull validation', () => {
     expect(n.backup).toMatchObject({ host: '192.0.2.10', port: 22, paths: ['a'], excludes: [] });
     expect(normalizeTask({ ...bk(), type: 'recycle-cleanup' }).backup).toBeUndefined();
     expect(newBackup().paths).toEqual(['']);
+  });
+});
+
+describe('power tasks', () => {
+  const power = (type: 'reboot' | 'shutdown'): TaskDef => ({ ...smart({ name: 'Noční restart' }), type, smart: undefined });
+  it('validates without parameters and drops leftovers', () => {
+    expect(taskOk(power('reboot'))).toBe(true);
+    expect(normalizeTask({ ...power('shutdown'), smart: { diskId: 'x', test: 'short' } }).smart).toBeUndefined();
+  });
+  it('recognises the power types', () => {
+    expect(isPowerTask('reboot')).toBe(true);
+    expect(isPowerTask('shutdown')).toBe(true);
+    expect(isPowerTask('smart')).toBe(false);
+  });
+  it('limits their count', () => {
+    const l = Array.from({ length: MAX_POWER_TASKS }, () => power('shutdown'));
+    expect(listError(l)).toBeUndefined();
+    expect(listError([...l, power('reboot')])).toBe('Úloh restartu a vypnutí může být nejvýše 4.');
   });
 });
 

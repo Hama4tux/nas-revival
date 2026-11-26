@@ -8,6 +8,8 @@ Wants=nas-revival-helper.service
 # /etc/nas-revival/tasks.json) or by "Run now" in the web UI. The runner waits for the
 # heavy-job lock (/run/lock/nas-heavy.lock, group nas-heavy) and asks the helper to do
 # the work; a SMART test keeps running on the drive after the runner exits.
+# Restart and shutdown tasks (W3.5) skip the lock: they wait up to 1 h for the helper's
+# power preflight to come back empty and then ask the helper to restart or shut down.
 Type=oneshot
 ExecStart=/usr/local/bin/nas-revival task run -config /etc/nas-revival -state /var/lib/nas-revival %i
 User=nas-revival
