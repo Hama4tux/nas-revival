@@ -12,8 +12,6 @@ __pycache__/
 /private/
 /backups/
 /artifacts/
-/nas-revival-stage1/
-/rootfs-stage1*.tar*
 dropbear_*_host_key
 /.private-analysis/
 nas-revival-backup/
@@ -52,3 +50,6 @@ secret.env
 known_hosts*
 authorized_keys*
 jobs.conf
+
+# Open items stay local (read by the owner's project overview), not public
+/OPEN.md

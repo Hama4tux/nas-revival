@@ -6,7 +6,7 @@
 
 The owner now has a working root shell through **Telnet**, SMB and web administration. Credentials are in ignored `secret.env`; this analysis did not read or use them. Nine OOB-bearing NAND backups exist outside the repository; the owner verified all hashes. This task rechecked mtd0 integrity and all nine file lengths. That supersedes the earlier lack of shell/backup, but **does not establish a tested restore procedure**.
 
-[Offline analysis](../research/uboot-analysis.md) identifies U-Boot 1.1.4 / Marvell 3.4.19 and compiled USB host/storage, FAT/ext2 and legacy-image paths. Actual USB boot and kernel handoff remain untested. The saved kernel address conflicts with saved MTD partition boundaries; resolve that before any future boot proposal.
+Offline analysis (research removed 2026-11-26, see git history) identifies U-Boot 1.1.4 / Marvell 3.4.19 and compiled USB host/storage, FAT/ext2 and legacy-image paths. Actual USB boot and kernel handoff remain untested. The saved kernel address conflicts with saved MTD partition boundaries; resolve that before any future boot proposal.
 
 Without UART, **no demonstrated safe one-shot alternative boot route exists in the current evidence**. Linux Telnet does not control U-Boot; fixed NAND boot has no established USB branch. Exact-kernel kexec support is unverified and no kexec invocation is authorized. Vendor USB/TFTP recovery has unknown write behavior and includes a bootcmd-update clue.
 

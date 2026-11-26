@@ -66,4 +66,4 @@ LLMNR on 5355 is open to the LAN; decide in Security Advisor (likely disable).
 Before a module is marked *Tested*: run `snapshot.sh` before and after enabling it, at idle and under
 its typical load, and add a dated table here. Record RSS/PSS of new processes, delta of Used,
 CPU idle, disk writes per minute, process count, and number of HTTP requests per minute from an open
-UI. Regressions above target are listed as open items in OPEN.md, not hidden.
+UI. Regressions above target are tracked as open items (kept outside the public repo), not hidden.

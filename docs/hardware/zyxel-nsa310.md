@@ -22,7 +22,7 @@ The owner identifies the unit as the original NSA310 and reports vendor firmware
 | Bootloader/UART | U-Boot expected; DT console uses ttyS0 at 115200 | Version, commands, wiring and voltage unverified | Qualified UART capture in a future approved phase |
 | SMART | Desired via disk/controller support | Unknown | Later read-only SMART capability query, no self-test initially |
 
-Primary references: [Linux NSA310 DT](https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310.dts), [NSA310a DT](https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310a.dts), [common DT](https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa3x0-common.dtsi), [OpenWrt profile](https://github.com/openwrt/openwrt/blob/v25.12.6/target/linux/kirkwood/image/Makefile), [OpenWrt board DT](https://github.com/openwrt/openwrt/blob/v25.12.6/target/linux/kirkwood/files/arch/arm/boot/dts/marvell/kirkwood-nsa310b.dts). Source availability and vendor/community limitations are recorded in the [research log](../research/upstream-support.md).
+Primary references: [Linux NSA310 DT](https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310.dts), [NSA310a DT](https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310a.dts), [common DT](https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa3x0-common.dtsi), [OpenWrt profile](https://github.com/openwrt/openwrt/blob/v25.12.6/target/linux/kirkwood/image/Makefile), [OpenWrt board DT](https://github.com/openwrt/openwrt/blob/v25.12.6/target/linux/kirkwood/files/arch/arm/boot/dts/marvell/kirkwood-nsa310b.dts). Source availability and vendor/community limitations are recorded in the research log (research removed 2026-11-26, see git history).
 
 ## NAND incompatibility warning
 
@@ -65,7 +65,7 @@ mtd8: 02fc0000 00020000 "rootfs2"
 
 Sizes total 134217728 bytes. `mtd0.raw` has 1081344 bytes: 512 interleaved records of 2048 data + 64 OOB bytes. A separate private data-only analysis copy has 1048576 bytes. OOB removal is not ECC correction and the derived file is not a restore image.
 
-Offline banner: **U-Boot 1.1.4 (Feb 22 2011 - 10:31:35), Marvell version 3.4.19**. Compiled USB/FAT/ext2/legacy-image paths are present; functional USB boot and access to the pre-OS console without UART remain unverified. See [U-Boot analysis](../research/uboot-analysis.md).
+Offline banner: **U-Boot 1.1.4 (Feb 22 2011 - 10:31:35), Marvell version 3.4.19**. Compiled USB/FAT/ext2/legacy-image paths are present; functional USB boot and access to the pre-OS console without UART remain unverified. See U-Boot analysis (research removed 2026-11-26, see git history).
 
 ### Address discrepancy
 
@@ -73,7 +73,7 @@ The saved environment has `kernel_addr=480000` in a `nand read.e` command. Inter
 
 ## Read-only probe results — 2026-11-19
 
-`scripts/openwrt/probe-readonly.sh` ran once over the stock root Telnet (owner-approved 2026-11-18). Raw output stays in Git-ignored `output/`; only these sanitized conclusions are recorded.
+A read-only probe script (since removed) ran once over the stock root Telnet (owner-approved 2026-11-18). Raw output stays in Git-ignored `output/`; only these sanitized conclusions are recorded.
 
 | Property | Probe evidence | Conclusion |
 | --- | --- | --- |
@@ -82,11 +82,11 @@ The saved environment has `kernel_addr=480000` in a `nand read.e` command. Inter
 | Other i2c | `0-0051 pcf8563` (RTC), `0-004a i2s_i2c` | RTC present at 0x51; not bound by the stock kernel |
 | Ethernet | PCI `10ec:8168`, dmesg `RTL8168D/8111D`, stock driver `r8168`, interface `egiga0` | Realtek PCIe as expected by OpenWrt `r8169` |
 | NAND | Samsung 128 MiB 3.3 V 8-bit (ID 0xec/0xf1); 9 cmdline partitions; erase 128 KiB, page 2 KiB, OOB 64 | Same map as the saved `mtdparts`: `kernel_1` starts at 0xC80000 |
-| Kernel cmdline | `console=ttyS0,115200 mtdparts=nand_mtd:... root=/dev/nfs rw init=/init` | Confirms what the OpenWrt kernel would inherit with `CMDLINE_FROM_BOOTLOADER` |
+| Kernel cmdline | `console=ttyS0,115200 mtdparts=nand_mtd:... root=/dev/nfs rw init=/init` | Command line the stock U-Boot passes to the kernel |
 | kexec | No `/proc/config.gz`; `sys_kexec_load` and `compat_sys_kexec_load` are weak (`W`) symbols at one address; no kexec binary | Only the `cond_syscall` stub: **the stock kernel has no kexec**. The no-UART kexec path is closed |
 | U-Boot env | `fw_printenv` not present | `kernel_addr` discrepancy still unresolved; needs UART |
 | Storage | Seagate ST3000VX000-9YW1; `sda1` ~487 MiB, `sda2` 2.73 TiB; `md0` **linear** over `sda2` only (super 1.2) | Not RAID1. Disk health still unchecked |
 | USB | Marvell Orion EHCI, internal Genesys `05e3:0608` hub | USB host works under stock firmware |
 | Telnet | Port 23 opened ~1.5 min after the network came up, after a cold power-on | Boot hook `telnetd_boot` on md0 confirmed |
 
-The SoC, the fan chip and the Ethernet all match the OpenWrt NSA310b profile, so the next gate is the **stock NSA310b initramfs** via UART (M3).
+The SoC, the fan chip and the Ethernet all match the NSA310b hardware profile (historical note; the project now runs Debian 13, see ROADMAP).

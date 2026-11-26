@@ -1,7 +1,6 @@
 # Recovery
 
-Status 2026-11-25, Debian phase. Supersedes the OpenWrt-era [recovery/recovery-plan.md](recovery/recovery-plan.md)
-(kept for history). Boot details: [debian/boot.md](debian/boot.md). Every step that writes NAND,
+Status 2026-11-25, Debian phase. Background and gates: [recovery/recovery-plan.md](recovery/recovery-plan.md) (written before the Debian decision). Boot details: [debian/boot.md](debian/boot.md). Every step that writes NAND,
 saves the U-Boot environment, reboots or formats needs the owner's explicit consent.
 
 ## What protects the device today
@@ -29,7 +28,7 @@ makes the kernel wait forever (`rootwait`); the NAS does not power on after a po
 | R4 | Bad firewall (M5) | ports blocked | same confirm/rollback; UART: `nft flush table inet nas_revival` |
 | R5 | Service config rejected/broken | service failed | Config Manager rollback in UI or `nas-revival config rollback <n>` over SSH |
 | R6 | New kernel in slot A does not load | U-Boot "Bad Magic"/CRC | automatic: slot B boots. Then rewrite slot A from Linux |
-| R7 | New kernel loads but hangs/panics | no network, LEDs stuck | UART: stop autoboot, `run slotB`; from Linux copy B → A. Planned: boot-once flag (OPEN.md) |
+| R7 | New kernel loads but hangs/panics | no network, LEDs stuck | UART: stop autoboot, `run slotB`; from Linux copy B → A. Planned: boot-once flag |
 | R8 | Both slots bad | stock firmware boots | stock firmware is a usable shell (Telnet/console); from UART load kernel from USB (`scripts/debian/uboot-boot.py`) and rewrite slots |
 | R9 | Root FS damaged | kernel panic / emergency mode | UART: boot with `root=` of the USB stick `rootfs`, `e2fsck` the disk root, restore config backup |
 | R10 | Internal disk missing/dead | kernel waits for root | UART: boot USB root; replace disk; recreate partitions per boot.md; restore config + data backup |

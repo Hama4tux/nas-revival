@@ -25,13 +25,11 @@
     "cpu_hz_from_brief": 1200000000,
     "ram_bytes_from_dt": 268435456,
     "nand_bytes_from_brief": 134217728,
-    "openwrt_candidate": "zyxel_nsa310b",
     "linux_dt_candidates": ["kirkwood-nsa310", "kirkwood-nsa310a"],
     "fan_driver_candidates": ["adt7475", "lm85"],
     "sources": [
       "https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310.dts",
-      "https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310a.dts",
-      "https://github.com/openwrt/openwrt/blob/v25.12.6/target/linux/kirkwood/files/arch/arm/boot/dts/marvell/kirkwood-nsa310b.dts"
+      "https://github.com/torvalds/linux/blob/v6.12/arch/arm/boot/dts/marvell/kirkwood-nsa310a.dts"
     ]
   },
   "runtime": {

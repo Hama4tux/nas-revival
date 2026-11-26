@@ -1,7 +1,6 @@
 # Roadmap
 
-Authoritative plan since 2026-11-25 (replaces the OpenWrt-era `roadmap.md`; that history is in git
-and in [research/](research/)). Open questions and blockers live only in [OPEN.md](../OPEN.md).
+Authoritative plan since 2026-11-25 (replaces the earlier `roadmap.md`; that history is in git). Open questions and blockers are tracked outside the public repo.
 Feature states: [FEATURE_MATRIX](FEATURE_MATRIX.md). Web UI steps: [WEB_ROADMAP](WEB_ROADMAP.md). Gates: [TEST_PLAN](TEST_PLAN.md) and
 [PERFORMANCE_BUDGET](PERFORMANCE_BUDGET.md).
 

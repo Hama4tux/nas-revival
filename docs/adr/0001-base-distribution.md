@@ -1,6 +1,6 @@
 # ADR-0001: Base distribution
 
-Date: 2026-11-16. Status: **proposed, conditional on board qualification**.
+Date: 2026-11-16. Status: **historical** – the owner chose Debian 13 on 2026-11-25 (see ADR-0002); the OpenWrt/Buildroot evaluation below was rejected. The related research was removed from the repo on 2026-11-26, see git history.
 
 ## Context
 

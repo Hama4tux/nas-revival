@@ -1,8 +1,6 @@
 # Scripts policy
 
-Stage 1 adds a [workstation builder and manual target installer/controller](stage1/) for a separate chroot directory. See the [guide](../docs/research/stage1-userspace.md). No host setup, network discovery, disk preparation or flashing is automated. The scripts have not been executed on the NAS.
-
-[`openwrt/`](openwrt/) holds the read-only probe and the workstation-only OpenWrt build and simulation scripts ([guide](../docs/research/openwrt-simulation.md)); they download into `~/.cache/nas-openwrt-sim` and never contact the NAS.
+[`debian/`](debian/) builds the Debian 13 rootfs and kernel and holds the disk-swap installer and U-Boot helpers; [`webui/`](webui/) builds the web UI and runs end-to-end checks; [`git-hooks/`](git-hooks/) holds the pre-commit hook.
 
 [`measure/snapshot.sh`](measure/snapshot.sh) takes a read-only resource snapshot of the NAS over SSH (RAM, RSS/PSS, CPU idle, disk writes, listening ports) for [PERFORMANCE_BUDGET](../docs/PERFORMANCE_BUDGET.md).
 

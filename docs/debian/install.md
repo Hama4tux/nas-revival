@@ -183,7 +183,7 @@ rollback if you lose the connection), NTP, certificate, disk power and users.
 ## Known limits
 
 - A kernel that loads but **hangs** is not caught by the slot chain – keep the console at hand
-  when you put a new kernel into slot A (boot-once is planned, see [OPEN.md](../../OPEN.md)).
+  when you put a new kernel into slot A (boot-once is planned).
 - Without the disk the kernel waits for its root forever (`rootwait`).
 - The NSA310 does not power on by itself after a power cut – press the power button.
 - Debian 13 is the last release for armel; the kernel is maintained by this project.

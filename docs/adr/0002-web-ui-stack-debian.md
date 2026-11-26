@@ -2,8 +2,8 @@
 
 - Status: accepted by the owner, 2026-11-25
 - Context: the NAS runs Debian 13 armel (kernel 6.12, 256 MiB RAM, ARMv5TE 1.2 GHz)
-  instead of OpenWrt, so the uhttpd/rpcd/ucode backend proposed in
-  [technology selection](../architecture/technology-selection.md) does not apply.
+  instead of OpenWrt, so the uhttpd/rpcd/ucode backend evaluated earlier does not apply
+  (that research was removed from the repo on 2026-11-26, see git history).
 
 ## Decision
 

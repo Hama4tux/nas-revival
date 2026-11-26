@@ -40,7 +40,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 | Step | Screen / UI | API | Helper ops | Matrix |
 |---|---|---|---|---|
 | W2.1 ✅ 2026-11-26 (deployed, verified via helper; logged-in browser check open) | Users & groups: list, create, edit, disable, delete, password, group membership | `/users`, `/groups` | `user.*`, `group.*` | USR-01..03 |
-| W2.2 ✅ 2026-11-26 (tests + mock UI; NAS deployment see OPEN.md) | Roles admin / read-only / user, multi-account login, own password | session carries role | `auth.*` | USR-04 |
+| W2.2 ✅ 2026-11-26 (tests + mock UI; NAS deployment tracked separately) | Roles admin / read-only / user, multi-account login, own password | session carries role | `auth.*` | USR-04 |
 | W2.3 ✅ 2026-11-26 (deployed, e2e on NAS; SMB side — hidden, read-only, recycle, per-user enforcement — unverified until Samba is installed; NAS ext4 has no ACL support) | Shared folders: create on data volume, permissions matrix, read-only, hidden, recycle bin, delete (config vs. data) | `/shares` | `share.*` | SHARE-01..05 |
 | W2.4 ✅ 2026-11-26 (deployed, e2e on NAS; browser checked with mock data on desktop only) | Services app: state, PID, RAM, CPU, ports, start/stop/restart/enable, unit log | `/services` | `service.*`, `journal.unit` | SVC-10..12 |
 | W2.5 ✅ 2026-11-26 (deployed, e2e with a real SMB client from the workstation; page typechecked and unit-tested, not yet checked in a browser) | Services → SMB: enable, workgroup, protocol range, sessions, open files | `/services/smb` | `smb.*` | SMB-01, SMB-02 |

@@ -1,8 +1,7 @@
 # NAS Revival – architecture
 
 Status: 2026-11-25, Milestone 0 (architecture & audit). This document describes the **running
-system** and the **target architecture** for milestones M1–M6 ([ROADMAP](ROADMAP.md)). It
-supersedes the OpenWrt-era [architecture/overview.md](architecture/overview.md); decisions are
+system** and the **target architecture** for milestones M1–M6 ([ROADMAP](ROADMAP.md)). Decisions are
 recorded as ADRs in [adr/](adr/).
 
 ## 1. What runs today (audit 2026-11-25)
@@ -164,7 +163,7 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
 
 | ADR | Topic | Status |
 |---|---|---|
-| 0001 | Base distribution (OpenWrt) | superseded by owner decision 2026-11-25 (Debian 13) – rewrite pending |
+| 0001 | Base distribution | Debian 13 chosen 2026-11-25; ADR text still the original evaluation (rewrite pending) |
 | 0002 | Web stack on Debian | accepted |
 | 0003 | Privileged helper (network/DNS/NTP) | accepted, in development |
 | 0004 | Multi-user web auth tied to Linux users, roles via groups | accepted 2026-11-25 ([ADR](adr/0004-multi-user-auth-linux-users.md)) |

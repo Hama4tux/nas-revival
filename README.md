@@ -165,10 +165,6 @@ Test it with `bash tests/test_pre_commit.sh`.
 | [Security model](docs/SECURITY_MODEL.md) | Trust boundaries, privileged helper, auth |
 | [API v1](docs/api/v1.md) | Administration API contract |
 | [Roadmap](docs/ROADMAP.md) · [Web roadmap](docs/WEB_ROADMAP.md) | What comes next |
-| [Open items](OPEN.md) | Decisions, blockers and unverified work |
-
-The project started by qualifying OpenWrt and a minimal Buildroot userspace; that research is kept in
-[docs/research](docs/research/) and the [OpenWrt-era architecture](docs/architecture/overview.md).
 
 ## 📜 License
 

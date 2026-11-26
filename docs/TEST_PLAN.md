@@ -7,7 +7,7 @@ levels 1 and 2 pass and the relevant level-3 scenarios are recorded.
 |---|---|---|---|
 | 1 Unit/integration | workstation | Go packages with fake `/proc`/`/sys` trees and fake command runners; frontend logic (`lib/*.test.ts`) | `cd backend && go vet ./... && go test ./...` · `cd frontend && npm test && npm run build` |
 | 2 Device smoke | NAS | deploy build, API smoke, measurement snapshot | `scripts/webui/build.sh`, deploy, `scripts/measure/snapshot.sh` |
-| 3 Scenario | NAS (+ clients) | scenarios below, results dated in PERFORMANCE_BUDGET / OPEN.md | manual, with owner consent where marked ⚠ |
+| 3 Scenario | NAS (+ clients) | scenarios below, results dated in PERFORMANCE_BUDGET | manual, with owner consent where marked ⚠ |
 
 ## Rules for tests
 
