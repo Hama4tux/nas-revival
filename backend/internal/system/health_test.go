@@ -16,8 +16,8 @@ var t0 = time.Date(2026, 11, 25, 16, 0, 0, 0, time.UTC)
 
 func healthy() Overview {
 	return Overview{
-		Sensors: Sensors{Status: hal.SensorOK, Fans: []Fan{{ID: "f", Label: "Ventilátor", RPM: 1800}}},
-		Storage: Storage{Filesystems: []Filesystem{{Mount: "/", TotalBytes: 100, UsedBytes: 50}}},
+		Sensors:  Sensors{Status: hal.SensorOK, Fans: []Fan{{ID: "f", Label: "Ventilátor", RPM: 1800}}},
+		Storage:  Storage{Filesystems: []Filesystem{{Mount: "/", TotalBytes: 100, UsedBytes: 50}}},
 		Services: []Service{{Name: "ssh.service", Label: "SSH", State: "active"}},
 	}
 }
@@ -92,7 +92,7 @@ type fakeClock struct {
 	t  time.Time
 }
 
-func (c *fakeClock) now() time.Time { c.mu.Lock(); defer c.mu.Unlock(); return c.t }
+func (c *fakeClock) now() time.Time      { c.mu.Lock(); defer c.mu.Unlock(); return c.t }
 func (c *fakeClock) add(d time.Duration) { c.mu.Lock(); c.t = c.t.Add(d); c.mu.Unlock() }
 
 func newSnaps(collect func(context.Context) (Overview, error)) (*Snapshots, *fakeClock) {
@@ -221,5 +221,33 @@ func TestCollectPowerStateCached(t *testing.T) {
 	clk.t = clk.t.Add(time.Minute)
 	if _, err := c.Collect(context.Background()); err != nil || asked["sda"] != 2 {
 		t.Fatalf("after TTL asked %v", asked)
+	}
+}
+
+func TestEvaluateBackups(t *testing.T) {
+	end := func(ago time.Duration) *time.Time { e := t0.Add(-ago); return &e }
+	day := 24 * time.Hour
+	cases := []struct {
+		name string
+		b    BackupStatus
+		want []string
+	}{
+		{"ok", BackupStatus{Name: "A", Enabled: true, LastResult: "ok", LastOKEnd: end(day), StaleAfter: 2 * day}, []string{}},
+		{"failed", BackupStatus{Name: "A", Enabled: true, LastResult: "failed", LastOKEnd: end(time.Hour), StaleAfter: 2 * day}, []string{"crit:backupFailed:A"}},
+		{"stale", BackupStatus{Name: "A", Enabled: true, LastResult: "ok", LastOKEnd: end(3 * day), StaleAfter: 2 * day}, []string{"warn:backupStale:A"}},
+		{"failed and old is only failed", BackupStatus{Name: "A", Enabled: true, LastResult: "failed", LastOKEnd: end(30 * day), StaleAfter: 2 * day}, []string{"crit:backupFailed:A"}},
+		{"never ran", BackupStatus{Name: "A", Enabled: true, StaleAfter: 2 * day}, []string{}},
+		{"no stale limit", BackupStatus{Name: "A", Enabled: true, LastResult: "ok", LastOKEnd: end(90 * day)}, []string{}},
+		{"disabled failed", BackupStatus{Name: "A", LastResult: "failed", LastOKEnd: end(time.Hour)}, []string{}},
+		{"disabled stale", BackupStatus{Name: "A", LastResult: "ok", LastOKEnd: end(9 * day), StaleAfter: 2 * day}, []string{}},
+		{"skipped runs since the last ok", BackupStatus{Name: "A", Enabled: true, LastResult: "skipped", LastEnd: end(time.Hour), LastOKEnd: end(3 * day), StaleAfter: 2 * day}, []string{"warn:backupStale:A"}},
+	}
+	for _, c := range cases {
+		o := healthy()
+		o.Backups = []BackupStatus{c.b}
+		got := codes(Evaluate(o, nil, t0))
+		if len(got) != len(c.want) || (len(got) == 1 && got[0] != c.want[0]) {
+			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
 	}
 }

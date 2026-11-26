@@ -8,7 +8,7 @@ const base = (services: Overview['services'], uptime: number | null = 3600): Ove
   cpu: { model: '', cores: 1, load1: null, load5: null, load15: null, usagePercent: null },
   memory: { totalBytes: 1, availableBytes: 1, swapTotalBytes: 0, swapFreeBytes: 0 },
   sensors: { status: 'ok', temperatures: [], fans: [] },
-  network: [], storage: { disks: [], filesystems: [] }, services,
+  network: [], storage: { disks: [], filesystems: [] }, services, backups: [],
   health: { status: 'ok', checkedAt: '2026-11-25T16:00:00Z', smartCheckedAt: null, problems: [] },
 });
 

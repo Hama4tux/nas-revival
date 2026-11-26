@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import type { Overview, PowerState, Smart } from '../../api/types';
 import type { NetHistory, NetRate } from '../../hooks/useOverview';
 import { cs } from '../../i18n/cs';
+import { backupBadge, formatAge } from '../../lib/backups';
 import { deriveEvents } from '../../lib/events';
 import {
   DASH, formatBytes, formatNumber, formatPercent, formatSpeed, formatTemp, ratioPercent,
@@ -210,6 +211,35 @@ export function ServicesCard({ o, className }: { o: Overview; className?: string
             </span>
           </li>
         ))}
+      </ul>
+    </Widget>
+  );
+}
+
+const badgeVariant = { ok: 'success', failed: 'danger', warning: 'warning', never: 'neutral' } as const;
+
+/** Last result of the backup-pull jobs; hidden when there are none. */
+export function BackupsCard({ o, className }: { o: Overview; className?: string }) {
+  if (o.backups.length === 0) return null;
+  const now = Date.now();
+  return (
+    <Widget id="c-backups" title={t.backups} icon={<Database />} className={className} bodyClassName="py-2">
+      <ul className="divide-y divide-border/60">
+        {o.backups.map((b) => {
+          const kind = backupBadge(b);
+          return (
+            <li key={b.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 text-sm">
+              <span className="min-w-0 break-words font-medium">
+                {b.name}{!b.enabled && <span className="ml-2 font-normal text-muted-foreground">({t.backupDisabled})</span>}
+              </span>
+              <span className="flex flex-wrap items-center gap-2" title={b.message || undefined}>
+                <Badge variant={badgeVariant[kind]}>{kind === 'never' ? t.backupNever : t.backupResult[b.lastResult]}</Badge>
+                {b.lastEnd && <span className="text-muted-foreground">{formatAge(b.lastEnd, now)}</span>}
+                {b.usedBytes > 0 && <span className="tabular-nums text-muted-foreground">{formatBytes(b.usedBytes)}</span>}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </Widget>
   );

@@ -112,6 +112,7 @@ func serve(args []string) error {
 	diskPower := &diskpower.Reader{Run: diskpower.ExecRunner, Now: time.Now, ConfigPath: diskpower.DefaultConfigPath}
 	collector := system.NewCollector(*root, system.NewServiceChecker(system.DefaultUnits))
 	collector.Smart = smartSvc
+	collector.Backups = (&tasks.BackupStatusSource{ConfigPath: tasks.DefaultConfigPath, HistoryPath: tasks.DefaultBackupHistoryPath, TTL: time.Minute, Now: time.Now}).Statuses
 	collector.DiskPower = func(ctx context.Context, dev string) string { return diskPower.Read(ctx, dev).State }
 	// One CHECK POWER MODE per minute at most: cheap, and keeps an open
 	// dashboard from poking the drive every few seconds.

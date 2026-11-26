@@ -15,15 +15,34 @@ import (
 )
 
 type Overview struct {
-	GeneratedAt time.Time  `json:"generatedAt"`
-	Host        Host       `json:"host"`
-	CPU         CPU        `json:"cpu"`
-	Memory      Memory     `json:"memory"`
-	Sensors     Sensors    `json:"sensors"`
-	Network     []NetIface `json:"network"`
-	Storage     Storage    `json:"storage"`
-	Services    []Service  `json:"services"`
-	Health      Health     `json:"health"`
+	GeneratedAt time.Time      `json:"generatedAt"`
+	Host        Host           `json:"host"`
+	CPU         CPU            `json:"cpu"`
+	Memory      Memory         `json:"memory"`
+	Sensors     Sensors        `json:"sensors"`
+	Network     []NetIface     `json:"network"`
+	Storage     Storage        `json:"storage"`
+	Services    []Service      `json:"services"`
+	Backups     []BackupStatus `json:"backups"`
+	Health      Health         `json:"health"`
+}
+
+// BackupStatus is the last result of one backup-pull task.
+type BackupStatus struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Enabled bool   `json:"enabled"`
+	// LastResult is ok|failed|skipped|stopped, empty when it never ran.
+	LastResult string     `json:"lastResult"`
+	LastEnd    *time.Time `json:"lastEnd"`
+	Message    string     `json:"message"`
+	UsedBytes  int64      `json:"usedBytes"`
+	// LastOKEnd is the end of the last successful run (or of the oldest
+	// recorded run when none succeeded); staleness counts from it.
+	LastOKEnd *time.Time `json:"-"`
+	// StaleAfter is how old LastOKEnd may get before the backup counts as
+	// overdue (from the schedule); zero disables the check.
+	StaleAfter time.Duration `json:"-"`
 }
 
 type Host struct {
@@ -117,6 +136,8 @@ type Collector struct {
 	Now      func() time.Time
 	// Smart supplies the cached SMART summary for health; nil skips SMART.
 	Smart SmartReporter
+	// Backups returns the backup-pull task states; nil means none.
+	Backups func() []BackupStatus
 	// DiskPower returns a disk's power state; nil leaves powerState null.
 	// Answers are cached for PowerTTL so a watched dashboard does not keep
 	// querying the drive.
@@ -236,6 +257,13 @@ func (c *Collector) Collect(ctx context.Context) (Overview, error) {
 	o.Services = []Service{}
 	if c.Services != nil {
 		o.Services = c.Services.Check(ctx)
+	}
+
+	o.Backups = []BackupStatus{}
+	if c.Backups != nil {
+		if b := c.Backups(); b != nil {
+			o.Backups = b
+		}
 	}
 
 	var rep *smart.Report

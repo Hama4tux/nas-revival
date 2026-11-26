@@ -270,10 +270,15 @@ function overview(): Overview {
       { name: 'nsa310-button.service', label: 'Tlačítko COPY', state: 'failed', since: ago(25 * 60) },
       { name: 'cron.service', label: 'Plánovač', state: 'unknown', since: null },
     ],
+    backups: [
+      { id: 'b1', name: 'Dokumenty z pracovní stanice', enabled: true, lastResult: 'ok', lastEnd: ago(5 * 3600), message: '', usedBytes: 42e9 },
+      { id: 'b2', name: 'Fotky z notebooku', enabled: true, lastResult: 'failed', lastEnd: ago(26 * 3600), message: 'Server nedostupný', usedBytes: 118e9 },
+    ],
     health: {
       status: 'crit', checkedAt: new Date().toISOString(), smartCheckedAt: ago(-5),
       problems: [
         { severity: 'crit', code: 'serviceFailed', subject: 'Tlačítko COPY' },
+        { severity: 'crit', code: 'backupFailed', subject: 'Fotky z notebooku' },
         { severity: 'warn', code: 'fsWarn', subject: '/media/usb' },
       ],
     },

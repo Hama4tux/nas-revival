@@ -27,6 +27,8 @@ const (
 	ProblemFSWarn         = "fsWarn"
 	ProblemServiceFailed  = "serviceFailed"
 	ProblemCollectFailed  = "collectFailed"
+	ProblemBackupFailed   = "backupFailed"
+	ProblemBackupStale    = "backupStale"
 )
 
 // Filesystem usage thresholds in percent (strictly above).
@@ -107,6 +109,17 @@ func Evaluate(o Overview, rep *smart.Report, at time.Time) Health {
 	for _, s := range o.Services {
 		if s.State == "failed" {
 			add(HealthCrit, ProblemServiceFailed, s.Label)
+		}
+	}
+
+	for _, b := range o.Backups {
+		if !b.Enabled {
+			continue
+		}
+		if b.LastResult == "failed" {
+			add(HealthCrit, ProblemBackupFailed, b.Name)
+		} else if b.StaleAfter > 0 && b.LastOKEnd != nil && at.Sub(*b.LastOKEnd) > b.StaleAfter {
+			add(HealthWarn, ProblemBackupStale, b.Name)
 		}
 	}
 

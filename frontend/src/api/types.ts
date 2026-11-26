@@ -31,13 +31,22 @@ export interface Overview {
     }[];
   };
   services: { name: string; label: string; state: ServiceState; since?: string | null }[];
+  backups: BackupStatus[];
   health: SystemHealth;
+}
+
+/** Last result of one backup-pull task (BKP-11). lastResult is empty when it never ran. */
+export interface BackupStatus {
+  id: string; name: string; enabled: boolean;
+  lastResult: 'ok' | 'failed' | 'skipped' | 'stopped' | '';
+  lastEnd: string | null; message: string; usedBytes: number;
 }
 
 export type HealthStatus = 'ok' | 'warn' | 'crit' | 'unknown';
 export type ProblemCode =
   | 'sensorsFault' | 'sensorsUnknown' | 'fanStopped' | 'smartFailed' | 'smartSectors'
-  | 'fsCritical' | 'fsWarn' | 'serviceFailed' | 'collectFailed';
+  | 'fsCritical' | 'fsWarn' | 'serviceFailed' | 'collectFailed'
+  | 'backupFailed' | 'backupStale';
 export interface HealthProblem { severity: 'warn' | 'crit'; code: ProblemCode; subject?: string }
 /** Evaluated on the NAS by the shared collector (MON-01). */
 export interface SystemHealth {

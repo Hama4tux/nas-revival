@@ -246,7 +246,7 @@ func TestHeavyLockPathsAgree(t *testing.T) {
 func backupTaskFor(id string) tasks.Task {
 	return tasks.Task{ID: id, Name: "Záloha", Type: tasks.TypeBackup, Enabled: true,
 		Schedule: tasks.Schedule{Kind: tasks.KindDaily, Time: "06:45"},
-		Backup: &tasks.BackupParams{Host: "192.0.2.10", User: "root", Paths: []string{"nas-export"}, KeepDays: 35}}
+		Backup:   &tasks.BackupParams{Host: "192.0.2.10", User: "root", Paths: []string{"nas-export"}, KeepDays: 35}}
 }
 
 func TestBackupTaskUnitSelection(t *testing.T) {

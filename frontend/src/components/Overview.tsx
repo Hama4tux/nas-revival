@@ -7,7 +7,7 @@ import type { HostSummary } from './Shell';
 import { Button } from './ui/button';
 import { Skeleton } from './ui/skeleton';
 import {
-  CardSkeleton, EventsCard, NetworkCard, ResourceTiles, SensorsCard, ServicesCard, StorageCard, SystemCard,
+  BackupsCard, CardSkeleton, EventsCard, NetworkCard, ResourceTiles, SensorsCard, ServicesCard, StorageCard, SystemCard,
 } from './cards/Cards';
 
 const t = cs.overview;
@@ -56,6 +56,11 @@ export function Overview({ onHost }: { onHost: (h: HostSummary) => void }) {
             <EventsCard o={data} className="lg:col-span-2" />
             <SystemCard o={data} className="lg:col-span-3" />
           </div>
+          {data.backups.length > 0 && (
+            <div className={row}>
+              <BackupsCard o={data} className="lg:col-span-5" />
+            </div>
+          )}
         </>
       ) : !error ? (
         <div className="space-y-4" aria-busy="true" aria-label={cs.common.loading}>
