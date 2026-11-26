@@ -297,3 +297,21 @@ export interface SshService {
 export interface SshKey { type: string; bits?: number; fingerprint: string; comment: string }
 export interface SshKeyUser { name: string; keys: SshKey[]; sftp: boolean; invalid?: number }
 export interface SshKeys { users: SshKeyUser[] }
+
+export type TaskType = 'smart' | 'recycle-cleanup';
+export type TaskWeekday = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
+export interface TaskSchedule {
+  kind: 'daily' | 'weekly' | 'monthly';
+  time: string;
+  weekdays?: TaskWeekday[];
+  day?: number;
+}
+export interface TaskDef {
+  id: string; name: string; type: TaskType; enabled: boolean; schedule: TaskSchedule;
+  smart?: { diskId: string; test: 'short' | 'long' };
+}
+export type TaskResult = 'ok' | 'failed' | 'skipped' | 'stopped';
+export interface TaskRun { start: string; end: string; result: TaskResult; message: string }
+export interface Task extends TaskDef { running: boolean; nextRun: string | null; lastRun: TaskRun | null }
+export interface TaskList { tasks: Task[] }
+export interface TaskHistory { runs: TaskRun[] }

@@ -12,6 +12,7 @@ import { ServicesPage } from './components/ServicesPage';
 import { SharesPage } from './components/SharesPage';
 import { StoragePage } from './components/StoragePage';
 import { SystemPage } from './components/SystemPage';
+import { TasksPage } from './components/TasksPage';
 import { UsersPage } from './components/UsersPage';
 import { useNetworkSettings } from './hooks/useNetworkSettings';
 import { useRoute } from './hooks/useRoute';
@@ -76,6 +77,7 @@ export function App() {
       {route === 'storage' && <StoragePage />}
       {route === 'network' && <NetworkPage net={net} />}
       {route === 'system' && <SystemPage />}
+      {route === 'tasks' && <TasksPage readOnly={role !== 'admin'} />}
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}
       {route === 'services' && <ServicesPage readOnly={role !== 'admin'} />}
       {route === 'shares' && <SharesPage readOnly={role !== 'admin'} />}

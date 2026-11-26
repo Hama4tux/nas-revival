@@ -1,4 +1,4 @@
-import { Activity, FolderOpen, HardDrive, LayoutDashboard, Network, ScrollText, Settings, UserRound, Users, type LucideIcon } from 'lucide-react';
+import { Activity, CalendarClock, FolderOpen, HardDrive, LayoutDashboard, Network, ScrollText, Settings, UserRound, Users, type LucideIcon } from 'lucide-react';
 import type { Role } from '../api/types';
 import type { cs } from '../i18n/cs';
 import { canRead } from '../lib/roles';
@@ -13,6 +13,7 @@ export const apps: NavApp[] = [
   { key: 'shares', icon: FolderOpen, ready: true, href: '#/shares', tone: 'from-amber-400 to-orange-600' },
   { key: 'users', icon: Users, ready: true, href: '#/users', tone: 'from-violet-400 to-purple-600' },
   { key: 'network', icon: Network, ready: true, href: '#/network', tone: 'from-cyan-400 to-sky-600' },
+  { key: 'tasks', icon: CalendarClock, ready: true, href: '#/tasks', tone: 'from-fuchsia-400 to-pink-600' },
   { key: 'system', icon: Settings, ready: true, href: '#/system', tone: 'from-indigo-400 to-blue-700' },
   { key: 'logs', icon: ScrollText, ready: false, tone: 'from-slate-400 to-slate-600' },
 ];

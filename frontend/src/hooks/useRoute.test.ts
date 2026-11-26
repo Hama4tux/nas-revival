@@ -4,6 +4,7 @@ import { parseRoute } from './useRoute';
 describe('parseRoute', () => {
   it('maps known hashes', () => {
     expect(parseRoute('#/storage')).toBe('storage');
+    expect(parseRoute('#/tasks')).toBe('tasks');
     expect(parseRoute('#/network')).toBe('network');
     expect(parseRoute('#/system')).toBe('system');
     expect(parseRoute('#/users')).toBe('users');

@@ -597,6 +597,57 @@ const mockNfs: NfsService = {
   installed: true, running: true, managed: true, missing: [], shares: [],
   settings: { enabled: true, exports: [{ share: 'Fotky', squash: 'root', clients: [{ host: '192.0.2.40', readOnly: false }] }] },
 };
+interface MockTask { id: string; name: string; type: string; enabled: boolean; schedule: Record<string, unknown>; smart?: { diskId: string; test: string } }
+interface MockRun { start: string; end: string; result: string; message: string }
+let mockTasks: MockTask[] = [
+  { id: 'recycle', name: 'Vysypání košů', type: 'recycle-cleanup', enabled: true, schedule: { kind: 'daily', time: '03:30' } },
+  { id: 'a1b2c3d4', name: 'SMART dlouhý test', type: 'smart', enabled: true, schedule: { kind: 'monthly', time: '02:00', day: 1 },
+    smart: { diskId: 'wwn-0x5000c50000000001', test: 'long' } },
+];
+const mockRuns: Record<string, MockRun[]> = {
+  recycle: [{ start: new Date(Date.now() - 20 * 3600e3).toISOString(), end: new Date(Date.now() - 20 * 3600e3 + 42e3).toISOString(), result: 'ok', message: 'Odstraněno 12 souborů (84 MB)' }],
+  a1b2c3d4: [{ start: new Date(Date.now() - 9 * 86400e3).toISOString(), end: new Date(Date.now() - 9 * 86400e3 + 5e3).toISOString(), result: 'skipped', message: 'Na disku už běží test SMART.' }],
+};
+const mockRunning = new Set<string>();
+const taskView = () => mockTasks.map((t) => ({
+  ...t, running: mockRunning.has(t.id), lastRun: mockRuns[t.id]?.[0] ?? null,
+  nextRun: t.enabled ? new Date(Date.now() + 3 * 3600e3).toISOString() : null,
+}));
+
+function tasksRoute(path: string, method: string, body: unknown): Response | null {
+  if (path === '/tasks' && method === 'GET') return json(200, { tasks: taskView() });
+  if (path === '/tasks' && method === 'PUT') {
+    const list = (body as { tasks?: MockTask[] }).tasks ?? [];
+    if (list.length > 32) return bad('tasks', 'Úloh může být nejvýše 32.');
+    for (const t of list) if (!t.name?.trim()) return bad('name', 'Zadejte název úlohy.');
+    mockTasks = list.map((t) => ({ ...t, id: t.id || Math.random().toString(16).slice(2, 10) }));
+    for (const id of Object.keys(mockRuns)) if (!mockTasks.some((t) => t.id === id)) delete mockRuns[id];
+    return json(200, { tasks: taskView() });
+  }
+  const m = /^\/tasks\/([^/]+)\/(run|stop|history)$/.exec(path);
+  if (!m) return null;
+  const id = decodeURIComponent(m[1] ?? '');
+  if (!mockTasks.some((t) => t.id === id)) return err(404, 'not_found', 'Úloha neexistuje.');
+  if (m[2] === 'history' && method === 'GET') return json(200, { runs: mockRuns[id] ?? [] });
+  if (m[2] === 'run' && method === 'POST') {
+    if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+    if (mockRunning.has(id)) return json(202, {});
+    mockRunning.add(id);
+    const began = Date.now();
+    setTimeout(() => {
+      if (!mockRunning.delete(id)) return;
+      (mockRuns[id] ??= []).unshift({ start: new Date(began).toISOString(), end: new Date().toISOString(), result: 'ok', message: 'Dokončeno.' });
+    }, 5000);
+    return json(202, {});
+  }
+  if (m[2] === 'stop' && method === 'POST') {
+    mockRunning.delete(id);
+    (mockRuns[id] ??= []).unshift({ start: new Date().toISOString(), end: new Date().toISOString(), result: 'stopped', message: 'Zastaveno uživatelem.' });
+    return json(202, {});
+  }
+  return null;
+}
+
 const nfsShares = () => mockShares.map((s) => ({ name: s.name, path: `${s.volume}/${s.folder}`, readOnly: s.readOnly,
   groupWrite: s.permissions.some((p) => p.kind === 'group' && p.name === 'nas-nfs' && p.access === 'rw') }));
 const mockNfsStatus = (): NfsStatus => ({
@@ -823,6 +874,12 @@ export function installMock(): void {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = usersRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/tasks')) {
+      let body: unknown = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = tasksRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/services/nfs')) {
