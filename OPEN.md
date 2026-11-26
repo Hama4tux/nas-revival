@@ -5,6 +5,7 @@
 - Další krok: dlouhý test SMART nového disku, zkušební záloha z Proxmoxu přes NFS, pak W2.8 (síť: název, trasy, diagnostika).
 
 ## Čeká na rozhodnutí
+- [ ] Schválit ADR 0008 (docs/adr/0008-backup-pull-jobs-and-task-core.md): zálohovací úlohy W4.3 před plánovačem W3.3 se společným jádrem úloh, jeden zámek náročných úloh, zálohy pod vyhrazeným kořenem mimo sdílené složky, povinná doba držení verzí 1–90 dní, klíč NASu jen veřejně v GUI. Po schválení rozdělit na kroky (2026-11-26)
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalace bez sériové konzole: přes Telnet původního firmwaru zapsat jádro do slotů A/B a prostředí U-Bootu (mtd1, 128 KiB, jedno CRC – ověřeno z dumpu; při vadném CRC U-Boot nabootuje původní firmware), pak jádro s malým initramfs samo nainstaluje systém z USB flashky (potvrzení tlačítkem COPY, stav LED, nouzové SSH). Před vydáním ověřit na našem NASu s konzolí: zápis NAND jádrem 2.6.31 (ECC), statické nástroje pro starý kernel, získání Telnetu na běžném firmwaru V4.70. Vlastník rozhodne, zda pokračovat. (2026-11-26)
@@ -81,7 +82,6 @@
 - [ ] Dialog restartu/vypnutí ověřen jen v ukázkovém režimu na šířce desktopu; zobrazení na telefonu (360 px) neověřeno. (2026-11-25)
 - [ ] BKP-10/11: na NASu dnes běží dočasná úloha mimo NAS Revival (systemd timer, rsync přes SSH s klíčem, cíle jen ke čtení přes rrsync, denní hardlink verze, stav v JSON, zámek /run/lock/nas-heavy.lock). Až budou zálohovací úlohy v NAS Revival, převzít její konfiguraci a adresáře, zobrazit stav na přehledu, hlásit selhání a dočasnou úlohu vypnout; kontrola před restartem a SMART mají brát ohled na její zámek (2026-11-26)
 - [ ] Na Macu a Windows v klonu spustit `git config core.hooksPath scripts/git-hooks` a zkopírovat `~/.config/nas-revival/private-patterns` (mimo git) – jinak tam kontrola soukromých dat před commitem neběží (2026-11-26)
-- [ ] Zálohy jako typ úlohy v Plánovaných úlohách (TASK-01..03 + BKP-10/11): sepsat ADR 0008 – jeden zámek náročných úloh, adresáře stažených záloh pod vyhrazený kořen mimo sdílené složky, povinná doba držení verzí s horní mezí (2026-11-26)
 - [ ] Kontrola před restartem zatím nehlídá budoucí zálohovací úlohy – zámky /run/nas-revival/locks doplnit spolu s úlohami zálohování (TASK-*). (2026-11-25)
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 

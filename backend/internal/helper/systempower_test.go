@@ -18,8 +18,8 @@ const (
 )
 
 type fakeSys struct {
-	state, caps, copyState string
-	failSystemctl          bool
+	state, caps, copyState, backupState string
+	failSystemctl                       bool
 	calls                  []string
 }
 
@@ -36,6 +36,11 @@ func (f *fakeSys) run(_ context.Context, name string, args ...string) ([]byte, e
 			return []byte(f.copyState + "\n"), errors.New("exit 3")
 		}
 		return []byte("active\n"), nil
+	case call == "systemctl is-active "+backupUnit:
+		if f.backupState != "activating" {
+			return []byte("inactive\n"), errors.New("exit 3")
+		}
+		return []byte("activating\n"), errors.New("exit 3")
 	case name == "systemctl" && f.failSystemctl:
 		return nil, errors.New("exit 1")
 	}
@@ -88,10 +93,10 @@ func TestPreflightClean(t *testing.T) {
 }
 
 func TestPreflightFindsEveryBlocker(t *testing.T) {
-	fx := newSysPower(t, &fakeSys{state: stateActive, caps: sysCapsTesting, copyState: "active"}, "bash", "dpkg")
+	fx := newSysPower(t, &fakeSys{state: stateActive, caps: sysCapsTesting, copyState: "active", backupState: "activating"}, "bash", "dpkg")
 	fx.pending = true
 	got := codes(fx.m.Preflight(context.Background()).Blockers)
-	want := "smart_test:wwn-0x1,copy_running:,package_manager:,network_pending:"
+	want := "smart_test:wwn-0x1,copy_running:,backup_running:,package_manager:,network_pending:"
 	if got != want {
 		t.Fatalf("got %s, want %s", got, want)
 	}

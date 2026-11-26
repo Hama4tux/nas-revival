@@ -24,6 +24,7 @@ const (
 const (
 	BlockSmartTest      = "smart_test"      // SMART self-test running on DiskID
 	BlockCopy           = "copy_running"    // COPY button backup (nsa310-copy) running
+	BlockBackup         = "backup_running"  // backup pull job running
 	BlockPackageManager = "package_manager" // apt/dpkg running
 	BlockNetworkPending = "network_pending" // network change waits for confirmation
 	BlockCheckFailed    = "check_failed"    // a check could not run; DiskID when it was a disk
@@ -31,6 +32,10 @@ const (
 
 // copyUnit is the COPY button job (deploy/debian/nsa310-copy.service).
 const copyUnit = "nsa310-copy.service"
+
+// backupUnit is the interim backup pull job installed outside NAS Revival;
+// backup jobs of W4.3 replace it (ADR 0008).
+const backupUnit = "nas-pull.service"
 
 // packageManagers are process names (/proc/<pid>/comm, max 15 chars) whose
 // interruption can leave dpkg half-configured.
@@ -76,8 +81,11 @@ type SystemPowerManager struct {
 func (m *SystemPowerManager) Preflight(ctx context.Context) PowerPreflight {
 	b := []PowerBlocker{}
 	b = append(b, m.smartBlockers(ctx)...)
-	if m.copyRunning(ctx) {
+	if m.unitRunning(ctx, copyUnit) {
 		b = append(b, PowerBlocker{Code: BlockCopy})
+	}
+	if m.unitRunning(ctx, backupUnit) {
+		b = append(b, PowerBlocker{Code: BlockBackup})
 	}
 	if m.packageManagerRunning() {
 		b = append(b, PowerBlocker{Code: BlockPackageManager})
@@ -122,10 +130,10 @@ func (m *SystemPowerManager) smartBlockers(ctx context.Context) []PowerBlocker {
 	return out
 }
 
-// copyRunning: systemctl is-active exits non-zero for an inactive unit, so
-// only the printed state counts.
-func (m *SystemPowerManager) copyRunning(ctx context.Context) bool {
-	out, _ := m.Run(ctx, "systemctl", "is-active", copyUnit)
+// unitRunning: systemctl is-active exits non-zero for an inactive unit (and
+// for a oneshot that is still "activating"), so only the printed state counts.
+func (m *SystemPowerManager) unitRunning(ctx context.Context, unit string) bool {
+	out, _ := m.Run(ctx, "systemctl", "is-active", unit)
 	switch strings.TrimSpace(string(out)) {
 	case "active", "activating", "deactivating", "reloading":
 		return true

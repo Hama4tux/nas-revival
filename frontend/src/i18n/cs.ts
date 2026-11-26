@@ -620,6 +620,7 @@ export const cs = {
     blockers: {
       smart_test: (d?: string) => `Samotest SMART disku ${d ?? ''} – přeruší se a výsledek se nezapíše.`,
       copy_running: () => 'Záloha USB přes tlačítko COPY – kopie zůstane nedokončená.',
+      backup_running: () => 'Stahování záloh ze serverů – dnešní verze záloh se nedokončí.',
       package_manager: () => 'Instalace nebo aktualizace balíčků – přerušení může poškodit systém.',
       network_pending: () => 'Změna sítě čeká na potvrzení – po startu se vrátí původní nastavení.',
       check_failed: (d?: string) => `Kontrolu${d ? ` disku ${d}` : ''} se nepodařilo provést – nelze vyloučit běžící činnost.`,
