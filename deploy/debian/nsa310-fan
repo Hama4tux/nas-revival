@@ -11,17 +11,31 @@
 # the LM85 and is watched by smartd.
 set -eu
 
+# Defaults = profile "balanced". The web UI (W3.4) renders the chosen profile
+# into /etc/default/nsa310-fan; values outside the safe window are ignored.
 ZONE_MIN=40000   # below: minimum speed
 ZONE_MAX=60000   # at and above: full speed (LM85 range 20 °C)
-ZONE_OFF=36000   # hysteresis floor; with minctl=1 the fan never stops
+PWM_MIN=64       # ~1/4 speed, well above the measured stall point
 ZONE_CRIT=70000  # all fans full speed
-PWM_MIN=64       # ~1/3 speed, well above the measured stall point
+DEFAULTS=${NSA310_FAN_DEFAULTS:-/etc/default/nsa310-fan}
+if [ -r "$DEFAULTS" ]; then
+	d_min=$ZONE_MIN d_max=$ZONE_MAX d_pwm=$PWM_MIN
+	. "$DEFAULTS"
+	# Only the 20 °C range the chip holds exactly, full speed below the
+	# critical limit and a PWM floor above the stall point.
+	if ! { [ "$ZONE_MIN" -ge 30000 ] && [ "$ZONE_MAX" -eq $((ZONE_MIN + 20000)) ] &&
+		[ "$ZONE_MAX" -lt "$ZONE_CRIT" ] && [ "$PWM_MIN" -ge 48 ] && [ "$PWM_MIN" -le 255 ]; } 2>/dev/null; then
+		echo "nsa310-fan: $DEFAULTS out of range, using the balanced profile" >&2
+		ZONE_MIN=$d_min ZONE_MAX=$d_max PWM_MIN=$d_pwm
+	fi
+fi
+ZONE_OFF=$((ZONE_MIN - 4000))  # hysteresis floor; with minctl=1 the fan never stops
 
 hw=""
 tries=0
 # The lm85 module is loaded by udev and may bind after this unit starts.
 while [ -z "$hw" ] && [ "$tries" -lt 30 ]; do
-	for d in /sys/class/hwmon/hwmon*; do
+	for d in "${NSA310_FAN_HWMON:-/sys/class/hwmon}"/hwmon*; do
 		[ "$(cat "$d/name" 2>/dev/null)" = lm85 ] && hw=$d
 	done
 	[ -n "$hw" ] || { tries=$((tries + 1)); sleep 1; }

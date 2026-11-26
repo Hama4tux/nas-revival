@@ -36,7 +36,7 @@ Fixed widget order, compact, no technical detail beyond one line per item:
 3. **Storage:** per disk – capacity bar, SMART state, power state (active/standby/unknown), temp.
 4. **Network:** address, link speed, live up/down chart.
 5. **Services:** main services with coloured dot; count of unexpectedly stopped.
-6. **Hardware:** temperatures, fan RPM (only wired fan).
+6. **Hardware:** temperatures, fan RPM (only wired fan). Control panel → tab Hardware (W3.4): temperatures with 24 h chart and threshold badges, thresholds, fan (RPM, PWM chart, profile), LEDs and night mode.
 7. **Events:** last 5 events (boot, service changes, later notifications).
 8. **Backup / updates** (M4/M5): last backup result, pending updates.
 9. **Quick actions:** restart, shut down (with preflight), open notifications.

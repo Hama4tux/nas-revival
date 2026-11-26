@@ -9,10 +9,13 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/hal"
+	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/smart"
 )
 
 var t0 = time.Date(2026, 11, 25, 16, 0, 0, 0, time.UTC)
+
+var th = hardware.Defaults().Thresholds // board 55/65, disk 50/55
 
 func healthy() Overview {
 	return Overview{
@@ -33,11 +36,11 @@ func codes(h Health) []string {
 }
 
 func TestEvaluateHealthy(t *testing.T) {
-	h := Evaluate(healthy(), &smart.Report{CheckedAt: t0, Disks: []smart.Disk{{Name: "sda", Health: "passed"}}}, t0)
+	h := Evaluate(healthy(), &smart.Report{CheckedAt: t0, Disks: []smart.Disk{{Name: "sda", Health: "passed"}}}, th, t0)
 	if h.Status != HealthOK || len(h.Problems) != 0 || !h.CheckedAt.Equal(t0) || h.SmartCheckedAt == nil {
 		t.Fatalf("%+v", h)
 	}
-	if h := Evaluate(healthy(), nil, t0); h.SmartCheckedAt != nil || h.Problems == nil {
+	if h := Evaluate(healthy(), nil, th, t0); h.SmartCheckedAt != nil || h.Problems == nil {
 		t.Fatalf("without SMART: %+v (problems must be [] not null)", h)
 	}
 }
@@ -46,13 +49,13 @@ func TestEvaluateFilesystemThresholds(t *testing.T) {
 	for used, want := range map[uint64]string{85: HealthOK, 86: HealthWarn, 95: HealthWarn, 96: HealthCrit} {
 		o := healthy()
 		o.Storage.Filesystems[0].UsedBytes = used
-		if got := Evaluate(o, nil, t0).Status; got != want {
+		if got := Evaluate(o, nil, th, t0).Status; got != want {
 			t.Errorf("used %d%%: %s, want %s", used, got, want)
 		}
 	}
 	o := healthy()
 	o.Storage.Filesystems[0].TotalBytes = 0
-	if Evaluate(o, nil, t0).Status != HealthOK {
+	if Evaluate(o, nil, th, t0).Status != HealthOK {
 		t.Error("empty filesystem must not divide by zero")
 	}
 }
@@ -67,7 +70,7 @@ func TestEvaluateOrdersCritFirst(t *testing.T) {
 		{Name: "sdb", Health: "failed"},
 		{Name: "sdc", Health: "failed", Standby: true},
 	}}
-	h := Evaluate(o, rep, t0)
+	h := Evaluate(o, rep, th, t0)
 	want := []string{
 		"crit:smartFailed:sdb", "crit:serviceFailed:SSH",
 		"warn:sensorsUnknown:", "warn:fanStopped:Ventilátor", "warn:smartSectors:sda",
@@ -82,7 +85,7 @@ func TestEvaluateOrdersCritFirst(t *testing.T) {
 	}
 	o = healthy()
 	o.Sensors.Status = hal.SensorFault
-	if got := codes(Evaluate(o, nil, t0)); len(got) != 1 || got[0] != "crit:sensorsFault:" {
+	if got := codes(Evaluate(o, nil, th, t0)); len(got) != 1 || got[0] != "crit:sensorsFault:" {
 		t.Fatalf("fault: %v", got)
 	}
 }
@@ -245,9 +248,34 @@ func TestEvaluateBackups(t *testing.T) {
 	for _, c := range cases {
 		o := healthy()
 		o.Backups = []BackupStatus{c.b}
-		got := codes(Evaluate(o, nil, t0))
+		got := codes(Evaluate(o, nil, th, t0))
 		if len(got) != len(c.want) || (len(got) == 1 && got[0] != c.want[0]) {
 			t.Errorf("%s: %v, want %v", c.name, got, c.want)
+		}
+	}
+}
+
+func TestEvaluateTemperatureThresholds(t *testing.T) {
+	o := healthy()
+	o.Sensors.Temperatures = []Temperature{
+		{ID: "lm85/temp1", Label: "Dioda 1", MilliCelsius: 54999},
+		{ID: "lm85/temp2", Label: "Čip LM85", MilliCelsius: 55000},
+		{ID: "lm85/temp3", Label: "Dioda 2", MilliCelsius: 65000},
+	}
+	rep := &smart.Report{CheckedAt: t0, Disks: []smart.Disk{
+		{Name: "sda", Health: "passed", TemperatureCelsius: i64(50)},
+		{Name: "sdb", Health: "passed", TemperatureCelsius: i64(55)},
+		// A sleeping disk keeps the temperature of its last reading: not judged.
+		{Name: "sdc", Health: "passed", TemperatureCelsius: i64(60), Standby: true},
+	}}
+	got := codes(Evaluate(o, rep, th, t0))
+	want := []string{"crit:tempCrit:Dioda 2", "crit:diskTempCrit:sdb", "warn:tempWarn:Čip LM85", "warn:diskTempWarn:sda"}
+	if len(got) != len(want) {
+		t.Fatalf("problems = %q, want %q", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("problem %d = %q, want %q", i, got[i], want[i])
 		}
 	}
 }

@@ -33,6 +33,7 @@ import (
 	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
+	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/helper"
 	"nas-revival/backend/internal/monitor"
 	"nas-revival/backend/internal/netinfo"
@@ -120,10 +121,24 @@ func serve(args []string) error {
 	// One CHECK POWER MODE per minute at most: cheap, and keeps an open
 	// dashboard from poking the drive every few seconds.
 	collector.PowerTTL = time.Minute
-	snapshots := system.NewSnapshots(collector.Collect)
+	hwSettings := &hardware.Cached{Path: hardware.DefaultConfigPath, TTL: 10 * time.Second, Now: time.Now}
+	collector.Thresholds = func() hardware.Thresholds { return hwSettings.Get().Thresholds }
+	hc := &helper.Client{Socket: *helperSock}
+	// HW-01/HW-04: journal events on threshold changes, red LED blinks while critical.
+	watcher := &hardware.Watcher{SetFault: hc.LEDFault, Settings: hwSettings.Get}
+	snapshots := system.NewSnapshots(func(ctx context.Context) (system.Overview, error) {
+		o, err := collector.Collect(ctx)
+		if err == nil {
+			watcher.Update(ctx, o.Health.Status == system.HealthCrit, temperatureProblems(o.Health))
+		}
+		return o, err
+	})
 	go snapshots.Run(ctx)
 	resources := monitor.New(*root)
 	go resources.Run(ctx)
+	hw := &hardwareSource{root: *root, hal: reader, profile: system.DetectProfile(*root), smart: smartSvc, settings: hwSettings}
+	hw.history = hardware.NewHistory(hw.reading)
+	go hw.history.Run(ctx)
 
 	srv := &api.Server{
 		Verifier: verifier,
@@ -135,7 +150,6 @@ func serve(args []string) error {
 		UI:       web.Handler(web.Dist()),
 		TLS:      certs,
 	}
-	hc := &helper.Client{Socket: *helperSock}
 	srv.System = systemSource{root: *root, profile: system.DetectProfile(*root)}
 	srv.Network, srv.Time = hc, hc
 	srv.Storage = storage.Collector{HAL: reader, StatFS: statFS}
@@ -160,6 +174,7 @@ func serve(args []string) error {
 	srv.Monitor = resources
 	srv.Processes = &procs.Reader{Root: "/"}
 	srv.ProcessKill = hc
+	srv.Hardware, srv.HardwareAdmin = hw, hc
 	srv.TaskStatus = api.TaskStatus{Run: helper.ExecRunner, HistoryPath: filepath.Join(*stateDir, "task-history.json"),
 		BackupHistoryPath: tasks.DefaultBackupHistoryPath}
 
@@ -356,6 +371,7 @@ func runHelper(args []string) error {
 		Hostname: &helper.HostnameManager{HostsFile: "/etc/hosts", Run: helper.ExecRunner},
 		Diag:     helper.NewDiagManager(*iface, helper.ExecRunner),
 		Procs:    &helper.ProcessManager{Root: "/"},
+		Hardware: helper.NewHardwareManager(helper.ExecRunner),
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
 			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},

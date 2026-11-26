@@ -60,7 +60,7 @@ printf "PermitRootLogin prohibit-password\nPasswordAuthentication no\n" > "$1/et
 awk -F: -v OFS=: -v h="$ROOT_PW_HASH" '"'"'$1=="root"{$2=(h!=""?h:"!*")}1'"'"' "$1/etc/shadow" > "$1/etc/shadow.new"
 cat "$1/etc/shadow.new" > "$1/etc/shadow"; rm "$1/etc/shadow.new"' \
   --customize-hook='set -e; install -m 0755 "$HERE/nsa310-fan" "$HERE/nsa310-leds" "$1/usr/local/sbin/"
-install -m 0644 "$HERE/nsa310-fan.service" "$HERE/nsa310-leds.service" "$1/etc/systemd/system/"
+install -m 0644 "$HERE/nsa310-fan.service" "$HERE/nsa310-leds.service" "$HERE/nsa310-led-fault@.service" "$1/etc/systemd/system/"
 install -d "$1/etc/systemd/resolved.conf.d" "$1/etc/systemd/journald.conf.d"
 install -m 0644 "$HERE/50-nas-revival-resolved.conf" "$1/etc/systemd/resolved.conf.d/50-nas-revival.conf"
 install -m 0644 "$HERE/50-nas-revival-journald.conf" "$1/etc/systemd/journald.conf.d/50-nas-revival.conf"

@@ -1,8 +1,52 @@
 #!/bin/sh
 # NSA310 front panel and network port LEDs; missing triggers (older kernel) are ignored.
-L=/sys/class/leds
+#
+# Runs at boot and, with night mode on, from nsa310-leds.timer at both switch
+# times; the clock decides day or night, so a missed switch is fixed at boot.
+# Night: green and LAN LEDs off. Red LEDs are never touched by night mode:
+# red:sys shows a kernel panic, or blinks while the health is critical (set
+# by the root helper, op led.fault).
+L=${NSA310_LEDS_ROOT:-/sys/class/leds}
+DEFAULTS=${NSA310_LEDS_DEFAULTS:-/etc/default/nsa310-leds}
+NIGHT_START="" NIGHT_END=""
+[ -r "$DEFAULTS" ] && . "$DEFAULTS"
+
+# nsa310-leds fault on|off (nsa310-led-fault@.service, started by the root helper
+# while the health is critical): blink red:sys, or give it back to the panic trigger.
+if [ "${1:-}" = fault ]; then
+	case "${2:-}" in
+	on) echo timer > "$L/nsa310:red:sys/trigger" ;;
+	off) echo panic > "$L/nsa310:red:sys/trigger" ;;
+	*) echo "usage: nsa310-leds fault on|off" >&2; exit 2 ;;
+	esac
+	exit
+fi
+
+night=0
+case "$NIGHT_START$NIGHT_END" in
+[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9])
+	now=${NSA310_LEDS_NOW:-$(date +%H%M)}
+	if [ "$NIGHT_START" -lt "$NIGHT_END" ]; then
+		[ "$now" -ge "$NIGHT_START" ] && [ "$now" -lt "$NIGHT_END" ] && night=1
+	else
+		{ [ "$now" -ge "$NIGHT_START" ] || [ "$now" -lt "$NIGHT_END" ]; } && night=1
+	fi
+	;;
+esac
+
+# The kernel boots red:sys without a trigger; keep a fault blink set by the helper.
+grep -q '\[none\]' "$L/nsa310:red:sys/trigger" 2>/dev/null && echo panic > "$L/nsa310:red:sys/trigger"
+
+if [ "$night" = 1 ]; then
+	for d in "$L"/nsa310:green:* "$L"/enp1s0-*::lan; do
+		[ -e "$d/trigger" ] || continue
+		echo none > "$d/trigger" 2>/dev/null || true
+		echo 0 > "$d/brightness" 2>/dev/null || true
+	done
+	exit 0
+fi
+
 echo default-on    > $L/nsa310:green:sys/trigger
-echo panic         > $L/nsa310:red:sys/trigger 2>/dev/null || true
 echo disk-activity > $L/nsa310:green:hdd/trigger 2>/dev/null || true
 if echo usbport > $L/nsa310:green:usb/trigger 2>/dev/null; then
   for p in $L/nsa310:green:usb/ports/*; do echo 1 > "$p"; done
@@ -13,3 +57,4 @@ for f in link_10 link_100 link_1000; do echo 1 > "$L/enp1s0-0::lan/$f" 2>/dev/nu
 echo 1 > "$L/enp1s0-1::lan/rx" 2>/dev/null || true
 echo 1 > "$L/enp1s0-1::lan/tx" 2>/dev/null || true
 echo 1 > "$L/enp1s0-2::lan/link_1000" 2>/dev/null || true
+exit 0

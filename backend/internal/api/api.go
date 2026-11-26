@@ -96,7 +96,10 @@ type Server struct {
 	// Processes serves /monitor/processes, ProcessKill its kill; nil answers 503.
 	Processes   ProcessSource
 	ProcessKill ProcessKiller
-	powerTokens confirmTokens
+	// Hardware is the W3.4 hardware page; HardwareAdmin changes it through the helper.
+	Hardware      HardwareSource
+	HardwareAdmin HardwareAdmin
+	powerTokens   confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }
@@ -124,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerBackup(api)
 	s.registerNetwork(api)
 	s.registerMonitor(api)
+	s.registerHardware(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

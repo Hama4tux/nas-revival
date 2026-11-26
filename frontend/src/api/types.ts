@@ -46,7 +46,7 @@ export type HealthStatus = 'ok' | 'warn' | 'crit' | 'unknown';
 export type ProblemCode =
   | 'sensorsFault' | 'sensorsUnknown' | 'fanStopped' | 'smartFailed' | 'smartSectors'
   | 'fsCritical' | 'fsWarn' | 'serviceFailed' | 'collectFailed'
-  | 'backupFailed' | 'backupStale';
+  | 'backupFailed' | 'backupStale' | 'tempWarn' | 'tempCrit' | 'diskTempWarn' | 'diskTempCrit';
 export interface HealthProblem { severity: 'warn' | 'crit'; code: ProblemCode; subject?: string }
 /** Evaluated on the NAS by the shared collector (MON-01). */
 export interface SystemHealth {
@@ -389,3 +389,24 @@ export interface ProcessInfo {
 }
 export interface ProcessList { processes: ProcessInfo[]; memTotalBytes: number; sampledAt: string }
 export interface ProcessKillResult { pid: number; name: string; signal: 'TERM' | 'KILL' }
+
+/** GET /hardware (W3.4). Temperatures in °C; `c` null while a disk sleeps. */
+export type FanProfileId = 'quiet' | 'balanced' | 'performance';
+export interface HardwareThresholds { boardWarnC: number; boardCritC: number; diskWarnC: number; diskCritC: number }
+export interface NightMode { enabled: boolean; start: string; end: string }
+export interface LedSettings { night: NightMode; faultBlink: boolean }
+export interface HardwareSettings { fanProfile: FanProfileId; thresholds: HardwareThresholds; leds: LedSettings }
+export interface FanProfile { id: FanProfileId; zoneMinC: number; zoneMaxC: number; pwmMin: number }
+export interface FanState {
+  mode: 'auto' | 'manual' | 'full' | 'unknown'; pwm: number | null; pwmPercent: number | null;
+  zoneMinC: number | null; zoneMaxC: number | null; pwmMin: number | null; profile: FanProfileId | '';
+}
+export interface HardwareSensor { id: string; label: string; kind: 'board' | 'disk'; c: number | null; standby?: boolean }
+export interface HardwareLed { name: string; trigger: string; on: boolean; red: boolean }
+export interface HardwareState {
+  settings: HardwareSettings; profiles: FanProfile[]; zoneCritC: number; fan: FanState; fanRpm: number | null;
+  sensors: HardwareSensor[]; leds: HardwareLed[];
+}
+/** GET /hardware/history: minute points, the highest temperature of each minute; the last point is still running. */
+export interface HardwarePoint { t: number; temps: Record<string, number>; fanRpm: number | null; pwmPercent: number | null }
+export interface HardwareHistory { intervalSeconds: number; points: HardwarePoint[] }

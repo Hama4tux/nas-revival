@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -8,6 +8,49 @@ let fails = 0;
 /** Log in as "viewer" or "user" (any other name = admin) to try the roles. */
 let sessionUser = 'admin';
 const sessionRole = (): Role => (sessionUser === 'viewer' ? 'viewer' : sessionUser === 'user' ? 'user' : 'admin');
+
+/* ---------- hardware (W3.4) ---------- */
+const hwProfiles: FanProfile[] = [
+  { id: 'quiet', zoneMinC: 45, zoneMaxC: 65, pwmMin: 52 },
+  { id: 'balanced', zoneMinC: 40, zoneMaxC: 60, pwmMin: 64 },
+  { id: 'performance', zoneMinC: 35, zoneMaxC: 55, pwmMin: 102 },
+];
+let hwSettings: HardwareSettings = {
+  fanProfile: 'balanced', thresholds: { boardWarnC: 55, boardCritC: 65, diskWarnC: 50, diskCritC: 55 },
+  leds: { night: { enabled: false, start: '22:00', end: '07:00' }, faultBlink: true },
+};
+function hwState(): HardwareState {
+  const p = hwProfiles.find((x) => x.id === hwSettings.fanProfile)!;
+  const wave = Math.sin(Date.now() / 600_000);
+  const led = (name: string, trigger: string, on: boolean) => ({ name, trigger, on, red: name.includes(':red:') });
+  return {
+    settings: hwSettings, profiles: hwProfiles, zoneCritC: 70,
+    fan: { mode: 'auto', pwm: 98, pwmPercent: 38, zoneMinC: p.zoneMinC, zoneMaxC: p.zoneMaxC, pwmMin: p.pwmMin, profile: p.id },
+    fanRpm: 4590,
+    sensors: [
+      { id: 'lm85/temp1', label: 'Dioda 1', kind: 'board', c: 37 + Math.round(wave * 2) },
+      { id: 'lm85/temp2', label: 'Čip LM85', kind: 'board', c: 38 },
+      { id: 'lm85/temp3', label: 'Dioda 2', kind: 'board', c: 43 + Math.round(wave * 3) },
+      { id: 'disk/sda', label: 'sda · WDC WD20EFPX-68C4TN0', kind: 'disk', c: 51 },
+    ],
+    leds: [
+      led('enp1s0-0::lan', 'netdev', true), led('enp1s0-1::lan', 'netdev', false), led('enp1s0-2::lan', 'netdev', true),
+      led('nsa310:green:copy', 'none', false), led('nsa310:green:hdd', 'disk-activity', false), led('nsa310:green:sys', 'default-on', true),
+      led('nsa310:green:usb', 'usbport', true), led('nsa310:red:sys', 'panic', false),
+    ],
+  };
+}
+function hwHistory(since: number): HardwareHistory {
+  const now = Math.floor(Date.now() / 60_000) * 60_000;
+  const points = [];
+  for (let i = 6 * 60; i >= 0; i--) {
+    const t = now - i * 60_000;
+    if (t <= since) continue;
+    const w = Math.sin(t / 3_600_000);
+    points.push({ t, temps: { 'lm85/temp1': 37 + w * 2, 'lm85/temp2': 38, 'lm85/temp3': 43 + w * 4, 'disk/sda': 46 + w * 5 }, fanRpm: 4500, pwmPercent: 35 + Math.round(w * 6) });
+  }
+  return { intervalSeconds: 60, points };
+}
 
 /* ---------- settings state (module-level, lives until page reload) ---------- */
 const HOST_ADDR = '192.0.2.10';
@@ -1013,6 +1056,15 @@ export function installMock(): void {
     if (path === '/overview') return json(200, overview());
     if (path === '/monitor') return json(200, monitorHistory(Number(url.searchParams.get('since') ?? 0)));
     if (path === '/monitor/processes') return json(200, processList());
+    if (path === '/hardware') return json(200, hwState());
+    if (path === '/hardware/history') return json(200, hwHistory(Number(url.searchParams.get('since') ?? 0)));
+    if (path.startsWith('/hardware/') && method === 'PUT') {
+      const b = JSON.parse(String(init?.body ?? '{}')) as Record<string, unknown>;
+      if (path === '/hardware/fan') hwSettings = { ...hwSettings, fanProfile: b.profile as FanProfileId };
+      if (path === '/hardware/thresholds') hwSettings = { ...hwSettings, thresholds: b as unknown as HardwareThresholds };
+      if (path === '/hardware/leds') hwSettings = { ...hwSettings, leds: b as unknown as LedSettings };
+      return json(200, hwSettings);
+    }
     const pk = /^\/monitor\/processes\/(\d+)\/kill$/.exec(path);
     if (pk && method === 'POST') {
       const b = JSON.parse(String(init?.body ?? '{}')) as { start?: number; force?: boolean };

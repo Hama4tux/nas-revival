@@ -39,6 +39,8 @@ type Profile struct {
 	// Fans maps hwmon fan IDs to display labels. When non-empty, only these
 	// fans are reported, so unwired channels do not appear as stopped fans.
 	Fans map[string]string
+	// Temps maps hwmon temperature IDs to display labels; others keep theirs.
+	Temps map[string]string
 	// SATABays and USBPorts are physical counts; 0 means unknown.
 	SATABays int
 	USBPorts int
@@ -49,7 +51,10 @@ type Profile struct {
 // Owner-confirmed and measured 2026-11-25 (docs/HARDWARE_COMPATIBILITY.md).
 var nsa310 = Profile{
 	ID: "zyxel-nsa310", Name: "ZyXEL NSA310",
-	Fans:     map[string]string{"lm85/fan1": "Ventilátor"},
+	Fans: map[string]string{"lm85/fan1": "Ventilátor"},
+	// temp2 is the LM85's own sensor, temp1/temp3 remote diodes on the board
+	// (which part each sits on is not verified).
+	Temps:    map[string]string{"lm85/temp1": "Dioda 1", "lm85/temp2": "Čip LM85", "lm85/temp3": "Dioda 2"},
 	SATABays: 1, USBPorts: 2,
 	Capabilities: map[string]string{
 		CapTemperatures: Verified,

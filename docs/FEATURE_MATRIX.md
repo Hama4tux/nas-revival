@@ -141,10 +141,10 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | TASK-02 | Scheduler | Built-in task types (SMART, backup, cleanup, restart, power) | P1 | Partial (W3.3: SMART, recycle cleanup; backup with W4.3) | — | — | L | arbitrary commands | no free-form command type | TASK-01 |
 | TASK-03 | Scheduler | Run now / stop, heavy-task lock | P1 | Implemented (W3.3; NAS 2026-11-26) | — | flock | L | — | SMART long and backup never overlap | TASK-01 |
 | TASK-04 | Scheduler | Custom scripts for trusted admin | P3 | Not started | — | — | L | code execution | separate ADR; off by default | TASK-01 |
-| HW-01 | Hardware | Temperature history, thresholds, critical events | P1 | Planned | LM85 | — | L | — | event at threshold, deduplicated | MON-02, LOG-10 |
-| HW-02 | Hardware | Fan profiles quiet/balanced/performance mapped to LM85 zone limits | P1 | Planned | LM85 PWM auto | sysfs | L | overheating | only verified ranges; disk temp watchdog → 100 % | HAL-10 |
+| HW-01 | Hardware | Temperature history, thresholds, critical events | P1 | Tested (W3.4, e2e on NAS; 24 h history in RAM, journal events on change; page checked with mock data on desktop) | LM85 | — | L | — | event at threshold, deduplicated | MON-02, LOG-10 |
+| HW-02 | Hardware | Fan profiles quiet/balanced/performance mapped to LM85 zone limits | P1 | Tested (W3.4, e2e on NAS: profile read back from the LM85; disk temperature watchdog → 100 % open) | LM85 PWM auto | sysfs | L | overheating | only verified ranges; disk temp watchdog → 100 % | HAL-10 |
 | HW-03 | Hardware | Custom fan curve | P2 | Planned | LM85 | — | L | overheating | min PWM floor enforced in helper | HW-02 |
-| HW-04 | Hardware | LED settings, night mode, critical error indication | P2 | Planned | LEDs | led class | L | — | night mode keeps red fault LED | HAL-10 |
+| HW-04 | Hardware | LED settings, night mode, critical error indication | P2 | Tested (W3.4, e2e on NAS: night mode, red system LED blinks while health is critical) | LEDs | led class | L | — | night mode keeps red fault LED | HAL-10 |
 | HW-05 | Hardware | Scheduled shutdown / reboot | P1 | Planned | — | timers | L | — | preflight applies | CORE-13, TASK-01 |
 | HW-06 | Hardware | Scheduled power-on (RTC alarm) | P2 | Blocked | PCF8563 alarm wired to power? | rtc | L | — | blocked until wake path verified on board | HAL-10 |
 | HW-07 | Hardware | Wake-on-LAN | P2 | Blocked | RTL8111D WoL + PSU standby | ethtool | L | — | blocked until verified on board | HAL-10 |

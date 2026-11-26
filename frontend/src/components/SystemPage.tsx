@@ -1,10 +1,11 @@
 import { Clock, Cpu, FileUp, RefreshCw, ShieldCheck } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { SystemCapabilities, SystemInfo, TimeSettings, TlsInfo } from '../api/types';
 import { formatBytes, formatUptime } from '../lib/format';
 import { cs } from '../i18n/cs';
 import { ConfigHistoryWidget } from './ConfigHistory';
+import { HardwarePanel } from './HardwarePanel';
 import { validateNtp } from '../lib/netvalidate';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -318,13 +319,41 @@ function CertWidget() {
   );
 }
 
-export function SystemPage() {
+type Tab = 'system' | 'hardware';
+const TABS: Tab[] = ['system', 'hardware'];
+
+/** Control panel: system settings and the hardware tab (W3.4); only the shown tab polls. */
+export function SystemPage({ readOnly }: { readOnly: boolean }) {
+  const [tab, setTab] = useState<Tab>('system');
+  const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+    const n = tab === 'system' ? 'hardware' : 'system';
+    setTab(n);
+    refs.current[n]?.focus();
+  }
   return (
-    <div className="grid items-start gap-4 lg:grid-cols-5">
-      <InfoWidget />
-      <TimeWidget />
-      <CertWidget />
-      <ConfigHistoryWidget className="lg:col-span-5" />
+    <div className="space-y-4">
+      <div role="tablist" aria-label={cs.pages.system.title} className="flex flex-wrap gap-2" onKeyDown={onKey}>
+        {TABS.map((k) => (
+          <button key={k} ref={(el) => { refs.current[k] = el; }} type="button" role="tab" id={`sys-tab-${k}`}
+            aria-selected={tab === k} aria-controls={`sys-panel-${k}`} tabIndex={tab === k ? 0 : -1}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium ${tab === k ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'}`}
+            onClick={() => setTab(k)}>
+            {cs.hw.tabs[k]}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" id={`sys-panel-${tab}`} aria-labelledby={`sys-tab-${tab}`}>
+        {tab === 'system' ? (
+          <div className="grid items-start gap-4 lg:grid-cols-5">
+            <InfoWidget />
+            <TimeWidget />
+            <CertWidget />
+            <ConfigHistoryWidget className="lg:col-span-5" />
+          </div>
+        ) : <HardwarePanel readOnly={readOnly} />}
+      </div>
     </div>
   );
 }

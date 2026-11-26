@@ -221,3 +221,21 @@ workstation: it takes two readings of `/proc` and `/sys` 10 s apart as `nas-revi
 Processes (W3.2): nothing to install. After deploying (wait until the helper logs `helper listening`, ~40 s after a
 restart), run `scripts/webui/e2e-processes.sh`: as `nas-revival` it reads the list, has the helper refuse PID 1, a kernel
 thread, sshd and nas-revival and a wrong start time, then starts its own `sleep` and stops it through the helper.
+
+Hardware (W3.4): the helper keeps `/etc/nas-revival/hardware.json` (root, 0644; without it the defaults: balanced
+fan profile, board 55/65 °C, disk 50/55 °C, night mode off, fault blink on) and renders `/etc/default/nsa310-fan`
+(profile limits, read by `nsa310-fan`, which ignores values outside the safe window and falls back to the balanced
+profile), `/etc/default/nsa310-leds` (night window) and `/etc/systemd/system/nsa310-leds.timer` (re-runs
+`nsa310-leds.service` at both switch times; the script decides day or night from the clock). The red system LED
+blinks through `nsa310-led-fault@on|off.service`, because the helper's sandbox keeps `/sys` read-only.
+Install once, as root, then restart the helper:
+
+```sh
+install -m 0755 nsa310-fan nsa310-leds /usr/local/sbin/
+install -m 0644 nsa310-led-fault@.service /etc/systemd/system/
+systemctl daemon-reload && systemctl restart nsa310-fan nsa310-leds nas-revival-helper
+```
+
+After deploying, run `scripts/webui/e2e-hardware.sh`: it reads the hardware state as `nas-revival`, switches the fan
+profile to quiet and back (read back from the LM85), switches night mode on for the current minute and off again, and
+blinks the red LED for a moment.

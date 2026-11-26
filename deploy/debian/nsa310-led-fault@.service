@@ -1,0 +1,8 @@
+[Unit]
+Description=NSA310 red system LED: fault blink %i
+Documentation=file:///usr/share/doc/nas-revival/web-roadmap
+# Started by the root helper (op led.fault) while the health is critical.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nsa310-leds fault %i

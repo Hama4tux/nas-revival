@@ -19,6 +19,7 @@ import (
 
 	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
@@ -67,6 +68,8 @@ type Dispatcher struct {
 	Diag *DiagManager
 	// Procs stops processes (process.kill); nil disables it.
 	Procs *ProcessManager
+	// Hardware sets thresholds, fan profile and LEDs (W3.4); nil disables it.
+	Hardware *HardwareManager
 }
 
 type request struct {
@@ -149,6 +152,46 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			return nil, err
 		}
 		return d.Procs.Stop(ctx, a.PID, a.Start, a.Force, user)
+	case "hardware.setThresholds":
+		if d.Hardware == nil {
+			break
+		}
+		var a hardware.Thresholds
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Hardware.SetThresholds(ctx, a, user)
+	case "fan.setProfile":
+		if d.Hardware == nil {
+			break
+		}
+		var a struct {
+			Profile string `json:"profile"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Hardware.SetFanProfile(ctx, a.Profile, user)
+	case "led.set":
+		if d.Hardware == nil {
+			break
+		}
+		var a hardware.LEDs
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Hardware.SetLEDs(ctx, a, user)
+	case "led.fault":
+		if d.Hardware == nil {
+			break
+		}
+		var a struct {
+			On bool `json:"on"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return struct{}{}, d.Hardware.SetFault(ctx, a.On)
 	case "time.get":
 		return d.Time.Get(ctx)
 	case "time.apply":

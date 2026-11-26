@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/hal"
+	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/smart"
 )
 
@@ -29,6 +30,10 @@ const (
 	ProblemCollectFailed  = "collectFailed"
 	ProblemBackupFailed   = "backupFailed"
 	ProblemBackupStale    = "backupStale"
+	ProblemTempWarn       = "tempWarn"
+	ProblemTempCrit       = "tempCrit"
+	ProblemDiskTempWarn   = "diskTempWarn"
+	ProblemDiskTempCrit   = "diskTempCrit"
 )
 
 // Filesystem usage thresholds in percent (strictly above).
@@ -52,9 +57,9 @@ type Health struct {
 	Problems       []Problem  `json:"problems"`
 }
 
-// Evaluate derives health from a snapshot and the SMART summary (may be nil).
-// Crit problems are listed first.
-func Evaluate(o Overview, rep *smart.Report, at time.Time) Health {
+// Evaluate derives health from a snapshot, the SMART summary (may be nil) and
+// the temperature thresholds (HW-01). Crit problems are listed first.
+func Evaluate(o Overview, rep *smart.Report, th hardware.Thresholds, at time.Time) Health {
 	h := Health{CheckedAt: at, Problems: []Problem{}}
 	var crit, warn []Problem
 	add := func(sev, code, subject string) {
@@ -78,6 +83,14 @@ func Evaluate(o Overview, rep *smart.Report, at time.Time) Health {
 			add(HealthWarn, ProblemFanStopped, f.Label)
 		}
 	}
+	for _, t := range o.Sensors.Temperatures {
+		switch {
+		case t.MilliCelsius >= int64(th.BoardCritC)*1000:
+			add(HealthCrit, ProblemTempCrit, t.Label)
+		case t.MilliCelsius >= int64(th.BoardWarnC)*1000:
+			add(HealthWarn, ProblemTempWarn, t.Label)
+		}
+	}
 
 	if rep != nil {
 		t := rep.CheckedAt
@@ -90,6 +103,11 @@ func Evaluate(o Overview, rep *smart.Report, at time.Time) Health {
 				add(HealthCrit, ProblemSmartFailed, d.Name)
 			} else if positive(d.ReallocatedSectors) || positive(d.PendingSectors) {
 				add(HealthWarn, ProblemSmartSectors, d.Name)
+			}
+			if c := d.TemperatureCelsius; c != nil && *c >= int64(th.DiskCritC) {
+				add(HealthCrit, ProblemDiskTempCrit, d.Name)
+			} else if c != nil && *c >= int64(th.DiskWarnC) {
+				add(HealthWarn, ProblemDiskTempWarn, d.Name)
 			}
 		}
 	}

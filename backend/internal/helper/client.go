@@ -14,6 +14,7 @@ import (
 	"nas-revival/backend/internal/config"
 	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
@@ -609,4 +610,36 @@ func (c *Client) BackupOpen(ctx context.Context, id, date, path string) (*os.Fil
 	var m BackupFileMeta
 	f, err := c.callFile(ctx, "backup.open", map[string]any{"id": id, "date": date, "path": path}, &m)
 	return f, m, err
+}
+
+// HardwareThresholds stores the temperature thresholds (W3.4).
+func (c *Client) HardwareThresholds(ctx context.Context, t hardware.Thresholds) (hardware.Settings, error) {
+	var r hardware.Settings
+	err := c.Call(ctx, "hardware.setThresholds", t, &r)
+	return r, err
+}
+
+// FanProfile applies a fan profile; nsa310-fan re-runs and reads the chip back
+// (twice when it fails and the previous profile is put back).
+func (c *Client) FanProfile(ctx context.Context, profile string) (hardware.Settings, error) {
+	long := *c
+	long.Timeout = 45 * time.Second
+	var r hardware.Settings
+	err := long.Call(ctx, "fan.setProfile", map[string]string{"profile": profile}, &r)
+	return r, err
+}
+
+// LEDSettings stores night mode and the fault blink. systemctl daemon-reload
+// alone takes several seconds on the NSA310 (measured ~14 s for the whole op).
+func (c *Client) LEDSettings(ctx context.Context, l hardware.LEDs) (hardware.Settings, error) {
+	long := *c
+	long.Timeout = 45 * time.Second
+	var r hardware.Settings
+	err := long.Call(ctx, "led.set", l, &r)
+	return r, err
+}
+
+// LEDFault blinks or releases the red system LED.
+func (c *Client) LEDFault(ctx context.Context, on bool) error {
+	return c.Call(ctx, "led.fault", map[string]bool{"on": on}, nil)
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/hal"
+	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/smart"
 )
 
@@ -143,6 +144,8 @@ type Collector struct {
 	// querying the drive.
 	DiskPower func(ctx context.Context, device string) string
 	PowerTTL  time.Duration
+	// Thresholds returns the temperature thresholds; nil uses the defaults.
+	Thresholds func() hardware.Thresholds
 
 	mu      sync.Mutex
 	prev    *hal.CPUTimes
@@ -201,10 +204,13 @@ func (c *Collector) Collect(ctx context.Context) (Overview, error) {
 
 	s := c.HAL.Sensors()
 	o.Sensors = Sensors{Status: s.Status, Temperatures: []Temperature{}, Fans: []Fan{}}
+	prof := profileFor(h.BoardModel)
 	for _, t := range s.Temperatures {
+		if label, ok := prof.Temps[t.ID]; ok {
+			t.Label = label
+		}
 		o.Sensors.Temperatures = append(o.Sensors.Temperatures, Temperature(t))
 	}
-	prof := profileFor(h.BoardModel)
 	for _, f := range s.Fans {
 		if len(prof.Fans) > 0 {
 			label, wired := prof.Fans[f.ID]
@@ -271,7 +277,11 @@ func (c *Collector) Collect(ctx context.Context) (Overview, error) {
 		r := c.Smart.Report(ctx)
 		rep = &r
 	}
-	o.Health = Evaluate(o, rep, o.GeneratedAt)
+	th := hardware.Defaults().Thresholds
+	if c.Thresholds != nil {
+		th = c.Thresholds()
+	}
+	o.Health = Evaluate(o, rep, th, o.GeneratedAt)
 	return o, nil
 }
 

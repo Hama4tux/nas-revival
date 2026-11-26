@@ -78,7 +78,7 @@ export function App() {
       {route === 'storage' && <StoragePage />}
       {route === 'network' && <NetworkPage net={net} readOnly={role !== 'admin'} />}
       {route === 'monitor' && <MonitorPage readOnly={role !== 'admin'} />}
-      {route === 'system' && <SystemPage />}
+      {route === 'system' && <SystemPage readOnly={role !== 'admin'} />}
       {route === 'tasks' && <TasksPage readOnly={role !== 'admin'} />}
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}
       {route === 'services' && <ServicesPage readOnly={role !== 'admin'} />}
