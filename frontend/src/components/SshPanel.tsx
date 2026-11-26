@@ -9,6 +9,7 @@ import { Widget } from './ui/card';
 import { Field, invalidCls } from './ui/field';
 import { Input } from './ui/input';
 import { Skeleton } from './ui/skeleton';
+import { SshKeysPanel } from './SshKeysPanel';
 
 const t = cs.ssh;
 const CHROOT = '/srv';
@@ -129,6 +130,7 @@ export function SshPanel({ readOnly }: { readOnly: boolean }) {
         <p className="mt-1 text-xs text-muted-foreground">{t.effective(ports, svc.effective.passwordAuth)}</p>
         <div className="mt-4"><SettingsForm svc={svc} readOnly={readOnly} onSaved={setSvc} /></div>
       </Widget>
+      <SshKeysPanel readOnly={readOnly} reload={svc.settings.sftpGroups.join(',')} />
       {svc.managed && svc.settings.sftpGroups.length > 0 && (
         <Widget id="ssh-connect" title={t.connect} icon={<KeyRound />}>
           <p className="text-sm text-muted-foreground">{t.connectHint}</p>

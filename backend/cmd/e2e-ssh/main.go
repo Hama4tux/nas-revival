@@ -1,14 +1,17 @@
-// Command e2e-ssh is the end-to-end check of SSH/SFTP (W2.7) on the deployed NAS; scripts/webui/e2e-ssh.sh
-// copies it to the NAS and runs it as nas-revival. It creates the throw-away group nrt-sftp and the
-// accounts nrt-sa (admin), nrt-su (member of nrt-sftp) and nrt-sn (not a member) through the helper,
-// changes the SSH settings over HTTPS as nrt-sa and connects to sshd on 127.0.0.1 with a real SSH
-// client: SFTP in the chroot, no TTY and no command for SFTP users, AllowGroups, password login off,
-// a port change and back. At the end it restores the previous SSH settings and removes the accounts.
-// Passwords are random and never printed. Exit code 0 = all checks passed.
+// Command e2e-ssh is the end-to-end check of SSH/SFTP (W2.7) and user keys (W2.7b) on the deployed
+// NAS; scripts/webui/e2e-ssh.sh copies it to the NAS and runs it as nas-revival. It creates the
+// throw-away group nrt-sftp and the accounts nrt-sa (admin), nrt-su (member of nrt-sftp) and nrt-sn
+// (not a member) through the helper, changes the SSH settings over HTTPS as nrt-sa and connects to
+// sshd on 127.0.0.1 with a real SSH client: SFTP in the chroot, no TTY and no command for SFTP users,
+// AllowGroups, password login off, user keys uploaded over HTTPS (login with password off, only SFTP
+// members, refused when disabled or removed, removed with the account), a port change and back. At
+// the end it restores the previous SSH settings and removes the accounts. Passwords and keys are
+// random and never printed. Exit code 0 = all checks passed.
 package main
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/base64"
@@ -127,8 +130,12 @@ func setSSH(cookie string, port int, password bool, groups []string) (int, sshSe
 }
 
 func dial(port int, user, pw string) (*ssh.Client, error) {
+	return dialAuth(port, user, ssh.Password(pw))
+}
+
+func dialAuth(port int, user string, auth ssh.AuthMethod) (*ssh.Client, error) {
 	return ssh.Dial("tcp", fmt.Sprintf("127.0.0.1:%d", port), &ssh.ClientConfig{
-		User: user, Auth: []ssh.AuthMethod{ssh.Password(pw)},
+		User: user, Auth: []ssh.AuthMethod{auth},
 		HostKeyCallback: ssh.FixedHostKey(hostKey), HostKeyAlgorithms: []string{hostKey.Type()}, Timeout: 10 * time.Second})
 }
 
@@ -196,6 +203,83 @@ func ptyRefused(c *ssh.Client) bool {
 	return s.RequestPty("xterm", 24, 80, ssh.TerminalModes{}) != nil
 }
 
+// keyLoginFails: sshd refused the login – the key itself ("unable to
+// authenticate") or PAM's account check after it (a disabled account: sshd
+// drops the connection, the handshake fails). A network error is no refusal.
+func keyLoginFails(port int, user string, signer ssh.Signer) bool {
+	c, err := dialAuth(port, user, ssh.PublicKeys(signer))
+	if err == nil {
+		c.Close()
+		return false
+	}
+	var ne *net.OpError
+	return !errors.As(err, &ne)
+}
+
+// addKey uploads the public half of signer over HTTPS like the web UI.
+func addKey(cookie, user string, signer ssh.Signer) int {
+	line := strings.TrimSpace(string(ssh.MarshalAuthorizedKey(signer.PublicKey()))) + " w27b-e2e"
+	code, body, _ := req("POST", "/services/ssh/keys/"+user, map[string]string{"key": line}, cookie)
+	if code != 200 {
+		fmt.Println("     response:", strings.TrimSpace(string(body)))
+	}
+	return code
+}
+
+func newSigner() ssh.Signer {
+	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		panic(err)
+	}
+	s, err := ssh.NewSignerFromKey(priv)
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+// checkKeys covers W2.7b with password login off: a key uploaded through the
+// web API logs in to SFTP, only for SFTP members, until it is removed or the
+// account is disabled.
+func checkKeys(ck string, port int) {
+	su, sn := newSigner(), newSigner()
+	check("upload key for nrt-su", addKey(ck, "nrt-su", su), 200)
+	check("same key twice refused", addKey(ck, "nrt-su", su), 400)
+	check("upload key for nrt-sn", addKey(ck, "nrt-sn", sn), 200)
+	code, _, _ := req("POST", "/services/ssh/keys/root", map[string]string{"key": strings.TrimSpace(string(ssh.MarshalAuthorizedKey(su.PublicKey())))}, ck)
+	check("key for root refused", code, 404)
+	code, _, _ = req("POST", "/services/ssh/keys/nrt-su", map[string]string{"key": `command="/bin/sh" ` + strings.TrimSpace(string(ssh.MarshalAuthorizedKey(sn.PublicKey())))}, ck)
+	check("key with options refused", code, 400)
+	if fi, err := os.Stat("/etc/ssh/nas-revival-keys/nrt-su"); err == nil {
+		check("keys file mode", fi.Mode().Perm().String(), "-rw-r--r--")
+	} else {
+		check("keys file exists", err, nil)
+	}
+
+	c, err := dialAuth(port, "nrt-su", ssh.PublicKeys(su))
+	check("SFTP user logs in with key (password off)", fmt.Sprint(err), "<nil>")
+	if err == nil {
+		p, err := sftpRealpath(c)
+		check("SFTP with key, chroot is /", fmt.Sprint(p, err), "/<nil>")
+		check("no command with key", strings.Contains(commandOutput(c, "id"), "uid="), false)
+		c.Close()
+	}
+	check("other user's key refused", keyLoginFails(port, "nrt-su", sn), true)
+	check("key of user outside SFTP groups refused", keyLoginFails(port, "nrt-sn", sn), true)
+
+	must("user.setDisabled", map[string]any{"name": "nrt-su", "disabled": true})
+	check("disabled account: key refused", keyLoginFails(port, "nrt-su", su), true)
+	must("user.setDisabled", map[string]any{"name": "nrt-su", "disabled": false})
+	check("enabled again: key works", keyLoginFails(port, "nrt-su", su), false)
+
+	fp := ssh.FingerprintSHA256(su.PublicKey())
+	code, _, _ = req("DELETE", "/services/ssh/keys/nrt-su", map[string]string{"fingerprint": fp}, ck)
+	check("remove key", code, 200)
+	check("removed key refused", keyLoginFails(port, "nrt-su", su), true)
+	_, err = os.Stat("/etc/ssh/nas-revival-keys/nrt-su")
+	check("keys file gone with the last key", os.IsNotExist(err), true)
+}
+
 // loginFails: the server refused the authentication (not a network or host key problem).
 func loginFails(port int, user, pw string) bool {
 	c, err := dial(port, user, pw)
@@ -261,6 +345,7 @@ func run() {
 	code, _ = setSSH(ck, port, false, []string{group})
 	check("password login off", code, 200)
 	check("SFTP password refused when off", loginFails(port, "nrt-su", pw["nrt-su"]), true)
+	checkKeys(ck, port)
 
 	alt := 2222
 	if port == alt {
@@ -287,6 +372,8 @@ func cleanup(orig sshService) {
 	for _, n := range accounts {
 		helper("user.delete", map[string]any{"name": n})
 	}
+	_, err := os.Stat("/etc/ssh/nas-revival-keys/nrt-sn")
+	check("keys removed with the account", os.IsNotExist(err), true)
 	helper("group.delete", map[string]any{"name": group})
 	fmt.Println("cleanup done")
 }

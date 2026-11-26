@@ -329,7 +329,8 @@ func runHelper(args []string) error {
 			// The web process (uid of -user) reads the web hashes at login.
 			Web: accounts.WebPasswords{Path: accounts.DefaultWebPasswords, OwnerUID: int(uid), OwnerGID: gid},
 			Run: helper.ExecRunner, RunStdin: helper.ExecStdinRunner, Hash: auth.HashPassword, Now: time.Now,
-			Samba: func() bool { _, err := exec.LookPath("smbpasswd"); return err == nil }},
+			SshKeysDir: sshd.KeysDir,
+			Samba:      func() bool { _, err := exec.LookPath("smbpasswd"); return err == nil }},
 	})
 }
 

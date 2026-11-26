@@ -377,3 +377,21 @@ func (c *Client) SshSet(ctx context.Context, s sshd.Settings) (SshService, error
 	err := long.Call(ctx, "ssh.set", map[string]any{"settings": s}, &r)
 	return r, err
 }
+
+func (c *Client) SshKeys(ctx context.Context) (SshKeys, error) {
+	var r SshKeys
+	err := c.Call(ctx, "ssh.keys.list", nil, &r)
+	return r, err
+}
+
+func (c *Client) SshKeyAdd(ctx context.Context, name, key string) (SshKeys, error) {
+	var r SshKeys
+	err := c.Call(ctx, "ssh.keys.add", map[string]string{"name": name, "key": key}, &r)
+	return r, err
+}
+
+func (c *Client) SshKeyRemove(ctx context.Context, name, fingerprint string) (SshKeys, error) {
+	var r SshKeys
+	err := c.Call(ctx, "ssh.keys.remove", map[string]string{"name": name, "fingerprint": fingerprint}, &r)
+	return r, err
+}

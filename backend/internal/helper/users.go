@@ -192,7 +192,9 @@ type UserManager struct {
 	Samba func() bool
 	Hash  func(password string) (string, error)
 	Now   func() time.Time
-	mu    sync.Mutex
+	// SshKeysDir holds the users' SSH keys (sshd.KeysDir); empty skips them.
+	SshKeysDir string
+	mu         sync.Mutex
 }
 
 func (m *UserManager) load() (accounts.DB, error) {
@@ -364,6 +366,11 @@ func (m *UserManager) Create(ctx context.Context, c UserCreate, actor string) (U
 	}
 	if err := m.ensureUsersGroup(ctx, db); err != nil {
 		return UserList{}, err
+	}
+	// Keys left behind by an older account of the same name (removed by hand).
+	if err := RemoveUserKeys(m.SshKeysDir, c.Name); err != nil {
+		slog.Error("helper: remove stale ssh keys", "account", c.Name, "err", err)
+		return UserList{}, internalErr("Staré klíče SSH tohoto jména nelze odstranit; uživatel nebyl vytvořen.")
 	}
 	if err := m.ensureRoleGroup(ctx, db, c.Role); err != nil {
 		return UserList{}, err
@@ -623,6 +630,10 @@ func (m *UserManager) Delete(ctx context.Context, name, actor string) (UserList,
 	if err := m.forgetWeb(name); err != nil {
 		slog.Error("helper: write web passwords", "err", err)
 		return UserList{}, internalErr("Účet je smazaný, ale webové heslo se nepodařilo odstranit.")
+	}
+	if err := RemoveUserKeys(m.SshKeysDir, name); err != nil {
+		slog.Error("helper: remove ssh keys", "account", name, "err", err)
+		return UserList{}, internalErr("Účet je smazaný, ale jeho klíče SSH se nepodařilo odstranit.")
 	}
 	slog.Info("helper: user.delete", "account", name, "user", actor)
 	return m.list(ctx)

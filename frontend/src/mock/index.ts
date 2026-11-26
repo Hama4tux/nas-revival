@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -635,7 +635,40 @@ const mockSsh: SshService = {
   effective: { ports: [22], passwordAuth: true, rootLogin: 'without-password' }, groups: ['nas-users', 'rodina'], chrootOk: true,
 };
 
+const mockKeys: SshKeys = {
+  users: [
+    { name: 'jana', sftp: false, keys: [{ type: 'ssh-ed25519', fingerprint: 'SHA256:q3xY0bW8m1Jt5fGk2LpZr7vC9nE4sD6aH0uK1oT2iQw', comment: 'jana@notebook' }] },
+    { name: 'petr', sftp: false, keys: [] },
+  ],
+};
+
+function sshKeysRoute(path: string, method: string, body: unknown): Response | null {
+  if (path === '/services/ssh/keys' && method === 'GET') {
+    for (const u of mockKeys.users) u.sftp = mockSsh.settings.sftpGroups.length > 0;
+    return json(200, mockKeys);
+  }
+  const m = /^\/services\/ssh\/keys\/([a-z][a-z0-9_-]*)$/.exec(path);
+  if (!m || (method !== 'POST' && method !== 'DELETE')) return null;
+  if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+  const u = mockKeys.users.find((x) => x.name === m[1]);
+  if (!u) return err(404, 'not_found', 'Uživatel NASu neexistuje.');
+  if (method === 'DELETE') {
+    const fp = (body as { fingerprint?: string }).fingerprint;
+    if (!u.keys.some((k) => k.fingerprint === fp)) return err(404, 'not_found', 'Klíč neexistuje.');
+    u.keys = u.keys.filter((k) => k.fingerprint !== fp);
+    return json(200, mockKeys);
+  }
+  const parts = String((body as { key?: string }).key ?? '').trim().split(/\s+/);
+  if (parts.length < 2 || !/^(ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256)$/.test(parts[0] ?? '')) return bad('key', 'Nejde o platný veřejný klíč SSH.');
+  const fingerprint = 'SHA256:' + btoa((parts[1] ?? '').slice(-32)).replace(/=+$/, '');
+  if (u.keys.some((k) => k.fingerprint === fingerprint)) return bad('key', 'Tento klíč už uživatel má.');
+  if (u.keys.length >= 10) return bad('key', 'Uživatel může mít nejvýše 10 klíčů.');
+  u.keys.push({ type: parts[0] ?? '', fingerprint, comment: parts.slice(2).join(' '), ...(parts[0] === 'ssh-rsa' ? { bits: 3072 } : {}) });
+  return json(200, mockKeys);
+}
+
 function sshRoute(path: string, method: string, body: unknown): Response | null {
+  if (path.startsWith('/services/ssh/keys')) return sshKeysRoute(path, method, body);
   if (path !== '/services/ssh') return null;
   if (method === 'GET') return json(200, mockSsh);
   if (method !== 'PUT') return null;

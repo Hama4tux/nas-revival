@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# End-to-end check of SSH/SFTP (W2.7) on the deployed NAS: builds backend/cmd/e2e-ssh for ARMv5, copies it
+# End-to-end check of SSH/SFTP (W2.7) and user keys (W2.7b) on the deployed NAS: builds backend/cmd/e2e-ssh for ARMv5, copies it
 # to the NAS (ssh host alias, default nsa310) and runs it as nas-revival. It creates throw-away accounts
 # nrt-sa/su/sn and group nrt-sftp, changes the SSH settings over HTTPS (SFTP group, password login, port
 # 2222 and back), logs in with a real SSH client on 127.0.0.1 and finally restores the previous SSH

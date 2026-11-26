@@ -292,3 +292,8 @@ export interface SshEffective { ports: number[]; passwordAuth: boolean; rootLogi
 export interface SshService {
   settings: SshSettings; managed: boolean; running: boolean; effective: SshEffective; groups: string[]; chrootOk: boolean;
 }
+
+// SSH keys of NAS users (W2.7b, SSH-02).
+export interface SshKey { type: string; bits?: number; fingerprint: string; comment: string }
+export interface SshKeyUser { name: string; keys: SshKey[]; sftp: boolean; invalid?: number }
+export interface SshKeys { users: SshKeyUser[] }

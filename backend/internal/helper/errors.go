@@ -28,3 +28,5 @@ func invalid(field, msg string) *Error {
 }
 
 func internalErr(msg string) *Error { return &Error{Code: CodeInternal, Message: msg} }
+
+func notFound(msg string) *Error { return &Error{Code: CodeNotFound, Message: msg} }

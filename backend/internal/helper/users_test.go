@@ -410,3 +410,26 @@ func TestDispatcherRoutesUserOps(t *testing.T) {
 		t.Errorf("disabled manager: %v", err)
 	}
 }
+
+// A deleted account takes its SSH keys along; a new account with the same
+// name starts without the keys of an old one.
+func TestUserKeysRemovedOnDeleteAndCreate(t *testing.T) {
+	m, _ := newUsers(t, false, "")
+	m.SshKeysDir = t.TempDir()
+	ctx := context.Background()
+	keys := filepath.Join(m.SshKeysDir, "jana")
+	os.WriteFile(keys, []byte("ssh-ed25519 AAAA old\n"), 0o644)
+	if _, err := m.Delete(ctx, "jana", "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(keys); !os.IsNotExist(err) {
+		t.Fatalf("keys kept after delete: %v", err)
+	}
+	os.WriteFile(filepath.Join(m.SshKeysDir, "petr"), []byte("ssh-ed25519 AAAA stale\n"), 0o644)
+	if _, err := m.Create(ctx, UserCreate{Name: "petr", Password: testPassword, Role: accounts.RoleUser}, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(m.SshKeysDir, "petr")); !os.IsNotExist(err) {
+		t.Fatalf("stale keys inherited: %v", err)
+	}
+}

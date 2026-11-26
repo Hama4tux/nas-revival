@@ -73,13 +73,15 @@ SSH/SFTP (W2.7): the helper owns `/etc/ssh/sshd_config.d/10-nas-revival.conf` fr
 Services → SSH, rendered from `/etc/nas-revival/ssh.json` (port, password login, SFTP groups). Debian
 includes the drop-ins before its own options and sshd keeps the first value, so it wins over `sshd_config`.
 Fixed: `PermitRootLogin prohibit-password`, `AllowGroups root <SFTP groups>`, `AuthorizedKeysFile
-.ssh/authorized_keys /etc/ssh/nas-revival-keys/%u` (directory 0755, prepared for per-user keys), SFTP groups
+.ssh/authorized_keys /etc/ssh/nas-revival-keys/%u` (directory 0755; one root-owned 0644 file per NAS user
+written by Services → SSH → Keys, W2.7b), SFTP groups
 in `Match Group` with `internal-sftp` chrooted to `/srv`. The helper runs `sshd -t`, puts the old drop-in
 back when sshd rejects it and runs `systemctl reload ssh.service`; open sessions stay. No package to install.
 After deploying, run `scripts/webui/e2e-ssh.sh` from the workstation: it creates throw-away accounts and the
 group `nrt-sftp`, logs in with a real SSH client on the NAS (SFTP in the chroot, no command or TTY, account
-outside the group and wrong password refused, password login off, port 2222 and back) and restores the
-previous settings. Passed 2026-11-26.
+outside the group and wrong password refused, password login off, user keys uploaded over HTTPS – login
+with password off, refused outside the SFTP groups, for a disabled account and after removal, removed with
+the account – port 2222 and back) and restores the previous settings. Passed 2026-11-26 (keys too).
 
 Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the

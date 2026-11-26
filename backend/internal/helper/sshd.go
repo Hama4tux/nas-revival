@@ -50,6 +50,9 @@ func sshFieldErr(err error) error {
 	return err
 }
 
+// SshFieldErr turns a sshd.FieldError into the helper's invalid error.
+func SshFieldErr(err error) error { return sshFieldErr(err) }
+
 // ValidateSsh checks SSH settings (the web process runs it too).
 func ValidateSsh(s sshd.Settings) (sshd.Settings, error) {
 	n, err := sshd.Validate(s)

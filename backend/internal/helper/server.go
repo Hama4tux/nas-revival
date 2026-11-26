@@ -281,7 +281,10 @@ func (d *Dispatcher) handleNfs(ctx context.Context, req request, user string) (a
 // handleSsh runs the SSH/SFTP operations (SSH-01).
 func (d *Dispatcher) handleSsh(ctx context.Context, req request, user string) (any, error) {
 	var a struct {
-		Settings *sshd.Settings `json:"settings"`
+		Settings    *sshd.Settings `json:"settings"`
+		Name        string         `json:"name"`
+		Key         string         `json:"key"`
+		Fingerprint string         `json:"fingerprint"`
 	}
 	if err := decodeArgs(req.Args, &a); err != nil {
 		return nil, err
@@ -289,6 +292,12 @@ func (d *Dispatcher) handleSsh(ctx context.Context, req request, user string) (a
 	switch req.Op {
 	case "ssh.get":
 		return d.Ssh.Get(ctx)
+	case "ssh.keys.list":
+		return d.Ssh.KeysList(ctx)
+	case "ssh.keys.add":
+		return d.Ssh.KeyAdd(ctx, a.Name, a.Key, user)
+	case "ssh.keys.remove":
+		return d.Ssh.KeyRemove(ctx, a.Name, a.Fingerprint, user)
 	case "ssh.set":
 		if a.Settings == nil {
 			return nil, invalid("settings", "Chybí nastavení SSH.")

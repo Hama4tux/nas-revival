@@ -1,8 +1,8 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: NAS běží na novém disku WD Red 2 TB s jádrem s NFS a ACL. Ve webu jsou hotové síťové služby SMB, NFS a nově SSH/SFTP (W2.7, nasazeno a ověřené skutečným klientem); SMB a NFS jsou zatím vypnuté.
-- Další krok: dlouhý test SMART nového disku, zkušební záloha z Proxmoxu přes NFS, pak W2.7b (SSH klíče uživatelů) nebo W2.8 (síť: název, trasy, diagnostika).
+- Stav: NAS běží na novém disku WD Red 2 TB s jádrem s NFS a ACL. Ve webu jsou hotové síťové služby SMB, NFS a SSH/SFTP včetně klíčů SSH uživatelů (W2.7, W2.7b, nasazeno a ověřené skutečným klientem); SMB a NFS jsou zatím vypnuté.
+- Další krok: dlouhý test SMART nového disku, zkušební záloha z Proxmoxu přes NFS, pak W2.8 (síť: název, trasy, diagnostika).
 
 ## Čeká na rozhodnutí
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
@@ -16,8 +16,7 @@
 
 
 ## Nedodělané
-- [ ] SSH/SFTP (W2.7): kartu Služby → SSH a SFTP projít v prohlížeči po přihlášení na telefonu (360 px) i desktopu – ověřeno e2e testem se skutečným SSH klientem na NASu, typecheckem a testy, v prohlížeči zatím ne. (2026-11-26)
-- [ ] SSH: nahrávání veřejných klíčů uživatelům NASu (W2.7b) – sshd už klíče hledá v /etc/ssh/nas-revival-keys/<uživatel>, správa z webu chybí; do té doby se uživatelé SFTP přihlašují jen heslem. (2026-11-26)
+- [ ] SSH/SFTP (W2.7 + klíče W2.7b): kartu Služby → SSH a SFTP včetně části „Klíče SSH uživatelů“ (přidat, odebrat) projít v prohlížeči po přihlášení na telefonu (360 px) i desktopu – ověřeno e2e testem se skutečným SSH klientem na NASu, typecheckem a testy, v prohlížeči zatím ne. (2026-11-26)
 - [ ] SSH: přihlášení roota zůstává povolené (jen klíčem) – vypnout ho půjde, až bude mít administrátor pojmenovaný účet s příkazovým řádkem (SECURITY_MODEL, M2). (2026-11-26)
 - [ ] SFTP: skryté sdílené složky jsou v SFTP vidět (přístup dál hlídají oprávnění) a mazání přes SFTP nejde do koše sdílené složky – případně řešit podle potřeby. (2026-11-26)
 - [ ] SSH: od 26. 11. platí na NASu drop-in z GUI (AllowGroups root – jiné účty než root se přes SSH nepřihlásí, soubor authorized_keys2 se už nečte); kdyby se někdo přihlašoval jinak než rootem s klíčem, povolit mu skupinu SFTP nebo upravit nastavení. (2026-11-26)
@@ -85,6 +84,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- SSH a SFTP ve webovém GUI (W2.7 + W2.7b): port, přihlášení heslem, SFTP pro skupiny v chrootu /srv a veřejné klíče uživatelů NASu; ověřeno na NASu skutečným SSH klientem (2026-11-26)
 - Výměna disku za WD Red 2 TB z USB flashky bez konzole a bez zásahu do NAND (2026-11-26)
 - Služba NFS pro zálohy z Proxmoxu, nové jádro s NFS serverem a ACL (2026-11-26)
 - Služba SMB ve webovém GUI (W2.5): Samba nainstalovaná, smb.conf spravuje NAS Revival (bez hosta, bez SMB1, volitelná nejnižší verze, NetBIOS), připojení a otevřené soubory pro administrátora; ověřeno skutečným klientem SMB včetně oprávnění, skrytých složek a koše (2026-11-26)

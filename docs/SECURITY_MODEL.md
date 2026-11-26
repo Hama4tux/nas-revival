@@ -97,6 +97,14 @@ files touched, commands run, whether it needs confirmation, whether it takes the
   Port 22 or 1024–65535 (not 2049/8443, not used by another listener). The drop-in is checked with `sshd -t`
   and restored when rejected; reload keeps open sessions. Disabling root login waits until admin access moves to a
   named user with a shell (M2 follow-up).
+- SSH user keys (W2.7b): admin only; only NAS accounts (never root or system accounts, whose keys stay
+  outside the UI). A key is parsed and written back as `type base64 comment`: authorized_keys options
+  (`command=`, `from=`, …), private keys, DSA, certificates and RSA below 2048 bits are refused, so an upload
+  cannot widen what sshd allows. Files are root-owned 0644 (StrictModes), at most 10 keys per user; only
+  members of SFTP groups get past `AllowGroups`. A disabled account (shadow expiry) is refused by PAM even
+  with a key. Keys go with the account on delete and never pass to a new account of the same name. Not
+  part of the config history (per-user data, like passwords); additions and removals are logged with
+  the fingerprint.
 
 ## Security Advisor checks (M5)
 

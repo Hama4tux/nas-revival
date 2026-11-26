@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SshService, SshSettings } from '../api/types';
-import { portOk, sameSettings, sftpCommand, sshHealth, sshWarnings } from './ssh';
+import { keyPasteProblem, keyTypeLabel, portOk, sameSettings, sftpCommand, sshHealth, sshWarnings } from './ssh';
 
 const set: SshSettings = { port: 22, passwordAuth: true, sftpGroups: [] };
 const svc = (p: Partial<SshService> = {}, s: Partial<SshSettings> = {}): SshService => ({
@@ -44,5 +44,32 @@ describe('sftpCommand', () => {
   it('adds -P only for a non-standard port', () => {
     expect(sftpCommand('nas.home', 22)).toBe('sftp uzivatel@nas.home');
     expect(sftpCommand('nas.home', 2222, 'jana')).toBe('sftp -P 2222 jana@nas.home');
+  });
+});
+
+describe('keyPasteProblem', () => {
+  const ed = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOc0yZ0r1Yk2tK4pV8Cq7q9F7w0mJ3vX6nL4bR2sT5uH jana@notebook';
+  it('accepts one public key line, with or without comment', () => {
+    expect(keyPasteProblem(ed)).toBeNull();
+    expect(keyPasteProblem(`  ${ed}\n`)).toBeNull();
+    expect(keyPasteProblem('ssh-rsa AAAAB3NzaC1yc2E=')).toBeNull();
+    expect(keyPasteProblem('ecdsa-sha2-nistp256 AAAAE2VjZHNh x')).toBeNull();
+  });
+  it('names what is wrong', () => {
+    expect(keyPasteProblem('  ')).toBe('empty');
+    expect(keyPasteProblem('-----BEGIN OPENSSH PRIVATE KEY-----\nabc')).toBe('private');
+    expect(keyPasteProblem('---- BEGIN SSH2 PUBLIC KEY ----\nAAAA')).toBe('putty');
+    expect(keyPasteProblem(`${ed}\n${ed}`)).toBe('multi');
+    expect(keyPasteProblem(`command="x" ${ed}`)).toBe('format');
+    expect(keyPasteProblem('ssh-dss AAAAB3NzaC1kc3M=')).toBe('format');
+  });
+});
+
+describe('keyTypeLabel', () => {
+  it('shortens the key types', () => {
+    expect(keyTypeLabel('ssh-ed25519')).toBe('ed25519');
+    expect(keyTypeLabel('ssh-rsa', 4096)).toBe('RSA 4096');
+    expect(keyTypeLabel('ecdsa-sha2-nistp384')).toBe('ECDSA');
+    expect(keyTypeLabel('sk-ssh-ed25519@openssh.com')).toBe('ed25519 (FIDO)');
   });
 });
