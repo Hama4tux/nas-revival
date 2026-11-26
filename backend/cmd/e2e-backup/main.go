@@ -6,6 +6,8 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -121,6 +123,59 @@ func checkVersions(ctx context.Context, c *helper.Client, id string, check func(
 	if _, _, err := c.BackupOpen(ctx, id, date, "../"+id); err == nil {
 		check("backup.open refuses ..", false, "")
 	}
+	if size <= 16<<20 {
+		checkRestore(ctx, c, id, date, file, size, check)
+	} else {
+		fmt.Println("skip backup.restore (first file is over 16 MiB)")
+	}
+}
+
+// checkRestore restores the small file into a throw-away share of a
+// throw-away account and removes both again (W4.3 phase 2b).
+func checkRestore(ctx context.Context, c *helper.Client, id, date, file string, size int64, check func(string, bool, string)) {
+	const user, share = "nrt-br", "nrt-restore"
+	admin := helper.WithUser(ctx, "w43-e2e")
+	call := func(ctx context.Context, op string, args any) error { return c.Call(ctx, op, args, nil) }
+	defer func() {
+		call(admin, "share.delete", map[string]any{"name": share, "deleteData": true, "confirmName": share})
+		call(admin, "user.delete", map[string]string{"name": user})
+	}()
+	b := make([]byte, 12)
+	rand.Read(b)
+	if err := call(admin, "user.create", map[string]any{"name": user, "fullName": "", "password": base64.RawURLEncoding.EncodeToString(b) + "aA1!",
+		"groups": []string{}, "role": "user"}); err != nil {
+		check("restore setup user", false, errText(err))
+		return
+	}
+	if err := call(admin, "share.create", map[string]any{"share": map[string]any{"name": share, "description": "e2e", "volume": tasks.BackupVolume,
+		"folder": share, "readOnly": false, "hidden": true, "recycle": map[string]any{"enabled": false, "days": 0},
+		"permissions": []map[string]string{{"kind": "user", "name": user, "access": "rw"}}}}); err != nil {
+		check("restore setup share", false, errText(err))
+		return
+	}
+	as := helper.WithUser(ctx, user)
+	req := helper.RestoreRequest{ID: id, Date: date, Path: file, Share: share, Name: "e2e-restore.bin"}
+	_, err := c.BackupRestoreStart(as, req)
+	check("backup.restore.start", err == nil, errText(err))
+	var st helper.RestoreStatus
+	for i := 0; i < 120; i++ {
+		if st, err = c.BackupRestoreStatus(as); err != nil || !st.Running() {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	check("backup.restore done", err == nil && st.State == helper.RestoreDone && st.Files == 1 && st.Bytes == size,
+		fmt.Sprintf("state=%s files=%d bytes=%d %s", st.State, st.Files, st.Bytes, st.Message))
+	var l helper.FileList
+	err = c.Call(as, "fs.list", map[string]any{"share": share, "path": ""}, &l)
+	found := false
+	for _, e := range l.Entries {
+		found = found || (e.Name == "e2e-restore.bin" && e.Size == size)
+	}
+	check("restored file visible to the account", err == nil && found && l.Total == 1, fmt.Sprintf("entries=%d %s", l.Total, errText(err)))
+	_, err = c.BackupRestoreStart(as, req)
+	var he *helper.Error
+	check("backup.restore refuses an existing name", errors.As(err, &he) && he.Code == helper.CodeFileExists, errText(err))
 }
 
 func errText(err error) string {

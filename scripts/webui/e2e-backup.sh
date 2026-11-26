@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # End-to-end check of the backup helper ops (W4.3) on the deployed NAS: builds backend/cmd/e2e-backup for ARMv5,
 # copies it to the NAS (ssh host alias, default nsa310), runs it as nas-revival and removes it.
-# Read-only: key, share state, host key scan and connection test of every backup-pull task.
+# Key, share state, host key scan, connection test, versions, download of every backup-pull task; restores one small
+# file into a throw-away share of a throw-away account (nrt-br / nrt-restore) and removes both again.
 set -euo pipefail
 repo="$(cd "$(dirname "$0")/../.." && pwd)"
 host="${1:-nsa310}"
