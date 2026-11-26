@@ -7,6 +7,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"nas-revival/backend/internal/helper"
@@ -90,6 +91,8 @@ func decodeBody(w http.ResponseWriter, r *http.Request, limit int64, v any) bool
 		if errors.As(err, &mbe) {
 			writeError(w, http.StatusRequestEntityTooLarge, "too_large", "Požadavek je příliš velký.")
 		} else {
+			// The reason (e.g. an unknown field) only goes to the log; it holds no values.
+			slog.Warn("invalid request body", "method", r.Method, "path", r.URL.Path, "err", bodyErr(err))
 			writeInvalid(w, "", "Neplatné tělo požadavku.")
 		}
 		return false
@@ -99,6 +102,22 @@ func decodeBody(w http.ResponseWriter, r *http.Request, limit int64, v any) bool
 		return false
 	}
 	return true
+}
+
+// bodyErr keeps the decoder's reason without echoing request values (passwords).
+func bodyErr(err error) string {
+	var ute *json.UnmarshalTypeError
+	var se *json.SyntaxError
+	switch {
+	case errors.As(err, &ute):
+		return "wrong type for field " + ute.Field
+	case errors.As(err, &se):
+		return "syntax error"
+	case strings.HasPrefix(err.Error(), "json: unknown field "):
+		return err.Error()
+	default:
+		return "malformed"
+	}
 }
 
 func unavailable(w http.ResponseWriter) {
