@@ -84,7 +84,7 @@ type BackupFileMeta struct {
 
 // fileResult is a reply that carries an open file next to the JSON result.
 type fileResult struct {
-	meta BackupFileMeta
+	meta any
 	f    *os.File
 }
 
@@ -263,6 +263,12 @@ func (m *BackupManager) Browse(ctx context.Context, id, date, p string, offset i
 		return BrowseResult{}, err
 	}
 	defer r.Close()
+	return listDir(ctx, r, p, offset, nil)
+}
+
+// listDir reads one directory below r: directories first, then by name,
+// BrowsePage entries from offset. hide drops names from the listing.
+func listDir(ctx context.Context, r *os.Root, p string, offset int, hide func(name string) bool) (BrowseResult, error) {
 	name := p
 	if name == "" {
 		name = "."
@@ -287,6 +293,9 @@ func (m *BackupManager) Browse(ctx context.Context, id, date, p string, offset i
 	for _, de := range des {
 		if ctx.Err() != nil {
 			return BrowseResult{}, ctx.Err()
+		}
+		if hide != nil && hide(de.Name()) {
+			continue
 		}
 		e := BrowseEntry{Name: de.Name(), Type: entryType(de.Type())}
 		if !utf8.ValidString(e.Name) {
@@ -325,6 +334,12 @@ func (m *BackupManager) Open(ctx context.Context, id, date, p string) (*fileResu
 		return nil, err
 	}
 	defer r.Close()
+	return openRegular(r, p)
+}
+
+// openRegular opens a regular file below r read-only, refusing a symlink as
+// the last element.
+func openRegular(r *os.Root, p string) (*fileResult, error) {
 	f, err := r.OpenFile(p, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
 	if err != nil {
 		return nil, notFound("Soubor neexistuje.")

@@ -423,3 +423,10 @@ export interface HardwareState {
 /** GET /hardware/history: minute points, the highest temperature of each minute; the last point is still running. */
 export interface HardwarePoint { t: number; temps: Record<string, number>; fanRpm: number | null; pwmPercent: number | null }
 export interface HardwareHistory { intervalSeconds: number; points: HardwarePoint[] }
+
+/** File Station (W4.1): GET /files, /files/{share}/list, move/delete results. */
+export interface FileShare { name: string; description: string; access: 'rw' | 'ro'; recycle: boolean }
+export interface FileShareList { shares: FileShare[]; noAccount: boolean }
+export interface FileList extends BackupBrowse { share: string; access: 'rw' | 'ro' }
+export interface FileItemError { path: string; message: string }
+export interface FileBatch { done: number; failed: FileItemError[]; recycled: boolean }

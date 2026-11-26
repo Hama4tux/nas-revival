@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api, setUnauthorizedHandler } from './api/client';
 import type { NetworkSettings, Role, SessionInfo, SystemPowerAction } from './api/types';
 import { AccountPage } from './components/AccountPage';
+import { FilesPage } from './components/FilesPage';
 import { GoingDown } from './components/GoingDown';
 import { Login } from './components/Login';
 import { Overview } from './components/Overview';
@@ -83,6 +84,7 @@ export function App() {
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}
       {route === 'services' && <ServicesPage readOnly={role !== 'admin'} />}
       {route === 'shares' && <SharesPage readOnly={role !== 'admin'} />}
+      {route === 'files' && <FilesPage />}
       {route === 'account' && <AccountPage username={username ?? ''} role={role} />}
     </Shell>
   );

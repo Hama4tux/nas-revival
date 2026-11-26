@@ -176,6 +176,7 @@ func serve(args []string) error {
 	srv.Ssh = hc
 	srv.Tasks = hc
 	srv.Backup = hc
+	srv.Files = hc
 	srv.NetInfo = netinfo.Reader{Root: "/", Run: netinfo.Runner(helper.ExecRunner), Now: time.Now}
 	srv.NetAdmin = hc
 	srv.Monitor = resources
@@ -377,6 +378,8 @@ func runHelper(args []string) error {
 		Ssh:      sshm,
 		Tasks:    tkm,
 		Backup:   bkm,
+		Files: &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, HasACL: acls,
+			Chown: helper.SysFileChown, Statfs: helper.SysFstatfs, Now: time.Now},
 		Hostname: &helper.HostnameManager{HostsFile: "/etc/hosts", Run: helper.ExecRunner},
 		Diag:     helper.NewDiagManager(*iface, helper.ExecRunner),
 		Procs:    &helper.ProcessManager{Root: "/"},

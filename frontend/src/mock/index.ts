@@ -1,6 +1,8 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
 import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings } from '../api/types';
+import { ApiError } from '../api/client';
+import { setUploadImpl } from '../lib/upload';
 
 const start = Date.now();
 let loggedIn = false;
@@ -1031,7 +1033,121 @@ function processList() {
   memTotalBytes: 252043264, sampledAt: new Date().toISOString() };
 }
 
+
+/* ---------- File Station (W4.1) ---------- */
+type MockEntry = { name: string; type: string; size: number; modified: string };
+const fsNow = new Date().toISOString();
+const fsTree: Record<string, Record<string, MockEntry[]>> = {
+  Dokumenty: {
+    '': [{ name: 'Faktury', type: 'dir', size: 0, modified: fsNow }, { name: 'Smlouvy', type: 'dir', size: 0, modified: fsNow },
+      { name: 'poznámky k NASu s dlouhým názvem souboru.txt', type: 'file', size: 2_345, modified: fsNow },
+      { name: 'zástupce', type: 'link', size: 0, modified: fsNow }],
+    Faktury: [{ name: '2026', type: 'dir', size: 0, modified: fsNow }, { name: 'faktura-001.pdf', type: 'file', size: 184_000, modified: fsNow }],
+    'Faktury/2026': [],
+    Smlouvy: [{ name: 'najem.pdf', type: 'file', size: 1_200_000, modified: fsNow }],
+  },
+  Fotky: { '': [{ name: 'dovolena.jpg', type: 'file', size: 4_800_000, modified: fsNow }] },
+};
+const fsShares = [
+  { name: 'Dokumenty', description: 'Rodinné dokumenty', access: 'rw', recycle: true },
+  { name: 'Fotky', description: '', access: 'ro', recycle: false },
+];
+const fsJoin = (d: string, n: string) => (d ? `${d}/${n}` : n);
+const fsParent = (p: string) => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '');
+const fsBase = (p: string) => p.slice(p.lastIndexOf('/') + 1);
+
+function fsRemove(tree: Record<string, MockEntry[]>, p: string): MockEntry | null {
+  const dir = tree[fsParent(p)];
+  const i = dir?.findIndex((e) => e.name === fsBase(p)) ?? -1;
+  if (!dir || i < 0) return null;
+  const [e] = dir.splice(i, 1);
+  for (const k of Object.keys(tree)) if (k === p || k.startsWith(`${p}/`)) delete tree[k];
+  return e ?? null;
+}
+
+function filesRoute(path: string, method: string, search: string, body: Record<string, unknown>): Response | null {
+  if (sessionUser === 'rescue') return json(200, { shares: [], noAccount: true });
+  if (path === '/files' && method === 'GET') return json(200, { shares: fsShares, noAccount: false });
+  const m = /^\/files\/([^/]+)\/(list|download|mkdir|rename|move|delete)$/.exec(path);
+  if (!m) return null;
+  const name = decodeURIComponent(m[1] ?? '');
+  const share = fsShares.find((s) => s.name === name);
+  const tree = fsTree[name];
+  if (!share || !tree) return err(404, 'not_found', 'Sdílená složka neexistuje nebo k ní nemáte přístup.');
+  const q = new URLSearchParams(search);
+  if (m[2] === 'list') {
+    const entries = tree[q.get('path') ?? ''];
+    if (!entries) return err(404, 'not_found', 'Složka neexistuje.');
+    const sorted = [...entries].sort((a, b) => (a.type === 'dir') !== (b.type === 'dir') ? (a.type === 'dir' ? -1 : 1) : a.name.localeCompare(b.name));
+    return json(200, { share: name, access: share.access, path: q.get('path') ?? '', entries: sorted, offset: 0, total: sorted.length, truncated: false });
+  }
+  if (m[2] === 'download') return new Response(new Blob(['mock']), { status: 200 });
+  if (share.access !== 'rw') return err(403, 'forbidden', 'Do této sdílené složky máte jen čtení.');
+  const dir = String(body.path ?? '');
+  if (m[2] === 'mkdir') {
+    const n = String(body.name ?? '');
+    const entries = tree[dir];
+    if (!entries) return err(404, 'not_found', 'Složka neexistuje.');
+    if (entries.some((e) => e.name === n)) return err(409, 'file_exists', 'Položka s tímto názvem už existuje.');
+    entries.push({ name: n, type: 'dir', size: 0, modified: new Date().toISOString() });
+    tree[fsJoin(dir, n)] = [];
+    return new Response(null, { status: 204 });
+  }
+  if (m[2] === 'rename') {
+    const n = String(body.name ?? '');
+    const siblings = tree[fsParent(dir)] ?? [];
+    if (siblings.some((e) => e.name === n)) return err(409, 'file_exists', 'Položka s tímto názvem už existuje.');
+    const e = siblings.find((x) => x.name === fsBase(dir));
+    if (!e) return err(404, 'not_found', 'Položka neexistuje.');
+    e.name = n;
+    return new Response(null, { status: 204 });
+  }
+  const paths = (body.paths as string[] | undefined) ?? [];
+  const failed: { path: string; message: string }[] = [];
+  let done = 0;
+  for (const p of paths) {
+    if (m[2] === 'move') {
+      const dest = String(body.dest ?? '');
+      const target = tree[dest];
+      if (!target || dest === p || dest.startsWith(`${p}/`)) { failed.push({ path: p, message: 'Složku nelze přesunout do ní samotné.' }); continue; }
+      if (target.some((e) => e.name === fsBase(p))) { failed.push({ path: p, message: 'Položka s tímto názvem už existuje.' }); continue; }
+      const e = fsRemove(tree, p);
+      if (!e) { failed.push({ path: p, message: 'Položka neexistuje.' }); continue; }
+      target.push(e);
+      if (e.type === 'dir') tree[fsJoin(dest, e.name)] = [];
+    } else if (!fsRemove(tree, p)) { failed.push({ path: p, message: 'Položka neexistuje.' }); continue; }
+    done++;
+  }
+  return json(200, { done, failed, recycled: m[2] === 'delete' && share.recycle });
+}
+
+/** Simulated upload: progress over ~3 s, a name that exists gives 409 unless overwrite=1. */
+function mockUpload(url: string, file: Blob, onProgress: (n: number) => void, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const u = new URL(url, location.href);
+    const share = decodeURIComponent(u.pathname.split('/')[4] ?? '');
+    const dir = u.searchParams.get('path') ?? '', name = u.searchParams.get('name') ?? '';
+    const entries = fsTree[share]?.[dir];
+    if (!entries) { reject(new ApiError(404, 'not_found', 'Složka neexistuje.')); return; }
+    const existing = entries.find((e) => e.name === name);
+    if (existing && u.searchParams.get('overwrite') !== '1') { reject(new ApiError(409, 'file_exists', 'Soubor s tímto názvem už existuje.')); return; }
+    let sent = 0;
+    const step = Math.max(1, Math.ceil(file.size / 15));
+    const iv = setInterval(() => {
+      sent = Math.min(file.size, sent + step);
+      onProgress(sent);
+      if (sent >= file.size) {
+        clearInterval(iv);
+        if (existing) existing.size = file.size; else entries.push({ name, type: 'file', size: file.size, modified: new Date().toISOString() });
+        resolve();
+      }
+    }, 200);
+    signal.addEventListener('abort', () => { clearInterval(iv); reject(new DOMException('aborted', 'AbortError')); }, { once: true });
+  });
+}
+
 export function installMock(): void {
+  setUploadImpl(mockUpload);
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
     const url = new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href);
@@ -1067,7 +1183,14 @@ export function installMock(): void {
       loggedIn = false;
       return json(200, { samba: false });
     }
-    // Same policy as the backend: viewers read, standard users only their session.
+    // File Station: every role, the share access decides (W4.1).
+    if (path.startsWith('/files')) {
+      let body: Record<string, unknown> = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = filesRoute(path, method, url.search, body);
+      if (r) return r;
+    }
+    // Same policy as the backend: viewers read, standard users only their session and files.
     if (sessionRole() === 'user' || (sessionRole() === 'viewer' && method !== 'GET')) {
       return err(403, 'forbidden', sessionRole() === 'viewer' ? 'Účet jen pro čtení nemůže nic měnit.' : 'K této části nemáte přístup.');
     }

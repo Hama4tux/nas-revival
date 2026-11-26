@@ -12,6 +12,7 @@ describe('parseRoute', () => {
     expect(parseRoute('#/shares')).toBe('shares');
     expect(parseRoute('#/services')).toBe('services');
     expect(parseRoute('#/account')).toBe('account');
+    expect(parseRoute('#/files')).toBe('files');
   });
   it('falls back to the overview', () => {
     expect(parseRoute('')).toBe('overview');

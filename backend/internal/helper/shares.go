@@ -149,6 +149,11 @@ func (m *ShareManager) volumes() []shares.Volume {
 
 func (m *ShareManager) hasACL(vol string) bool { return m.Probe(vol) }
 
+// LoadConfig and LoadDB give the File Station the shares and accounts.
+func (m *ShareManager) LoadConfig() (shares.Config, error) { return m.loadCfg() }
+
+func (m *ShareManager) LoadDB() (accounts.DB, error) { return m.loadDB() }
+
 func (m *ShareManager) smbState() SmbState {
 	st := SmbState{}
 	if _, err := m.LookPath("smbd"); err == nil {

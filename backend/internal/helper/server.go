@@ -70,6 +70,8 @@ type Dispatcher struct {
 	Procs *ProcessManager
 	// Hardware sets thresholds, fan profile and LEDs (W3.4); nil disables it.
 	Hardware *HardwareManager
+	// Files runs the File Station (W4.1); nil disables it.
+	Files *FileManager
 }
 
 type request struct {
@@ -312,6 +314,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if strings.HasPrefix(req.Op, "task.") && d.Tasks != nil {
 		return d.handleTasks(ctx, req, user)
+	}
+	if strings.HasPrefix(req.Op, "fs.") && d.Files != nil {
+		return d.handleFiles(ctx, req, user)
 	}
 	if strings.HasPrefix(req.Op, "backup.") && d.Backup != nil {
 		return d.handleBackup(ctx, req, user)
@@ -571,7 +576,8 @@ func serveConn(ctx context.Context, conn net.Conn, allowedUID uint32, d *Dispatc
 		return
 	}
 	to := opTimeout
-	if req.Op == "share.recycleCleanup" {
+	// A permanent delete of a big folder walks the whole tree.
+	if req.Op == "share.recycleCleanup" || req.Op == "fs.delete" {
 		to = recycleTimeout
 	}
 	octx, cancel := context.WithTimeout(ctx, to)

@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"nas-revival/backend/internal/accounts"
@@ -101,7 +102,10 @@ type Server struct {
 	// Hardware is the W3.4 hardware page; HardwareAdmin changes it through the helper.
 	Hardware      HardwareSource
 	HardwareAdmin HardwareAdmin
-	powerTokens   confirmTokens
+	// Files serves /files (File Station); nil answers 503.
+	Files       FileStation
+	uploads     atomic.Int32
+	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }
@@ -127,6 +131,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerSsh(api)
 	s.registerTasks(api)
 	s.registerBackup(api)
+	s.registerFiles(api)
 	s.registerNetwork(api)
 	s.registerMonitor(api)
 	s.registerHardware(api)

@@ -244,3 +244,11 @@ Scheduled restart and shutdown (W3.5) are task types `reboot` and `shutdown` in 
 `Persistent=false`, the runner skips them within 15 min of boot and waits up to 1 h for an empty power preflight.
 After deploying, run `scripts/webui/e2e-power-tasks.sh`: it adds two disabled power tasks, checks the timers and that
 "run now" is refused, and restores the task list. It never restarts the NAS.
+
+## File Station (W4.1)
+
+No unit or package change: the binary serves `/api/v1/files` and the helper runs `fs.*` (ADR 0009). Check with
+`scripts/webui/e2e-files.sh [host] [MiB]` from the workstation: it creates the throw-away users `nrt-fu`/`nrt-fr`
+and share `nrt-files`, tests the operations over HTTPS, prints owner and mode of the created entries and
+removes everything. The optional big upload (second argument, default 0) keeps the NAS CPU at 100 % for minutes
+(TLS on one ARM core) – run it only when that is acceptable.

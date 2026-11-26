@@ -64,7 +64,7 @@ endpoint is implemented, it moves into `api/v1.md`.
 | Tasks | `GET/POST /tasks`, `PATCH/DELETE /tasks/{id}`, `POST /tasks/{id}/run`, `/stop` | admin | `task.*` | M3 |
 | Hardware | `GET/PUT /hardware/fan`, `/hardware/leds`, `GET /hardware/sensors/history` | admin | `fan.setProfile`, `led.set` | M3 |
 | Backup | `GET/POST /backups`, `POST /backups/{id}/run?dryRun=` , `GET /backups/{id}/history` | admin | `backup.*` | M4 |
-| Files | `GET /files/{share}/{path}?cursor=`, upload/download streams, ops as jobs | user | `fs.*` (setfsuid) | M4 |
+| Files | `GET /files` (shares with access), `GET /files/{share}/list?path=&offset=`, `GET …/download?path=`, `POST …/mkdir\|rename\|move\|delete`, `PUT …/upload?path=&name=&overwrite=1` (raw body, Content-Length, max 2 at once) | user | `fs.*` (ADR 0009) | implemented (copy jobs M4) |
 | Logs | `GET /logs?category=&severity=&since=&q=&limit=` | admin | `journal.query` | M5 |
 | Notifications | `GET /notifications`, `POST /notifications/{id}/read` | viewer | – | M4 |
 | Security | `GET /security/sessions`, `DELETE /security/sessions/{id}`, `GET /security/advisor` | admin | – | M5 |

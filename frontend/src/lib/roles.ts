@@ -5,7 +5,7 @@ import type { Route } from '../hooks/useRoute';
 export const canRead = (r: Role) => r === 'admin' || r === 'viewer';
 export const canWrite = (r: Role) => r === 'admin';
 
-/** A standard user only has their own account page. */
+/** A standard user has their files and their own account page. */
 export function routeFor(r: Role, route: Route): Route {
-  return canRead(r) || route === 'account' ? route : 'account';
+  return canRead(r) || route === 'account' || route === 'files' ? route : 'files';
 }
