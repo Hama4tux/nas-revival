@@ -46,4 +46,6 @@ stick cannot move this way. The old disk is not modified and stays a complete ba
 
 Tested 2026-11-26 on the NAS against loop devices (`NR_TEST=1` / `NR_TEST_TARGET=`): stick
 preparation, wipe of an old partition table, partitioning, restore of system and data, refusal of a
-disk that already holds a NAS Revival system. The real boot from the stick is not tested yet.
+disk that already holds a NAS Revival system. Used for real on 2026-11-26 (2.5" 1 TB SSHD → 3.5" WD Red
+2 TB with an old ZFS pool): stick prepared in about 2 minutes, the stick booted, the installer finished
+in 2 minutes and the NAS rebooted from the new disk with all services up.

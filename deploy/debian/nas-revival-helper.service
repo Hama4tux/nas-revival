@@ -3,6 +3,12 @@ Description=NAS Revival privileged helper (network, DNS, NTP settings, SMART sel
 Documentation=file:///usr/share/doc/nas-revival/adr-0003
 # Started before the web UI so its socket exists; the web UI only Wants= it.
 Before=nas-revival.service
+# NFS (W2.6): the nfsd file system must be mounted before the sandbox is set up, otherwise the helper
+# never sees /proc/fs/nfsd/clients (mounts below the read-only /proc/fs do not reach it). This loads the
+# nfsd module (~360 KB) at boot even with NFS off; without nfs-kernel-server the unit does not exist and
+# Wants= is ignored.
+Wants=proc-fs-nfsd.mount
+After=proc-fs-nfsd.mount
 After=systemd-networkd.service systemd-resolved.service systemd-timesyncd.service local-fs.target
 
 [Service]

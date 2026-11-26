@@ -1,11 +1,10 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: NAS běží s novým jádrem (NFS server, ACL na ext4). Služba NFS (W2.6) je hotová, nasazená a ověřená připojením z Proxmoxu; zapíná se ve Službách → NFS, zatím je vypnutá.
-- Další krok: vlastník zapne SMB/NFS podle potřeby a vyzkouší zálohu z Proxmoxu; pak W2.7 SSH/SFTP.
+- Stav: NAS běží na novém 3,5" disku WD Red 2 TB (systém přenesený z flashky bez konzole), s novým jádrem (NFS server, ACL). Služba NFS (W2.6) je hotová a ověřená z Proxmoxu, zatím vypnutá.
+- Další krok: dlouhý test SMART nového disku, zkušební záloha z Proxmoxu přes NFS, pak W2.7 SSH/SFTP.
 
 ## Čeká na rozhodnutí
-- [ ] Výměna disku 2,5" → 3,5" WD Red 2 TB (docs/debian/disk-swap.md): schválit smazání USB flashky v NASu (záchranná kopie z 25. 11. a stará jádra; předchozí jádro zůstává ve slotu B), krátké zastavení webového GUI při snímku a vypnutí NASu; pak vlastník vymění disk a zapne NAS s flashkou. (2026-11-26)
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
@@ -17,6 +16,9 @@
 
 
 ## Nedodělané
+- [ ] Nový disk WD Red 2 TB (WD20EFRX, CMR, 36 900 provozních hodin, SMART bez chyb): spustit dlouhý test SMART z GUI (Úložiště → SMART) a nastavit profil napájení – po výměně běží výchozí Vyvážený bez uloženého nastavení. (2026-11-26)
+- [ ] Po nejbližším plánovaném restartu NASu ověřit, že helper startuje až po připojení /proc/fs/nfsd (seznam připojených klientů NFS; `scripts/webui/e2e-nfs.sh proxmox.home`) – opraveno pořadím v nas-revival-helper.service, ověřeno restartem helperu, ne restartem NASu. (2026-11-26)
+- [ ] Flashka v NASu je teď instalační (štítek nrinstall, kopie systému z 26. 11. 10:04, instalace hotová, služba vypnutá); záchranná kopie z 25. 11. na ní už není. Před další výměnou disku ji připravit znovu skriptem prepare-usb.sh. Starý 2,5" disk (1 TB SSHD) je úplná záloha systému k 26. 11. (2026-11-26)
 - [ ] Trvalá automatická obnova z USB (jádro s ramdiskem: disk bez systému → instalace z flashky se značkou NAS Revival) – výměna disku ji nepotřebuje (stačí PARTUUID na flashce), zůstává jako návrh. (2026-11-26)
 - [ ] NFS (W2.6): kartu Služby → NFS projít v prohlížeči na telefonu i desktopu a vyzkoušet skutečnou zálohu vzdump z Proxmoxu (pvesm add nfs … --options vers=4.2) – test připojení a zápisu z Proxmoxu prošel (scripts/webui/e2e-nfs.sh proxmox.home). (2026-11-26)
 - [ ] NFS: nabízí se jen NFSv4.1/4.2 (bez rpcbind); NFSv3 pro starší klienty a výběr exportu v Proxmoxu (showmount) nefunguje – doplnit jen když bude potřeba. (2026-11-26)
@@ -51,13 +53,10 @@
 - [ ] Aktualizace jádra z webu (podklad pro backend, který staví druhý agent): zápis z Linuxu je ověřený (ECC sedí s U-Bootem, postup v docs/debian/boot.md). Strategie: slot B drží poslední funkční jádro; při upgradu nejdřív zkopírovat A → B, pak nové jádro do A, každý zápis ověřit zpětným čtením (sha256, corrected_bits/ecc_failures) a nikdy nezapisovat oba sloty najednou. První upgrade tímto postupem udělat s konzolí po ruce. (2026-11-25)
 - [ ] Značka slotu pro aktualizaci jádra: příkazy slotA/slotB v U-Bootu mají přidat do bootargs značku (např. nsa_slot=A/B); web smí kopírovat A → B jen když /proc/cmdline ukazuje nsa_slot=A, jinak běží záloha a upgrade musí odmítnout. Vyžaduje jednu úpravu prostředí U-Bootu přes konzoli (saveenv). (2026-11-25)
 - [ ] Zkušební jednorázový start nového jádra: U-Boot přepne na slot B jen když jádro z A nejde načíst, ne když nové jádro zamrzne nebo spadne – navrhnout „boot once“ (nové jádro se spustí jednou, po potvrzení zdraví z Linuxu se stane výchozím, jinak další start ze slotu B), vč. ověření bezpečného zápisu prostředí U-Bootu z Linuxu (fw_setenv, mtd1). Do té doby je při vadném jádře nutná konzole. (2026-11-25)
-- [ ] Dlouhý test SMART nového disku: znovu naplánován časovačem smart-long na 22:00 2026-11-25 (časovač zanikne restartem); ráno zkontrolovat výsledek (smartctl -l selftest /dev/sda). (2026-11-25)
-- [ ] Disk 2,5" sedí v šachtě pro 3,5" bez rámečku a 2026-11-25 při manipulaci krátce vypadl – pořídit redukci 2,5"→3,5" a disk upevnit. (2026-11-25)
 - [ ] Tlačítko COPY: vyzkoušet skutečnou zálohu s běžnou flashkou FAT32 (zatím ověřeno jen přeskočení záchranné flashky a červená LED). (2026-11-25)
 - [ ] Tlačítko COPY: jádro neumí exFAT ani NTFS (běžné na flashkách nad 32 GB a externích discích) – přidat moduly exfat a ntfs3 do jádra; vyžaduje nové jádro a zápis do slotu A. (2026-11-25)
 - [ ] Ventilátor: po pár dnech provozu ověřit teplotu disku při minimálních otáčkách (LM85 disk nevidí); kdyby šla nad ~50 °C, snížit práh v deploy/debian/nsa310-fan. (2026-11-25)
 - [ ] Při chybějícím nebo vadném disku jádro čeká na kořen donekonečna (rootwait) – zvážit nouzový kořen (USB flashka) nebo timeout. (2026-11-25)
-- [ ] Starý kořen na USB flashce (oddíl rootfs) je zamrzlá kopie z 2026-11-25 jako záloha; neaktualizuje se. (2026-11-25)
 - [ ] LED eSATA a COPY zatím nic neukazují a HDD bliká při činnosti kteréhokoli disku (i USB flashky); pro LED jednotlivých SATA portů je potřeba dohledat volbu jádra (per-port trigger ata1/ata2 v 6.12 chybí). Přiřazení tří LED síťového portu (link, aktivita, gigabit) ověřit pohledem. (2026-11-25)
 - [ ] Debian 13 armel nemá oficiální jádro Kirkwood: jádro (mainline LTS 6.12) aktualizujeme sami – zautomatizovat build a hlídat nové verze 6.12.x. (2026-11-25)
 - [ ] Přepsat ADR 0001 podle rozhodnutí pro Debian 13 (vlastní jádro 6.12 ve slotech NAND, konec armel po Debianu 13); roadmapa, architektura a README už jsou přepsané. (2026-11-25)
@@ -79,6 +78,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Výměna disku za WD Red 2 TB z USB flashky bez konzole a bez zásahu do NAND (2026-11-26)
 - Služba NFS pro zálohy z Proxmoxu, nové jádro s NFS serverem a ACL (2026-11-26)
 - Služba SMB ve webovém GUI (W2.5): Samba nainstalovaná, smb.conf spravuje NAS Revival (bez hosta, bez SMB1, volitelná nejnižší verze, NetBIOS), připojení a otevřené soubory pro administrátora; ověřeno skutečným klientem SMB včetně oprávnění, skrytých složek a koše (2026-11-26)
 - Rozhodnuto: záchranný administrátor admin.json zůstává natrvalo vedle účtů NASu (heslo jen přes SSH, vždy administrátor); role účtů schváleny vlastníkem. (2026-11-26)
