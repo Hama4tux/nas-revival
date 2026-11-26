@@ -235,3 +235,10 @@ func TestTaskDispatch(t *testing.T) {
 		t.Fatal("unknown id accepted")
 	}
 }
+
+// Power preflight and the task runner must look at the same heavy lock.
+func TestHeavyLockPathsAgree(t *testing.T) {
+	if DefaultHeavyLock != tasks.HeavyLockPath {
+		t.Fatalf("preflight lock %q != runner lock %q", DefaultHeavyLock, tasks.HeavyLockPath)
+	}
+}
