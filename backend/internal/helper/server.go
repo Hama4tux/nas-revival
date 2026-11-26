@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/diskpower"
 )
 
@@ -198,12 +199,13 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 // the arguments and are never logged.
 func (d *Dispatcher) handleUsers(ctx context.Context, req request, user string) (any, error) {
 	var a struct {
-		Name     string   `json:"name"`
-		FullName string   `json:"fullName"`
-		Password string   `json:"password"`
-		Groups   []string `json:"groups"`
-		Members  []string `json:"members"`
-		Disabled bool     `json:"disabled"`
+		Name     string        `json:"name"`
+		FullName string        `json:"fullName"`
+		Password string        `json:"password"`
+		Groups   []string      `json:"groups"`
+		Members  []string      `json:"members"`
+		Disabled bool          `json:"disabled"`
+		Role     accounts.Role `json:"role"`
 	}
 	if err := decodeArgs(req.Args, &a); err != nil {
 		return nil, err
@@ -213,9 +215,9 @@ func (d *Dispatcher) handleUsers(ctx context.Context, req request, user string) 
 	case "user.list":
 		return u.List(ctx)
 	case "user.create":
-		return u.Create(ctx, UserCreate{Name: a.Name, FullName: a.FullName, Password: a.Password, Groups: a.Groups}, user)
+		return u.Create(ctx, UserCreate{Name: a.Name, FullName: a.FullName, Password: a.Password, Groups: a.Groups, Role: a.Role}, user)
 	case "user.update":
-		return u.Update(ctx, UserUpdate{Name: a.Name, FullName: a.FullName, Groups: a.Groups}, user)
+		return u.Update(ctx, UserUpdate{Name: a.Name, FullName: a.FullName, Groups: a.Groups, Role: a.Role}, user)
 	case "user.setPassword":
 		return u.SetPassword(ctx, a.Name, a.Password, user)
 	case "user.setDisabled":

@@ -2,12 +2,13 @@ import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { cs } from '../i18n/cs';
 import { cn } from '../lib/utils';
-import { apps } from './nav';
+import { appsFor } from './nav';
 import type { Route } from '../hooks/useRoute';
+import type { Role } from '../api/types';
 
 const FOCUSABLE = 'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
-export function Launcher({ onClose, route }: { onClose: () => void; route: Route }) {
+export function Launcher({ onClose, route, role }: { onClose: () => void; route: Route; role: Role }) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export function Launcher({ onClose, route }: { onClose: () => void; route: Route
           </button>
         </div>
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-4">
-          {apps.map(({ key, icon: Icon, ready, tone, href }) => {
+          {appsFor(role).map(({ key, icon: Icon, ready, tone, href }) => {
             const inner = (
               <>
                 <span className={cn('flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br text-white shadow-md', tone, !ready && 'opacity-45 saturate-50')}>

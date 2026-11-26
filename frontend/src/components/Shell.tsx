@@ -1,4 +1,4 @@
-import { Box, ChevronDown, LayoutGrid, LogOut, Moon, Sun, User } from 'lucide-react';
+import { Box, ChevronDown, Eye, LayoutGrid, LogOut, Moon, Sun, User, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { cs } from '../i18n/cs';
 import { useTheme } from '../hooks/useTheme';
@@ -6,9 +6,10 @@ import { cn } from '../lib/utils';
 import { Launcher } from './Launcher';
 import { NasArt } from './NasArt';
 import { PowerMenu } from './SystemPower';
-import { apps } from './nav';
+import { appsFor } from './nav';
 import type { Route } from '../hooks/useRoute';
-import type { SystemPowerAction } from '../api/types';
+import type { Role, SystemPowerAction } from '../api/types';
+import { canWrite } from '../lib/roles';
 
 export interface HostSummary { hostname: string; boardModel: string; os: string }
 
@@ -17,11 +18,11 @@ const iconBtn = 'flex h-9 items-center gap-1.5 rounded-lg px-2.5 text-sm hover:b
 /** "Debian GNU/Linux 13 (trixie)" → "Debian" */
 const osShort = (os: string) => os.split(/\s/)[0] ?? os;
 
-function UserMenu({ username, onLogout, loggingOut }: { username: string | null; onLogout: () => void; loggingOut: boolean }) {
+function UserMenu({ username, role, onLogout, loggingOut }: { username: string | null; role: Role; onLogout: () => void; loggingOut: boolean }) {
   const [open, setOpen] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
   const btn = useRef<HTMLButtonElement>(null);
-  const item = useRef<HTMLButtonElement>(null);
+  const item = useRef<HTMLAnchorElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -40,11 +41,17 @@ function UserMenu({ username, onLogout, loggingOut }: { username: string | null;
           <User className="h-4 w-4" />
         </span>
         <span className="hidden font-medium sm:inline">{username ?? cs.shell.user}</span>
+        <span className="sr-only">({cs.roles[role]})</span>
         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden />
       </button>
       {open && (
-        <div role="menu" className="pop glass absolute right-0 top-11 z-50 w-44 rounded-lg p-1 text-foreground">
-          <button ref={item} role="menuitem" type="button" disabled={loggingOut} onClick={onLogout}
+        <div role="menu" className="pop glass absolute right-0 top-11 z-50 w-48 rounded-lg p-1 text-foreground">
+          <p className="px-3 pb-1 pt-2 text-xs text-muted-foreground">{cs.roles[role]}</p>
+          <a ref={item} role="menuitem" href="#/account" onClick={() => setOpen(false)}
+            className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted">
+            <UserRound className="h-4 w-4" aria-hidden />{cs.shell.account}
+          </a>
+          <button role="menuitem" type="button" disabled={loggingOut} onClick={onLogout}
             className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-muted disabled:opacity-50">
             <LogOut className="h-4 w-4" aria-hidden />{loggingOut ? cs.shell.loggingOut : cs.shell.logout}
           </button>
@@ -68,13 +75,13 @@ function Brand({ host }: { host: HostSummary | null }) {
   );
 }
 
-function Sidebar({ host, route }: { host: HostSummary | null; route: Route }) {
+function Sidebar({ host, route, role }: { host: HostSummary | null; route: Route; role: Role }) {
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 flex-col border-r border-border bg-sidebar/95 px-4 py-5 backdrop-blur lg:flex">
       <div className="px-1"><Brand host={host} /></div>
       <nav aria-label={cs.shell.mainNav} className="mt-7">
         <ul className="space-y-1">
-          {apps.map(({ key, icon: Icon, ready, href }) => (
+          {appsFor(role).map(({ key, icon: Icon, ready, href }) => (
             <li key={key}>
               {ready ? (
                 <a href={href} aria-current={key === route ? 'page' : undefined}
@@ -107,8 +114,8 @@ function Sidebar({ host, route }: { host: HostSummary | null; route: Route }) {
   );
 }
 
-export function Shell({ host, username, onLogout, loggingOut, onPowerStarted, title, subtitle, route, banner, children }: {
-  host: HostSummary | null; username: string | null; onLogout: () => void; loggingOut: boolean;
+export function Shell({ host, username, role, onLogout, loggingOut, onPowerStarted, title, subtitle, route, banner, children }: {
+  host: HostSummary | null; username: string | null; role: Role; onLogout: () => void; loggingOut: boolean;
   onPowerStarted: (a: SystemPowerAction) => void;
   title: string; subtitle: string; route: Route; banner?: ReactNode; children: ReactNode;
 }) {
@@ -132,8 +139,8 @@ export function Shell({ host, username, onLogout, loggingOut, onPowerStarted, ti
       <button type="button" className={iconBtn} onClick={toggle} aria-label={theme === 'dark' ? cs.theme.toLight : cs.theme.toDark}>
         {theme === 'dark' ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
       </button>
-      <PowerMenu onStarted={onPowerStarted} />
-      <UserMenu username={username} onLogout={onLogout} loggingOut={loggingOut} />
+      {canWrite(role) && <PowerMenu onStarted={onPowerStarted} />}
+      <UserMenu username={username} role={role} onLogout={onLogout} loggingOut={loggingOut} />
     </>
   );
 
@@ -142,7 +149,7 @@ export function Shell({ host, username, onLogout, loggingOut, onPowerStarted, ti
       <a href="#main" onClick={(e) => { e.preventDefault(); main.current?.focus(); }} className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-[60] focus:rounded focus:bg-card focus:p-2">
         {cs.common.skipToContent}
       </a>
-      <Sidebar host={host} route={route} />
+      <Sidebar host={host} route={route} role={role} />
       {/* Phone / tablet: compact top bar with the app launcher instead of the sidebar. */}
       <header className="sticky top-0 z-50 flex h-14 items-center gap-2 border-b border-border bg-sidebar/90 px-3 backdrop-blur-md lg:hidden">
         <button ref={menuBtn} type="button" className={iconBtn} aria-haspopup="dialog" aria-expanded={menu}
@@ -152,8 +159,13 @@ export function Shell({ host, username, onLogout, loggingOut, onPowerStarted, ti
         <span className="min-w-0 truncate font-semibold">{cs.product}</span>
         <div className="ml-auto flex items-center gap-1">{actions}</div>
       </header>
-      {menu && <Launcher route={route} onClose={close} />}
+      {menu && <Launcher route={route} role={role} onClose={close} />}
       {banner}
+      {role === 'viewer' && (
+        <p role="note" className="flex items-center gap-2 border-b border-border bg-muted/60 px-4 py-2 text-sm sm:px-6">
+          <Eye className="h-4 w-4 shrink-0 text-primary" aria-hidden />{cs.shell.readOnly}
+        </p>
+      )}
       <div className="mx-auto max-w-[1440px] px-4 pb-8 pt-5 sm:px-6 lg:pt-7">
         <div className="mb-5 flex items-start gap-4">
           <div className="min-w-0">

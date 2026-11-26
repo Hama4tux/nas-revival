@@ -1,10 +1,11 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: Repo je veřejné na GitHubu s úvodní stránkou a návodem k instalaci na původní NSA310; jádro i rootfs se staví skripty v repu (rootfs ověřen sestavením a kontrolou obsahu). Webové GUI má přehled, síť, systém, úložiště a uživatele (W2.1).
-- Další krok: reprodukovatelný release (verze jádra v jednom souboru, release.sh, build v GitHub Actions, skript pro aktualizaci jádra A/B), potom W2.2.
+- Stav: Repo je veřejné na GitHubu s úvodní stránkou a návodem k instalaci na původní NSA310; jádro i rootfs se staví skripty v repu (rootfs ověřen sestavením a kontrolou obsahu). Webové GUI má přehled, síť, systém, úložiště, uživatele a role s přihlášením účtů NASu (W2.2, nasazeno a ověřeno na NASu).
+- Další krok: W2.3 sdílené složky (nebo reprodukovatelný release, až ho vlastník schválí).
 
 ## Čeká na rozhodnutí
+- [ ] Záchranný administrátor: ADR 0004 původně chtěl účet z admin.json převést na účet NASu; ve W2.2 zůstal jako záchranný účet (heslo jen přes SSH, vždy administrátor). Ponechat, nebo po založení vlastního administrátora admin.json smazat? (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
 - [ ] Reprodukovatelný release: KERNEL_VERSION v jednom souboru, scripts/debian/release.sh (jádro + rootfs + manifest + SHA256SUMS), build v GitHub Actions na tag, skript pro aktualizaci jádra (A→B, zápis A, zpětné čtení) – navrženo, čeká na souhlas. (2026-11-26)
@@ -15,6 +16,9 @@
 
 
 ## Nedodělané
+- [ ] Role (W2.2): v prohlížeči se přihlásit skutečným účtem NASu s rolí Jen pro čtení a Uživatel a projít menu, pruh „jen pro čtení“ a Můj účet na telefonu (360 px) i desktopu – ověřeno jen API testem na NASu a ukázkovým režimem na desktopu. (2026-11-26)
+- [ ] Role (W2.2): u účtu Jen pro čtení zatím schovávají tlačítka změn jen stránka Uživatelé, napájení a pruh se změnou sítě; na stránkách Síť, Systém a Úložiště tlačítka zůstala a server změnu odmítne hláškou – doplnit skrytí. (2026-11-26)
+- [ ] Ochrana proti hádání hesel je jen podle IP klienta (5 pokusů / 5 min); zpomalení podle účtu (SECURITY_MODEL, M2) zatím chybí. (2026-11-26)
 - [ ] Návod docs/debian/install.md a rootfs ze scripts/debian/build-rootfs.sh zatím nebyly vyzkoušené na čistém NSA310 (rootfs ověřen jen sestavením a kontrolou obsahu tarballu, nenabootován). (2026-11-26)
 - [ ] GUI je jen česky – pro veřejné repo doplnit angličtinu (i18n už je připravené v frontend/src/i18n). (2026-11-26)
 - [ ] Uživatelé a skupiny (W2.1) ověřené na NASu jen přes root helper – po přihlášení projít stránku Uživatelé v prohlížeči na telefonu (360 px) i desktopu (založit, heslo, zakázat, skupina, smazat). (2026-11-26)
@@ -64,6 +68,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Role Administrátor / Jen pro čtení / Uživatel a přihlášení účtů NASu do webu, stránka Můj účet se změnou vlastního hesla (W2.2); nasazeno a ověřeno na NASu. (2026-11-26)
 - Veřejná úvodní stránka repa (banner, snímky GUI, funkce, schéma bootu), návod k instalaci na původní NSA310 a build jádra i rootfs jako skripty v repu; rootfs postaven a zkontrolován. (2026-11-26)
 - Repozitář zveřejněn na GitHubu (Hama4tux/nas-revival); z historie odstraněna domácí podsíť. (2026-11-26)
 - Aktivita disků na požádání (W1.9): zápisy a čtení po discích a oddílech, změněné soubory a procesy, které je drží otevřené, žurnál ext4, swap a vysvětlení, proč disk neusne; nebudí spící disk, jedno měření naráz. Ověřeno na NASu přes root helper. (2026-11-26)

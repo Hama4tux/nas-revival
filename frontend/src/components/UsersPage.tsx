@@ -1,7 +1,7 @@
 import { KeyRound, Pencil, Plus, RefreshCw, Trash2, TriangleAlert, UserCheck, UserX, Users, UsersRound } from 'lucide-react';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
-import type { GroupInfo, UserInfo, UserList } from '../api/types';
+import type { GroupInfo, Role, UserInfo, UserList } from '../api/types';
 import { cs } from '../i18n/cs';
 import { fullNameProblem, nameProblem, passwordIssues, passwordProblem, toggle } from '../lib/users';
 import { Badge } from './ui/badge';
@@ -92,14 +92,37 @@ function PasswordFields({ pw, repeat, setPw, setRepeat, serverErr }: {
   );
 }
 
-function UserDialog({ user, groups, onClose, onDone }: {
-  user: UserInfo | null; groups: GroupInfo[]; onClose: () => void; onDone: (l: UserList, msg: string) => void;
+const ROLES: Role[] = ['user', 'viewer', 'admin'];
+
+function RolePicker({ value, onChange, lockAdmin, error }: {
+  value: Role; onChange: (r: Role) => void; lockAdmin: boolean; error: string | null;
+}) {
+  return (
+    <fieldset className="space-y-1">
+      <legend className="text-sm font-medium">{t.form.role}</legend>
+      {ROLES.map((r) => (
+        <label key={r} className="flex min-h-10 items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
+          <input type="radio" name="role" className="mt-1 h-4 w-4" checked={value === r}
+            disabled={lockAdmin && r !== 'admin'} onChange={() => onChange(r)} />
+          <span><span className="font-medium">{cs.roles[r]}</span>
+            <span className="block text-sm text-muted-foreground">{cs.roleHints[r]}</span></span>
+        </label>
+      ))}
+      {lockAdmin && <p className="text-sm text-muted-foreground">{t.form.selfRole}</p>}
+      {error && <p role="alert" className="text-sm font-medium text-danger">{error}</p>}
+    </fieldset>
+  );
+}
+
+function UserDialog({ user, groups, self, onClose, onDone }: {
+  user: UserInfo | null; groups: GroupInfo[]; self: string | null; onClose: () => void; onDone: (l: UserList, msg: string) => void;
 }) {
   const [name, setName] = useState('');
   const [fullName, setFullName] = useState(user?.fullName ?? '');
   const [pw, setPw] = useState('');
   const [repeat, setRepeat] = useState('');
   const [sel, setSel] = useState<string[]>(user?.groups ?? []);
+  const [role, setRole] = useState<Role>(user?.role ?? 'user');
   const [nameTouched, setNameTouched] = useState(false);
   const a = useAction();
   const editable = groups.filter((g) => !g.builtin).map((g) => g.name);
@@ -112,10 +135,10 @@ function UserDialog({ user, groups, onClose, onDone }: {
     setNameTouched(true);
     if (!valid) return;
     if (user) {
-      void a.run(() => api<UserList>(`/users/${user.name}`, { method: 'PUT', body: { fullName, groups: sel } }),
+      void a.run(() => api<UserList>(`/users/${user.name}`, { method: 'PUT', body: { fullName, groups: sel, role } }),
         (l) => onDone(l, t.done.saved));
     } else {
-      void a.run(() => api<UserList>('/users', { method: 'POST', body: { name, fullName, password: pw, groups: sel } }),
+      void a.run(() => api<UserList>('/users', { method: 'POST', body: { name, fullName, password: pw, groups: sel, role } }),
         (l) => onDone(l, t.done.created(name)));
     }
   }
@@ -137,6 +160,8 @@ function UserDialog({ user, groups, onClose, onDone }: {
           {(p) => <Input {...p} value={fullName} autoComplete="off" className={invalidCls} onChange={(e) => setFullName(e.target.value)} />}
         </Field>
         {!user && <PasswordFields pw={pw} repeat={repeat} setPw={setPw} setRepeat={setRepeat} serverErr={fieldErr('password')} />}
+        <RolePicker value={role} onChange={setRole} lockAdmin={user !== null && user.name === self && user.role === 'admin'}
+          error={fieldErr('role')} />
         <Checks legend={t.form.groups} items={editable} selected={sel} onChange={setSel} empty={t.form.noGroups} />
         {a.err && (!a.field || a.field === 'groups') && <p role="alert" className="font-medium text-danger">{a.err}</p>}
       </form>
@@ -240,13 +265,14 @@ function Action({ icon, label, onClick }: { icon: ReactNode; label: string; onCl
   );
 }
 
-function UserRow({ u, setOpen, onEnable }: { u: UserInfo; setOpen: (o: Open) => void; onEnable: () => void }) {
+function UserRow({ u, setOpen, onEnable, readOnly }: { u: UserInfo; setOpen: (o: Open) => void; onEnable: () => void; readOnly: boolean }) {
   const issues = passwordIssues(u);
   return (
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-medium break-all">{u.name}</span>
         {u.fullName && <span className="text-muted-foreground break-all">{u.fullName}</span>}
+        {u.role !== 'user' && <Badge>{cs.roles[u.role]}</Badge>}
         {u.disabled && <Badge variant="warning">{t.disabled}</Badge>}
         <span className="ml-auto text-xs text-muted-foreground tabular-nums">{t.uid(u.uid)}</span>
       </div>
@@ -262,19 +288,19 @@ function UserRow({ u, setOpen, onEnable }: { u: UserInfo; setOpen: (o: Open) => 
           ))}
         </ul>
       )}
-      <div className="flex flex-wrap gap-2" role="group" aria-label={t.actions(u.name)}>
+      {!readOnly && <div className="flex flex-wrap gap-2" role="group" aria-label={t.actions(u.name)}>
         <Action icon={<Pencil />} label={t.edit} onClick={() => setOpen({ kind: 'edit', user: u })} />
         <Action icon={<KeyRound />} label={t.password} onClick={() => setOpen({ kind: 'password', user: u })} />
         {u.disabled
           ? <Action icon={<UserCheck />} label={t.enable} onClick={onEnable} />
           : <Action icon={<UserX />} label={t.disable} onClick={() => setOpen({ kind: 'disable', user: u })} />}
         <Action icon={<Trash2 />} label={t.delete} onClick={() => setOpen({ kind: 'delete', user: u })} />
-      </div>
+      </div>}
     </li>
   );
 }
 
-export function UsersPage() {
+export function UsersPage({ readOnly, self }: { readOnly: boolean; self: string | null }) {
   const [data, setData] = useState<UserList | null>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<Open | null>(null);
@@ -313,23 +339,22 @@ export function UsersPage() {
     <div className="grid gap-4 xl:grid-cols-[3fr_2fr]">
       <Widget id="users-list" title={t.usersTitle} icon={<Users />}
         right={<div className="flex items-center gap-2">
-          <Button type="button" size="sm" onClick={() => show({ kind: 'create' })}><Plus className="h-4 w-4" aria-hidden />{t.add}</Button>
+          {!readOnly && <Button type="button" size="sm" onClick={() => show({ kind: 'create' })}><Plus className="h-4 w-4" aria-hidden />{t.add}</Button>}
           {refresh}
         </div>}>
         <p className="text-sm text-muted-foreground">{t.hint}</p>
         {!data.samba && <p role="note" className="mt-2 text-sm text-muted-foreground">{t.sambaMissing}</p>}
-        <p className="mt-2 text-sm text-muted-foreground">{t.webLoginLater}</p>
         {msg && <p role="status" className="mt-3 text-sm text-success">{msg}</p>}
         {rowErr && <p role="alert" className="mt-3 text-sm font-medium text-danger">{rowErr}</p>}
         {data.users.length === 0 ? <p className="mt-3 text-sm">{t.empty}</p> : (
           <ul className="mt-2 divide-y divide-border">
-            {data.users.map((u) => <UserRow key={u.name} u={u} setOpen={show} onEnable={() => void enable(u)} />)}
+            {data.users.map((u) => <UserRow key={u.name} u={u} setOpen={show} onEnable={() => void enable(u)} readOnly={readOnly} />)}
           </ul>
         )}
       </Widget>
 
       <Widget id="groups-list" title={t.groupsTitle} icon={<UsersRound />}
-        right={<Button type="button" size="sm" variant="outline" onClick={() => show({ kind: 'group' })}>
+        right={!readOnly && <Button type="button" size="sm" variant="outline" onClick={() => show({ kind: 'group' })}>
           <Plus className="h-4 w-4" aria-hidden />{t.addGroup}
         </Button>}>
         {data.groups.filter((g) => !g.builtin).length === 0 && <p className="mb-2 text-sm">{t.noGroups}</p>}
@@ -345,7 +370,7 @@ export function UsersPage() {
               <p className="text-sm text-muted-foreground break-words">
                 {g.builtin ? t.builtinHint : g.members.length ? g.members.join(', ') : t.noMembers}
               </p>
-              {!g.builtin && (
+              {!g.builtin && !readOnly && (
                 <div className="flex flex-wrap gap-2" role="group" aria-label={t.actions(g.name)}>
                   <Action icon={<Users />} label={t.members} onClick={() => show({ kind: 'members', group: g })} />
                   <Action icon={<Trash2 />} label={t.delete} onClick={() => show({ kind: 'groupDelete', group: g })} />
@@ -356,8 +381,8 @@ export function UsersPage() {
         </ul>
       </Widget>
 
-      {open?.kind === 'create' && <UserDialog user={null} groups={data.groups} onClose={close} onDone={done} />}
-      {open?.kind === 'edit' && <UserDialog user={open.user} groups={data.groups} onClose={close} onDone={done} />}
+      {open?.kind === 'create' && <UserDialog user={null} groups={data.groups} self={self} onClose={close} onDone={done} />}
+      {open?.kind === 'edit' && <UserDialog user={open.user} groups={data.groups} self={self} onClose={close} onDone={done} />}
       {open?.kind === 'password' && (
         <PasswordDialog user={open.user} onClose={close} onDone={(m) => { setOpen(null); setMsg(m); void load(); }} />
       )}

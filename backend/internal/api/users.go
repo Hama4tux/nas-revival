@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/helper"
 )
 
@@ -111,13 +112,24 @@ func (s *Server) userUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		FullName string   `json:"fullName"`
-		Groups   []string `json:"groups"`
+		FullName string        `json:"fullName"`
+		Groups   []string      `json:"groups"`
+		Role     accounts.Role `json:"role"`
 	}
 	if !decodeBody(w, r, usersBodyLimit, &body) {
 		return
 	}
-	l, err := s.Users.UserUpdate(r.Context(), helper.UserUpdate{Name: name, FullName: body.FullName, Groups: body.Groups})
+	if body.Role != "" && body.Role != accounts.RoleAdmin && name == sessionUser(r) {
+		writeInvalid(w, "role", "Nemůžete si odebrat roli administrátora, kterou jste přihlášeni.")
+		return
+	}
+	before, _ := s.roleOf(name)
+	l, err := s.Users.UserUpdate(r.Context(), helper.UserUpdate{Name: name, FullName: body.FullName, Groups: body.Groups, Role: body.Role})
+	// ADR 0004: a role change ends every session of that user.
+	if err == nil && body.Role != "" && body.Role != before {
+		s.Sessions.DeleteUser(name)
+		slog.Info("user role changed", "account", name, "role", body.Role, "by", sessionUser(r))
+	}
 	s.listResult(w, http.StatusOK, l, err)
 }
 

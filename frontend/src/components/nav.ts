@@ -1,5 +1,7 @@
-import { Activity, FolderOpen, HardDrive, LayoutDashboard, Network, ScrollText, Settings, Users, type LucideIcon } from 'lucide-react';
+import { Activity, FolderOpen, HardDrive, LayoutDashboard, Network, ScrollText, Settings, UserRound, Users, type LucideIcon } from 'lucide-react';
+import type { Role } from '../api/types';
 import type { cs } from '../i18n/cs';
+import { canRead } from '../lib/roles';
 
 export interface NavApp { key: keyof typeof cs.nav; icon: LucideIcon; ready: boolean; tone: string; href?: string }
 
@@ -14,3 +16,8 @@ export const apps: NavApp[] = [
   { key: 'system', icon: Settings, ready: true, href: '#/system', tone: 'from-indigo-400 to-blue-700' },
   { key: 'logs', icon: ScrollText, ready: false, tone: 'from-slate-400 to-slate-600' },
 ];
+
+const accountApp: NavApp = { key: 'account', icon: UserRound, ready: true, href: '#/account', tone: 'from-violet-400 to-purple-600' };
+
+/** Administrators and viewers see every section (account is in the user menu); a standard user only their account. */
+export const appsFor = (role: Role): NavApp[] => (canRead(role) ? apps : [accountApp]);

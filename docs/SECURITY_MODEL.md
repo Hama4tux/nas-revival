@@ -39,11 +39,12 @@ files touched, commands run, whether it needs confirmation, whether it takes the
 
 ## Authentication
 
-- **Today:** one administrator, argon2id (t=3, m=16 MiB, p=1) in `/etc/nas-revival/admin.json` (0600).
+- **Recovery administrator:** argon2id (t=3, m=16 MiB, p=1) in `/etc/nas-revival/admin.json` (0600),
+  set only over SSH (`nas-revival set-password`), always role admin (ADR 0004, amended in W2.2).
 - **M2 (ADR 0004):** accounts = Linux users; web hash per Linux username in
   `/etc/nas-revival/credentials.json` (0600, written only by the helper, owned by `nas-revival`
-  and read by the web login; ADR 0004). W2.1 writes it; login by these accounts comes in W2.2. Roles by Linux group:
-  `nas-admin`, `nas-viewer`; others = standard user.
+  and read by the web login; ADR 0004). Since W2.2 these accounts log in; roles by Linux group:
+  `nas-admin`, `nas-viewer`; others = standard user (own password only).
 - Sessions: random 256-bit id, server-side map, idle 30 min, absolute 12 h, rotate on login,
   invalidate all sessions of a user on password change. Session list and forced logout in M5.
 - Brute force: per-client limit 5 failures / 5 min (exists) + global concurrency 1 for argon2
@@ -63,7 +64,7 @@ files touched, commands run, whether it needs confirmation, whether it takes the
 | Output escaping: React escapes text; no `dangerouslySetInnerHTML` | rule, check in review |
 | Input validation: typed JSON decoding with `DisallowUnknownFields`, length limits | per endpoint |
 | Errors without stack traces or internal paths | implemented |
-| Role check on every endpoint (middleware table, default deny) | M2 |
+| Role check on every endpoint (default by method: GET = read-only admin, other = admin; user-level endpoints listed explicitly) | implemented (W2.2) |
 | API tokens with scopes | M6 |
 
 ## Data protection

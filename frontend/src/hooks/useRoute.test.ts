@@ -7,6 +7,7 @@ describe('parseRoute', () => {
     expect(parseRoute('#/network')).toBe('network');
     expect(parseRoute('#/system')).toBe('system');
     expect(parseRoute('#/users')).toBe('users');
+    expect(parseRoute('#/account')).toBe('account');
   });
   it('falls back to the overview', () => {
     expect(parseRoute('')).toBe('overview');

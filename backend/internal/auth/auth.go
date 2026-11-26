@@ -1,5 +1,6 @@
-// Package auth implements the single administrator login: an argon2id password
-// file, in-memory sessions and a per-client failed-login limiter.
+// Package auth implements the web login: argon2id password verification
+// against the NAS accounts (ADR 0004) and the recovery administrator file,
+// in-memory sessions and a per-client failed-login limiter.
 package auth
 
 import (
@@ -143,36 +144,50 @@ func SaveCredentials(path string, c Credentials) error {
 	return os.Rename(tmp.Name(), path)
 }
 
+// HashLookup returns the stored argon2id hash of a username that may log in.
+type HashLookup func(username string) (hash string, ok bool)
+
 // Verifier checks a username/password pair against stored credentials.
 type Verifier struct {
-	creds Credentials
-	dummy argonHash
-	sem   chan struct{}
+	lookup HashLookup
+	dummy  argonHash
+	sem    chan struct{}
 }
 
+// NewVerifier accepts exactly one account (tests, single-administrator mode).
 func NewVerifier(c Credentials) (*Verifier, error) {
 	if _, err := parseHash(c.Hash); err != nil {
 		return nil, err
 	}
+	return NewLookupVerifier(func(u string) (string, bool) {
+		if subtle.ConstantTimeCompare([]byte(u), []byte(c.Username)) == 1 {
+			return c.Hash, true
+		}
+		return "", false
+	})
+}
+
+// NewLookupVerifier checks passwords against the hashes lookup returns.
+func NewLookupVerifier(lookup HashLookup) (*Verifier, error) {
 	// A dummy hash keeps the timing of unknown usernames equal to wrong passwords.
 	dummy, err := HashPassword("dummy-password-for-timing")
 	if err != nil {
 		return nil, err
 	}
 	d, _ := parseHash(dummy)
-	return &Verifier{creds: c, dummy: d, sem: make(chan struct{}, 1)}, nil
+	return &Verifier{lookup: lookup, dummy: d, sem: make(chan struct{}, 1)}, nil
 }
 
 func (v *Verifier) Verify(username, password string) error {
 	v.sem <- struct{}{}
 	defer func() { <-v.sem }()
-	userOK := subtle.ConstantTimeCompare([]byte(username), []byte(v.creds.Username)) == 1
-	h, _ := parseHash(v.creds.Hash)
-	if !userOK {
-		h = v.dummy
+	stored, ok := v.lookup(username)
+	h, err := parseHash(stored)
+	if !ok || err != nil {
+		h, ok = v.dummy, false
 	}
 	key := argon2.IDKey([]byte(password), h.salt, h.time, h.memory, h.threads, uint32(len(h.key)))
-	if subtle.ConstantTimeCompare(key, h.key) == 1 && userOK {
+	if subtle.ConstantTimeCompare(key, h.key) == 1 && ok {
 		return nil
 	}
 	return ErrInvalidCredentials

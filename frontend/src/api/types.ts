@@ -1,4 +1,6 @@
-export interface SessionInfo { username: string; expiresAt: string }
+/** Web role (W2.2, ADR 0004): nas-admin, nas-viewer, otherwise standard user. */
+export type Role = 'admin' | 'viewer' | 'user';
+export interface SessionInfo { username: string; role: Role; expiresAt: string }
 export type SensorStatus = 'ok' | 'unknown' | 'unsupported' | 'fault';
 export type ServiceState = 'active' | 'inactive' | 'failed' | 'done' | 'unknown';
 
@@ -218,7 +220,7 @@ export interface DiskActivity {
 /** GET /users (W2.1): NAS accounts (Linux users in nas-users) and editable groups. */
 export type SambaPassword = 'set' | 'missing' | 'unavailable';
 export interface UserInfo {
-  name: string; uid: number; fullName: string; groups: string[]; disabled: boolean;
+  name: string; uid: number; fullName: string; groups: string[]; role: Role; disabled: boolean;
   password: { linux: boolean; samba: SambaPassword; web: boolean; changedOutside: boolean; changed?: string };
 }
 export interface GroupInfo { name: string; gid: number; members: string[]; builtin: boolean }

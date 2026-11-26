@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"time"
 
+	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/auth"
 	"nas-revival/backend/internal/helper"
 	"nas-revival/backend/internal/smart"
@@ -33,8 +34,19 @@ type SmartSource interface {
 	Report(ctx context.Context) smart.Report
 }
 
+// RoleSource resolves the current role of a logged-in user (auth.Directory).
+type RoleSource interface {
+	Role(username string) (accounts.Role, bool)
+	// IsNASUser: the account's password is changed through the helper;
+	// otherwise it is the recovery administrator (admin.json).
+	IsNASUser(username string) bool
+}
+
 type Server struct {
 	Verifier *auth.Verifier
+	// Roles is consulted on every request; nil means single-administrator
+	// mode (tests, mock), where every session is an administrator.
+	Roles    RoleSource
 	Sessions *auth.Sessions
 	Limiter  *auth.Limiter
 	Overview OverviewSource
@@ -69,8 +81,9 @@ type Server struct {
 func (s *Server) Handler() http.Handler {
 	api := http.NewServeMux()
 	api.HandleFunc("POST /api/v1/session", s.login)
-	api.HandleFunc("GET /api/v1/session", s.requireSession(s.sessionInfo))
-	api.HandleFunc("DELETE /api/v1/session", s.requireSession(s.logout))
+	api.HandleFunc("GET /api/v1/session", s.requireRole(accounts.RoleUser, s.sessionInfo))
+	api.HandleFunc("DELETE /api/v1/session", s.requireRole(accounts.RoleUser, s.logout))
+	s.registerAccount(api)
 	api.HandleFunc("GET /api/v1/overview", s.requireSession(s.overview))
 	api.HandleFunc("GET /api/v1/smart", s.requireSession(s.smart))
 	s.registerSettings(api)
@@ -138,11 +151,33 @@ type ctxKey struct{}
 
 type sessionCtx struct {
 	username string
+	role     accounts.Role
 	expires  time.Time
 	token    string
 }
 
+// requireSession is the default policy (USR-04, default deny): reading needs
+// at least the read-only administrator, every change the administrator.
+// Endpoints a standard user may call use requireRole(RoleUser, …) explicitly.
 func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
+	read, write := s.requireRole(accounts.RoleViewer, next), s.requireRole(accounts.RoleAdmin, next)
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet || r.Method == http.MethodHead {
+			read(w, r)
+			return
+		}
+		write(w, r)
+	}
+}
+
+func (s *Server) roleOf(user string) (accounts.Role, bool) {
+	if s.Roles == nil {
+		return accounts.RoleAdmin, true
+	}
+	return s.Roles.Role(user)
+}
+
+func (s *Server) requireRole(min accounts.Role, next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		c, err := r.Cookie(cookieName)
 		if err != nil {
@@ -155,10 +190,30 @@ func (s *Server) requireSession(next http.HandlerFunc) http.HandlerFunc {
 			writeError(w, http.StatusUnauthorized, "unauthenticated", "Přihlaste se.")
 			return
 		}
-		ctx := context.WithValue(r.Context(), ctxKey{}, sessionCtx{username: user, expires: exp, token: c.Value})
+		// The role is looked up on every request, so a role change, disable or
+		// delete (also from the console) applies at once.
+		role, ok := s.roleOf(user)
+		if !ok {
+			s.Sessions.DeleteUser(user)
+			clearCookie(w)
+			writeError(w, http.StatusUnauthorized, "unauthenticated", "Přihlaste se.")
+			return
+		}
+		if !role.Allows(min) {
+			writeError(w, http.StatusForbidden, "forbidden", forbiddenMessage(role))
+			return
+		}
+		ctx := context.WithValue(r.Context(), ctxKey{}, sessionCtx{username: user, role: role, expires: exp, token: c.Value})
 		ctx = helper.WithUser(ctx, user)
 		next(w, r.WithContext(ctx))
 	}
+}
+
+func forbiddenMessage(role accounts.Role) string {
+	if role == accounts.RoleViewer {
+		return "Účet jen pro čtení nemůže nic měnit."
+	}
+	return "K této části nemáte přístup."
 }
 
 func clientIP(r *http.Request) string {
@@ -200,7 +255,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal", "Interní chyba.")
 		return
 	}
-	slog.Info("login", "user", body.Username, "client", ip)
+	role, _ := s.roleOf(body.Username)
+	slog.Info("login", "user", body.Username, "role", role, "client", ip)
 	http.SetCookie(w, &http.Cookie{
 		Name: cookieName, Value: token, Path: "/",
 		HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode,
@@ -218,7 +274,8 @@ func clearCookie(w http.ResponseWriter) {
 
 func (s *Server) sessionInfo(w http.ResponseWriter, r *http.Request) {
 	sc := r.Context().Value(ctxKey{}).(sessionCtx)
-	writeJSON(w, http.StatusOK, map[string]any{"username": sc.username, "expiresAt": sc.expires.UTC().Format(time.RFC3339)})
+	writeJSON(w, http.StatusOK, map[string]any{"username": sc.username, "role": sc.role,
+		"expiresAt": sc.expires.UTC().Format(time.RFC3339)})
 }
 
 func (s *Server) logout(w http.ResponseWriter, r *http.Request) {

@@ -16,9 +16,14 @@
   (`chpasswd`), Samba (`smbpasswd -s`), web argon2id in `/etc/nas-revival/credentials.json`
   (0600, keyed by Linux username). If one step fails, the earlier ones are rolled back where
   possible and the error lists which service still has the old password.
-- The existing single `admin.json` account is migrated to a Linux user in `nas-admin` with the same
-  web hash; Linux/Samba hashes are set on the first password change.
-- All sessions of a user are revoked on password change, role change, disable or delete.
+- ~~The existing single `admin.json` account is migrated to a Linux user in `nas-admin`.~~ Amended
+  2026-11-26 (W2.2): `admin.json` stays as the **recovery administrator**, set only over SSH with
+  `nas-revival set-password`, always role admin, so a locked-out web can be recovered without the
+  console. A NAS account with the same name replaces it completely (the migration path); the file
+  may be removed once a NAS administrator exists (the web then logs in NAS accounts only).
+- All sessions of a user are revoked on password change, role change, disable or delete. The web
+  also re-reads the role (`/etc/group`) and the disabled flag (`credentials.json`) on every request
+  (cached by file size and mtime), so changes made on the console apply at once too.
 - argon2id verification is serialized (one at a time) to cap RAM (16 MiB each).
 
 ## Consequences

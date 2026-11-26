@@ -3,7 +3,7 @@ import type { UserInfo } from '../api/types';
 import { fullNameProblem, nameProblem, passwordIssues, passwordProblem, toggle } from './users';
 
 const user = (p: Partial<UserInfo['password']>): UserInfo => ({
-  name: 'jana', uid: 1001, fullName: '', groups: [], disabled: false,
+  name: 'jana', uid: 1001, fullName: '', groups: [], role: 'user', disabled: false,
   password: { linux: true, samba: 'unavailable', web: true, changedOutside: false, ...p },
 });
 

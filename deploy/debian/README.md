@@ -14,6 +14,12 @@ chown nas-revival:nas-revival /etc/nas-revival/admin.json
 systemctl daemon-reload && systemctl enable --now nas-revival-helper nas-revival
 ```
 
+Web login (W2.2, ADR 0004): `admin.json` is the recovery administrator (set over SSH as above);
+NAS accounts log in with the web hash the helper keeps in `/etc/nas-revival/credentials.json`, role by
+membership in `nas-admin` / `nas-viewer` (created by the helper on first use). After deploying, run
+`scripts/webui/e2e-roles.sh` from the workstation: it creates three throw-away accounts, checks login,
+the role policy, own password change, role change and disable over HTTPS, and deletes them again.
+
 Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
 balanced profile (APM 254, no standby on the system disk).

@@ -1,10 +1,13 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
 let fails = 0;
+/** Log in as "viewer" or "user" (any other name = admin) to try the roles. */
+let sessionUser = 'admin';
+const sessionRole = (): Role => (sessionUser === 'viewer' ? 'viewer' : sessionUser === 'user' ? 'user' : 'admin');
 
 /* ---------- settings state (module-level, lives until page reload) ---------- */
 const HOST_ADDR = '192.0.2.10';
@@ -416,9 +419,9 @@ function powerRoute(path: string, method: string, body: unknown): Response | nul
 
 /* ---------- users (W2.1) ---------- */
 let mockUsers: UserInfo[] = [
-  { name: 'jana', uid: 1001, fullName: 'Jana Nováková', groups: ['rodina'], disabled: false,
+  { name: 'jana', uid: 1001, fullName: 'Jana Nováková', groups: ['rodina'], role: 'admin', disabled: false,
     password: { linux: true, samba: 'unavailable', web: true, changedOutside: false, changed: new Date(start - 3 * day).toISOString() } },
-  { name: 'petr', uid: 1002, fullName: '', groups: [], disabled: true,
+  { name: 'petr', uid: 1002, fullName: '', groups: [], role: 'user', disabled: true,
     password: { linux: true, samba: 'unavailable', web: true, changedOutside: true } },
 ];
 let mockGroups: { name: string; gid: number; members: string[] }[] = [{ name: 'rodina', gid: 1003, members: ['jana'] }];
@@ -444,7 +447,8 @@ function usersRoute(path: string, method: string, body: Record<string, unknown>)
     if (name.startsWith('nas-')) return bad('name', 'Jména začínající nas- jsou vyhrazená.');
     if (mockUsers.some((u) => u.name === name) || mockGroups.some((g) => g.name === name)) return bad('name', 'Uživatel s tímto jménem už existuje.');
     if ([...pw].length < 12) return bad('password', 'Heslo musí mít alespoň 12 znaků.');
-    mockUsers = [...mockUsers, { name, uid: 1000 + mockUsers.length + 4, fullName: String(body.fullName ?? '').trim(), groups: [], disabled: false,
+    mockUsers = [...mockUsers, { name, uid: 1000 + mockUsers.length + 4, fullName: String(body.fullName ?? '').trim(), groups: [],
+      role: (body.role as Role | undefined) ?? 'user', disabled: false,
       password: { linux: true, samba: 'unavailable' as const, web: true, changedOutside: false, changed: new Date().toISOString() } }]
       .sort((a, b) => a.name.localeCompare(b.name));
     setMembership(name, (body.groups as string[] | undefined) ?? []);
@@ -479,7 +483,7 @@ function usersRoute(path: string, method: string, body: Record<string, unknown>)
   }
   if (m[2] === 'disabled' && method === 'PUT') { patch({ disabled: !!body.disabled }); return json(200, userList()); }
   if (!m[2] && method === 'PUT') {
-    patch({ fullName: String(body.fullName ?? '').trim() });
+    patch({ fullName: String(body.fullName ?? '').trim(), ...(body.role ? { role: body.role as Role } : {}) });
     setMembership(u.name, (body.groups as string[] | undefined) ?? []);
     return json(200, userList());
   }
@@ -511,15 +515,26 @@ export function installMock(): void {
         const b = JSON.parse(String(init?.body ?? '{}')) as { username?: string; password?: string };
         if (fails >= 5) return err(429, 'rate_limited', 'Too many attempts', { 'Retry-After': '240' });
         if (b.password !== 'demo') { fails++; return err(401, 'invalid_credentials', 'Invalid credentials'); }
-        fails = 0; loggedIn = true;
+        fails = 0; loggedIn = true; sessionUser = b.username ?? 'admin';
         return new Response(null, { status: 204 });
       }
       if (method === 'DELETE') { loggedIn = false; return new Response(null, { status: 204 }); }
       return loggedIn
-        ? json(200, { username: 'admin', expiresAt: new Date(Date.now() + 12 * 3600e3).toISOString() })
+        ? json(200, { username: sessionUser, role: sessionRole(), expiresAt: new Date(Date.now() + 12 * 3600e3).toISOString() })
         : err(401, 'unauthorized', 'Login required');
     }
     if (!loggedIn) return err(401, 'unauthorized', 'Login required');
+    if (path === '/session/password' && method === 'PUT') {
+      const b = JSON.parse(String(init?.body ?? '{}')) as { current?: string; password?: string };
+      if (b.current !== 'demo') return bad('current', 'Současné heslo nesouhlasí.');
+      if ([...(b.password ?? '')].length < 12) return bad('password', 'Heslo musí mít alespoň 12 znaků.');
+      loggedIn = false;
+      return json(200, { samba: false });
+    }
+    // Same policy as the backend: viewers read, standard users only their session.
+    if (sessionRole() === 'user' || (sessionRole() === 'viewer' && method !== 'GET')) {
+      return err(403, 'forbidden', sessionRole() === 'viewer' ? 'Účet jen pro čtení nemůže nic měnit.' : 'K této části nemáte přístup.');
+    }
     if (path === '/overview') return json(200, overview());
     if (path === '/smart') return json(200, smart());
     if (path === '/storage') return json(200, storage());

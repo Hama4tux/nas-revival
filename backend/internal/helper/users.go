@@ -105,6 +105,19 @@ type UserCreate struct {
 	FullName string   `json:"fullName"`
 	Password string   `json:"password"`
 	Groups   []string `json:"groups"`
+	// Role defaults to the standard user (W2.2).
+	Role accounts.Role `json:"role,omitempty"`
+}
+
+// validRole accepts a role; "" means def.
+func validRole(r, def accounts.Role) (accounts.Role, error) {
+	if r == "" {
+		return def, nil
+	}
+	if !accounts.ValidRole(r) {
+		return "", invalid("role", "Neznámá role.")
+	}
+	return r, nil
 }
 
 // ValidateUserCreate checks the shape of the request (the web process runs
@@ -123,6 +136,9 @@ func ValidateUserCreate(c UserCreate) (UserCreate, error) {
 	if c.Groups, err = validNameList("groups", c.Groups); err != nil {
 		return c, err
 	}
+	if c.Role, err = validRole(c.Role, accounts.RoleUser); err != nil {
+		return c, err
+	}
 	return c, ValidatePassword(c.Password)
 }
 
@@ -134,11 +150,12 @@ const (
 )
 
 type UserInfo struct {
-	Name     string   `json:"name"`
-	UID      int      `json:"uid"`
-	FullName string   `json:"fullName"`
-	Groups   []string `json:"groups"`
-	Disabled bool     `json:"disabled"`
+	Name     string        `json:"name"`
+	UID      int           `json:"uid"`
+	FullName string        `json:"fullName"`
+	Groups   []string      `json:"groups"`
+	Role     accounts.Role `json:"role"`
+	Disabled bool          `json:"disabled"`
 	Password struct {
 		Linux bool   `json:"linux"`
 		Samba string `json:"samba"`
@@ -229,7 +246,7 @@ func (m *UserManager) list(ctx context.Context) (UserList, error) {
 	for _, u := range db.NASUsers() {
 		sh := db.Shadow[u.Name]
 		info := UserInfo{Name: u.Name, UID: u.UID, FullName: accounts.FullName(u.Gecos),
-			Groups: db.EditableGroupsOf(u.Name), Disabled: sh.Locked(today)}
+			Groups: db.EditableGroupsOf(u.Name), Role: db.RoleOf(u.Name), Disabled: sh.Locked(today)}
 		info.Password.Linux = sh.HasPassword()
 		w, ok := web[u.Name]
 		info.Password.Web = ok && w.Hash != ""
@@ -305,6 +322,26 @@ func (m *UserManager) ensureUsersGroup(ctx context.Context, db accounts.DB) erro
 	return m.run(ctx, "Nelze vytvořit skupinu nas-users.", "groupadd", "--system", accounts.UsersGroup)
 }
 
+// ensureRoleGroup creates nas-admin / nas-viewer on first use.
+func (m *UserManager) ensureRoleGroup(ctx context.Context, db accounts.DB, r accounts.Role) error {
+	g := accounts.RoleGroup(r)
+	if g == "" {
+		return nil
+	}
+	if _, ok := db.Group(g); ok {
+		return nil
+	}
+	return m.run(ctx, "Nelze vytvořit skupinu "+g+".", "groupadd", "--system", g)
+}
+
+// withRole returns groups plus the group of role r.
+func withRole(groups []string, r accounts.Role) []string {
+	if g := accounts.RoleGroup(r); g != "" {
+		return append(append([]string{}, groups...), g)
+	}
+	return groups
+}
+
 func (m *UserManager) Create(ctx context.Context, c UserCreate, actor string) (UserList, error) {
 	c, err := ValidateUserCreate(c)
 	if err != nil {
@@ -328,12 +365,15 @@ func (m *UserManager) Create(ctx context.Context, c UserCreate, actor string) (U
 	if err := m.ensureUsersGroup(ctx, db); err != nil {
 		return UserList{}, err
 	}
+	if err := m.ensureRoleGroup(ctx, db, c.Role); err != nil {
+		return UserList{}, err
+	}
 	// No home directory and no login shell: access is through shares (and
 	// later SFTP), never an interactive shell.
 	args := []string{"--no-create-home", "--no-user-group", "--gid", accounts.UsersGroup,
 		"--home-dir", "/nonexistent", "--shell", "/usr/sbin/nologin", "--comment", c.FullName}
-	if len(c.Groups) > 0 {
-		args = append(args, "--groups", strings.Join(c.Groups, ","))
+	if all := withRole(c.Groups, c.Role); len(all) > 0 {
+		args = append(args, "--groups", strings.Join(all, ","))
 	}
 	if err := m.run(ctx, "Uživatele se nepodařilo vytvořit.", "useradd", append(args, c.Name)...); err != nil {
 		return UserList{}, err
@@ -344,7 +384,7 @@ func (m *UserManager) Create(ctx context.Context, c UserCreate, actor string) (U
 		m.forgetWeb(c.Name)
 		return UserList{}, err
 	}
-	slog.Info("helper: user.create", "account", c.Name, "groups", c.Groups, "user", actor)
+	slog.Info("helper: user.create", "account", c.Name, "groups", c.Groups, "role", c.Role, "user", actor)
 	return m.list(ctx)
 }
 
@@ -353,6 +393,8 @@ type UserUpdate struct {
 	Name     string   `json:"name"`
 	FullName string   `json:"fullName"`
 	Groups   []string `json:"groups"`
+	// Role "" keeps the current role.
+	Role accounts.Role `json:"role,omitempty"`
 }
 
 func (m *UserManager) Update(ctx context.Context, u UserUpdate, actor string) (UserList, error) {
@@ -362,6 +404,9 @@ func (m *UserManager) Update(ctx context.Context, u UserUpdate, actor string) (U
 	}
 	groups, err := validNameList("groups", u.Groups)
 	if err != nil {
+		return UserList{}, err
+	}
+	if _, err := validRole(u.Role, ""); err != nil {
 		return UserList{}, err
 	}
 	m.mu.Lock()
@@ -376,14 +421,27 @@ func (m *UserManager) Update(ctx context.Context, u UserUpdate, actor string) (U
 	if err := checkGroups(db, groups); err != nil {
 		return UserList{}, err
 	}
+	role := u.Role
+	if role == "" {
+		role = db.RoleOf(u.Name)
+	}
+	if err := m.ensureRoleGroup(ctx, db, role); err != nil {
+		return UserList{}, err
+	}
 	// usermod --groups replaces the whole list: keep memberships the UI
-	// does not manage.
-	all := append(db.OtherGroupsOf(u.Name), groups...)
+	// does not manage, except the role groups, which follow role.
+	var all []string
+	for _, g := range db.OtherGroupsOf(u.Name) {
+		if g != accounts.AdminGroup && g != accounts.ViewerGroup {
+			all = append(all, g)
+		}
+	}
+	all = withRole(append(all, groups...), role)
 	if err := m.run(ctx, "Uživatele se nepodařilo upravit.", "usermod", "--comment", full,
 		"--groups", strings.Join(all, ","), u.Name); err != nil {
 		return UserList{}, err
 	}
-	slog.Info("helper: user.update", "account", u.Name, "groups", groups, "user", actor)
+	slog.Info("helper: user.update", "account", u.Name, "groups", groups, "role", role, "user", actor)
 	return m.list(ctx)
 }
 

@@ -66,11 +66,20 @@ func serve(args []string) error {
 		return err
 	}
 
+	// admin.json is the recovery administrator; NAS accounts log in with
+	// their web hash from credentials.json (ADR 0004, W2.2).
+	dir := &auth.Directory{Paths: accounts.SystemPaths,
+		Web: accounts.WebPasswords{Path: filepath.Join(*configDir, "credentials.json"), OwnerUID: -1, OwnerGID: -1}}
 	creds, err := auth.LoadCredentials(filepath.Join(*configDir, "admin.json"))
-	if err != nil {
-		return fmt.Errorf("load administrator (run 'nas-revival set-password' first): %w", err)
+	switch {
+	case err == nil:
+		dir.Admin = &creds
+	case errors.Is(err, os.ErrNotExist):
+		slog.Info("no recovery administrator (admin.json); only NAS accounts can log in")
+	default:
+		return fmt.Errorf("load administrator: %w", err)
 	}
-	verifier, err := auth.NewVerifier(creds)
+	verifier, err := auth.NewLookupVerifier(dir.Hash)
 	if err != nil {
 		return err
 	}
@@ -101,6 +110,7 @@ func serve(args []string) error {
 
 	srv := &api.Server{
 		Verifier: verifier,
+		Roles:    dir,
 		Sessions: auth.NewSessions(),
 		Limiter:  auth.NewLimiter(),
 		Overview: snapshots,

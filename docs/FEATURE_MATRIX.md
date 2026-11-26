@@ -99,7 +99,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | USR-01 | Users | List, create, edit, disable, delete Linux NAS users | P0 | Tested | — | shadow utils | L | privilege escalation | uid < 1000 and root immutable; delete keeps home unless confirmed | PRIV-01, CFG-02 |
 | USR-02 | Users | Password change syncs shadow, Samba and web hash | P0 | Tested | — | chpasswd, smbpasswd | M | password in logs/argv | password only via stdin; never logged | USR-01 |
 | USR-03 | Users | Groups, membership, protected system groups | P0 | Tested | — | groupadd | L | adding user to `sudo`/`disk` | only `nas-*` and user-created groups editable | USR-01 |
-| USR-04 | Users | Web roles admin / read-only admin / user (ADR 0004) | P0 | Not started | — | — | L | role bypass | every endpoint has role check; test matrix per role | USR-03, SEC-02 |
+| USR-04 | Users | Web roles admin / read-only admin / user (ADR 0004) | P0 | Tested | — | — | L | role bypass | every endpoint has role check; test matrix per role | USR-03, SEC-02 |
 | USR-05 | Users | Per-service access (SMB, SFTP, NFS-by-host) | P1 | Not started | — | — | L | unintended access | user without SMB right cannot log into SMB | USR-03 |
 | USR-06 | Users | Effective permission view per user/share | P1 | Not started | — | getfacl | L | none | matches actual access test | SHARE-02 |
 | USR-07 | Users | Home directories (optional) | P2 | Not started | — | — | L | — | `homes` share off by default | SHARE-01 |

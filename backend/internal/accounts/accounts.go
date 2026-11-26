@@ -167,6 +167,9 @@ func Load(p Paths) (DB, error) {
 	}
 	db.Passwd, db.Groups = ParsePasswd(pw), ParseGroup(gr)
 	db.Shadow = map[string]ShadowEntry{}
+	if p.Shadow == "" { // the web process cannot read shadow and does not try
+		return db, nil
+	}
 	if sh, err := os.ReadFile(p.Shadow); err == nil {
 		for _, s := range ParseShadow(sh) {
 			db.Shadow[s.Name] = s
@@ -272,4 +275,55 @@ func contains(list []string, s string) bool {
 func FullName(gecos string) string {
 	n, _, _ := strings.Cut(gecos, ",")
 	return n
+}
+
+// Role of a NAS account in the web administration (ADR 0004).
+type Role string
+
+const (
+	RoleAdmin  Role = "admin"  // member of nas-admin: everything
+	RoleViewer Role = "viewer" // member of nas-viewer: read-only administration
+	RoleUser   Role = "user"   // standard user: own account only
+)
+
+// ValidRole accepts the three roles.
+func ValidRole(r Role) bool { return r == RoleAdmin || r == RoleViewer || r == RoleUser }
+
+// RoleGroup is the Linux group that grants r; RoleUser has none.
+func RoleGroup(r Role) string {
+	switch r {
+	case RoleAdmin:
+		return AdminGroup
+	case RoleViewer:
+		return ViewerGroup
+	}
+	return ""
+}
+
+// RoleOf derives the role from the role groups; nas-admin wins if an account
+// was put into both by hand.
+func (db DB) RoleOf(name string) Role {
+	if g, ok := db.Group(AdminGroup); ok && contains(g.Members, name) {
+		return RoleAdmin
+	}
+	if g, ok := db.Group(ViewerGroup); ok && contains(g.Members, name) {
+		return RoleViewer
+	}
+	return RoleUser
+}
+
+// Allows reports whether role r includes the rights of min
+// (admin ⊃ viewer ⊃ user).
+func (r Role) Allows(min Role) bool { return roleRank(r) >= roleRank(min) && roleRank(min) > 0 }
+
+func roleRank(r Role) int {
+	switch r {
+	case RoleAdmin:
+		return 3
+	case RoleViewer:
+		return 2
+	case RoleUser:
+		return 1
+	}
+	return 0
 }
