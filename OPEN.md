@@ -8,7 +8,6 @@
 - [ ] Jádro NASu nemá CONFIG_TASK_IO_ACCOUNTING (chybí /proc/<pid>/io), takže měření aktivity neukazuje bajty po procesech, jen soubory otevřené pro zápis. Zapnout ho při příštím sestavení jádra? Vyžaduje zápis do NAND slotu a restart – jen se souhlasem. (2026-11-26)
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
 - [ ] Vyzkoušet vypnutí z GUI – device tree má gpio-poweroff, ale že NSA310 opravdu odpojí napájení (a jde znovu zapnout tlačítkem), není ověřené. (2026-11-25)
-- [ ] Repo nas-revival nemá nastavený git remote – commity zůstávají jen lokálně; vlastník rozhodne, kam pushovat. (2026-11-25)
 - [ ] Před dočasným bootem OpenWrt (M3) zajistit vhodný USB–TTL adaptér (3,3 V) a ověřit pinout a napětí konkrétní desky; připojení a jakýkoli restart musí být samostatně schválené. (2026-11-16)
 
 
@@ -61,6 +60,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Repozitář zveřejněn na GitHubu (Hama4tux/nas-revival); z historie odstraněna domácí podsíť. (2026-11-26)
 - Aktivita disků na požádání (W1.9): zápisy a čtení po discích a oddílech, změněné soubory a procesy, které je drží otevřené, žurnál ext4, swap a vysvětlení, proč disk neusne; nebudí spící disk, jedno měření naráz. Ověřeno na NASu přes root helper. (2026-11-26)
 - Přehled se zdravím z NASu (W1.7): seznam problémů s časem kontroly, stav napájení disku ve widgetu Úložiště, jeden společný sběr dat pro všechny prohlížeče (5 s / 60 s v klidu); nasazeno na NAS, služba běží, v prohlížeči s přihlášením zatím nezkontrolováno. (2026-11-25)
 - Restart a vypnutí z GUI (W1.6): kontrola před akcí (samotest SMART, COPY, apt/dpkg, nepotvrzená síť), potvrzení názvem NASu a jednorázovým tokenem, vynucení druhým potvrzením, sync a obrazovka „restartuje se / vypíná se“; kontrola ověřena na NASu, samotný restart zatím ne. (2026-11-25)
