@@ -1,6 +1,7 @@
 # Changelog
 
 ## 2026-11-26
+- Kontrola před restartem hlásí „Stahování záloh ze serverů“ podle běžících zálohovacích úloh NAS Revival (nas-revival-backup@…) místo dočasné úlohy nas-pull, která je vypnutá. Ověřeno na NASu během skutečné zálohy.
 - Zálohy ze serverů (W4.3, fáze 1): v Plánovaných úlohách nový typ „Stažení zálohy ze serveru“ – rsync přes SSH pod účtem nas-backup, zrcadlo + denní verze s dobou držení 1–90 dní, kontrola stáří exportu, klíč NASu s hotovým omezeným řádkem do authorized_keys, ověření otisku serveru, test připojení s varováním při plném přístupu klíče a volitelná sdílená složka „zalohy“ (SMB, jen ke čtení, jen administrátoři). Dočasná úloha nas-pull převzata, zálohy nově denně v 5:00.
 - Plánované úlohy (W3.3): nová aplikace „Plánované úlohy“ – seznam úloh s příštím během a výsledkem posledního, Spustit teď, Zastavit, historie 30 běhů a úprava (test SMART krátký/dlouhý na vybraném disku, vysypání košů; denně, vybrané dny v týdnu nebo den v měsíci). Úlohy běží bez práv roota a jedna po druhé (zámek náročných úloh, nejvýš 3 h čekání, pak „přeskočeno“). Automatické vysypávání košů je teď výchozí úloha „Vysypání košů“ denně ve 3:30.
 - Z veřejného repa odstraněny opuštěné cesty OpenWrt a Stage 1 (Buildroot), starý průzkum a interní soubory (OPEN.md je nyní jen lokální); kontrola před commitem odmítne klíče SSH, .env, cesty do domova a soukromé vzory.

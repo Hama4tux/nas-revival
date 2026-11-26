@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"nas-revival/backend/internal/tasks"
 )
 
 const (
@@ -37,11 +40,11 @@ func (f *fakeSys) run(_ context.Context, name string, args ...string) ([]byte, e
 			return []byte(f.copyState + "\n"), errors.New("exit 3")
 		}
 		return []byte("active\n"), nil
-	case call == "systemctl is-active "+backupUnit:
+	case call == "systemctl list-units --plain --no-legend --state=active,activating,deactivating,reloading -- "+backupUnits:
 		if f.backupState != "activating" {
-			return []byte("inactive\n"), errors.New("exit 3")
+			return nil, nil
 		}
-		return []byte("activating\n"), errors.New("exit 3")
+		return []byte("nas-revival-backup@silo.service loaded activating start start NAS Revival backup pull job silo\n"), nil
 	case name == "systemctl" && f.failSystemctl:
 		return nil, errors.New("exit 1")
 	}
@@ -237,5 +240,11 @@ func TestPreflightBackupUnitHidesLockBlocker(t *testing.T) {
 	fx.m.HeavyLock = lock
 	if got := codes(fx.m.Preflight(context.Background()).Blockers); got != "backup_running:" {
 		t.Fatalf("got %s", got)
+	}
+}
+
+func TestBackupUnitsMatchTaskBackupService(t *testing.T) {
+	if ok, _ := path.Match(backupUnits, tasks.BackupServiceName("silo")); !ok {
+		t.Fatalf("%s does not match %s", backupUnits, tasks.BackupServiceName("silo"))
 	}
 }

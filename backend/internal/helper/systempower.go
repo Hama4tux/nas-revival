@@ -37,9 +37,8 @@ const (
 // copyUnit is the COPY button job (deploy/debian/nsa310-copy.service).
 const copyUnit = "nsa310-copy.service"
 
-// backupUnit is the interim backup pull job installed outside NAS Revival;
-// backup jobs of W4.3 replace it (ADR 0008).
-const backupUnit = "nas-pull.service"
+// backupUnits matches the backup pull jobs (tasks.BackupServiceName).
+const backupUnits = "nas-revival-backup@*.service"
 
 // DefaultHeavyLock is held (flock) for the whole run by scheduled tasks
 // (W3.3) and the backup pull job; tmpfiles creates it root-owned.
@@ -93,8 +92,8 @@ func (m *SystemPowerManager) Preflight(ctx context.Context) PowerPreflight {
 	if m.unitRunning(ctx, copyUnit) {
 		b = append(b, PowerBlocker{Code: BlockCopy})
 	}
-	if m.unitRunning(ctx, backupUnit) {
-		// The pull job holds the heavy lock too; one reason is enough.
+	if m.backupRunning(ctx) {
+		// Backup jobs hold the heavy lock too; one reason is enough.
 		b = append(b, PowerBlocker{Code: BlockBackup})
 	} else if m.heavyLockHeld() {
 		b = append(b, PowerBlocker{Code: BlockTask})
@@ -151,6 +150,17 @@ func (m *SystemPowerManager) unitRunning(ctx context.Context, unit string) bool 
 		return true
 	}
 	return false
+}
+
+// backupRunning: a backup job unit is running (or starting, waiting for the lock).
+func (m *SystemPowerManager) backupRunning(ctx context.Context) bool {
+	out, err := m.Run(ctx, "systemctl", "list-units", "--plain", "--no-legend",
+		"--state=active,activating,deactivating,reloading", "--", backupUnits)
+	if err != nil {
+		slog.Warn("helper: power preflight: backup units not listed", "err", err)
+		return false
+	}
+	return strings.TrimSpace(string(out)) != ""
 }
 
 // heavyLockHeld opens the lock without O_CREAT (a missing file means no task
