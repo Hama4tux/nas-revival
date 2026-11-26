@@ -23,6 +23,18 @@ type NfsShare struct {
 	Name     string `json:"name"`
 	Path     string `json:"path"`
 	ReadOnly bool   `json:"readOnly"`
+	// GroupWrite: nas-users has read/write. Squashed NFS clients write with
+	// that group, so without it every NFS write is refused (ACL volumes).
+	GroupWrite bool `json:"groupWrite"`
+}
+
+func groupWrite(s shares.Share) bool {
+	for _, p := range s.Permissions {
+		if p.Kind == shares.KindGroup && p.Name == accounts.UsersGroup && p.Access == shares.AccessRW {
+			return true
+		}
+	}
+	return false
 }
 
 // NfsService is the result of nfs.get and nfs.set (NFS-01).
@@ -126,7 +138,7 @@ func (m *NfsManager) state(ctx context.Context) (NfsService, error) {
 	}
 	st := NfsService{Installed: m.installed(), Settings: s, Missing: []string{}, Shares: []NfsShare{}}
 	for _, sh := range cfg.Shares {
-		st.Shares = append(st.Shares, NfsShare{Name: sh.Name, Path: sh.Path(), ReadOnly: sh.ReadOnly})
+		st.Shares = append(st.Shares, NfsShare{Name: sh.Name, Path: sh.Path(), ReadOnly: sh.ReadOnly, GroupWrite: groupWrite(sh)})
 	}
 	text, missing, err := m.render(s, cfg)
 	if err != nil {

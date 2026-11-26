@@ -597,7 +597,8 @@ const mockNfs: NfsService = {
   installed: true, running: true, managed: true, missing: [], shares: [],
   settings: { enabled: true, exports: [{ share: 'Fotky', squash: 'root', clients: [{ host: '192.0.2.40', readOnly: false }] }] },
 };
-const nfsShares = () => mockShares.map((s) => ({ name: s.name, path: `${s.volume}/${s.folder}`, readOnly: s.readOnly }));
+const nfsShares = () => mockShares.map((s) => ({ name: s.name, path: `${s.volume}/${s.folder}`, readOnly: s.readOnly,
+  groupWrite: s.permissions.some((p) => p.kind === 'group' && p.name === 'nas-users' && p.access === 'rw') }));
 const mockNfsStatus = (): NfsStatus => ({
   clients: mockNfs.running && mockNfs.settings.enabled ? [{ address: '192.0.2.40', name: 'Linux NFSv4.2 pve', version: '4.2', confirmed: true }] : [],
 });

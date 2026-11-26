@@ -62,7 +62,7 @@ func newNfsFix(t *testing.T, installed bool) *nfsFix {
 	os.WriteFile(filepath.Join(dir, "group"), []byte(baseGroup), 0o644)
 	sh := filepath.Join(dir, "shares.json")
 	cfg := shares.Config{Version: 1, Shares: []shares.Share{
-		{Name: "zalohy", Volume: "/srv/data", Folder: "zalohy", Permissions: []shares.Permission{}},
+		{Name: "zalohy", Volume: "/srv/data", Folder: "zalohy", Permissions: []shares.Permission{{Kind: shares.KindGroup, Name: "nas-users", Access: shares.AccessRW}}},
 		{Name: "archiv", Volume: "/srv/data", Folder: "archiv", ReadOnly: true, Permissions: []shares.Permission{}},
 	}}
 	if err := shares.Save(sh, cfg); err != nil {
@@ -97,7 +97,7 @@ func TestNfsGetUnconfigured(t *testing.T) {
 		t.Fatalf("%+v %v", st, err)
 	}
 	// Sorted by name like shares.json.
-	if st.Shares[1].Path != "/srv/data/zalohy" || !st.Shares[0].ReadOnly {
+	if st.Shares[1].Path != "/srv/data/zalohy" || !st.Shares[0].ReadOnly || !st.Shares[1].GroupWrite || st.Shares[0].GroupWrite {
 		t.Fatalf("shares %+v", st.Shares)
 	}
 }

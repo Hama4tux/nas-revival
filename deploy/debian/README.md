@@ -60,7 +60,8 @@ cannot be deleted; a share change (read-only, rollback) re-renders the exports. 
 from `/proc/fs/nfsd/clients` (admins only). The helper unit needs `ReadWritePaths=-/var/lib/nfs` (etab). The helper has to be restarted after the install (the script does it):
 its sandbox only sees `/var/lib/nfs` as writable if the directory existed when it started. Installed on the NAS
 2026-11-26. The NAS kernel has the NFS server but no NFS client, so `scripts/webui/e2e-nfs.sh <client>` mounts
-from another machine (needs `mount.nfs4` and sudo there).
+from another machine (needs `mount.nfs4` and root or sudo there); passed from Proxmox 2026-11-26. With ACLs (new
+kernel) squashed clients can only write where the group `nas-users` has read/write; the NFS tab warns.
 Proxmox: `pvesm add nfs <id> --server <nas> --export /srv/data/<share> --content backup --options vers=4.2`
 (the Proxmox export scan uses NFSv3 and finds nothing; the UI shows the line).
 

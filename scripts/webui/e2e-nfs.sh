@@ -11,7 +11,9 @@ set -euo pipefail
 client="${1:?usage: e2e-nfs.sh <client ssh target> [nas]}"
 host="${2:-nsa310}"
 nasaddr="$(ssh -G "$host" | awk '$1 == "hostname" { print $2 }')"
-cli() { ssh "$client" "sudo -n sh -c '$1'"; }
+sudo="sudo -n"
+[ "$(ssh "$client" id -u)" = 0 ] && sudo=""
+cli() { ssh "$client" "$sudo sh -c '$1'"; }
 caddr="$(ssh "$client" "ip -4 route get $nasaddr" | awk '{ for (i = 1; i < NF; i++) if ($i == "src") print $(i + 1) }')"
 [ -n "$caddr" ] || { echo "cannot find the client address" >&2; exit 1; }
 fails=0
@@ -42,7 +44,7 @@ export_to() { # export_to <host> <readOnly true|false>
 mnt() { cli "mkdir -p /mnt/nrt-nfs; timeout 20 mount -t nfs4 -o $1 $nasaddr:/srv/data/nrt-nfs /mnt/nrt-nfs 2>&1 && echo MOUNTED" || true; }
 umnt() { cli 'umount /mnt/nrt-nfs 2>/dev/null || true'; }
 
-r="$(call share.create '{"share":{"name":"nrt-nfs","volume":"/srv/data","permissions":[]}}')"
+r="$(call share.create '{"share":{"name":"nrt-nfs","volume":"/srv/data","permissions":[{"kind":"group","name":"nas-users","access":"rw"}]}}')"
 has "$r" '"ok":true' && ok "share nrt-nfs created" || bad "share.create: $r"
 
 r="$(export_to "$caddr" false)"

@@ -57,6 +57,8 @@ function ExportEditor({ exp, shares, used, locked, onChange, onRemove }: {
         )}
       </div>
       {share?.readOnly && <p role="note" className="text-xs text-warning">{t.shareReadOnly}</p>}
+      {share && !share.readOnly && !share.groupWrite && exp.clients.some((c) => !c.readOnly) &&
+        <p role="note" className="text-xs text-warning">{t.noGroupWrite}</p>}
       <Field label={t.squash} hint={t.squashHint}>
         {(p) => (
           <select {...p} className={selectCls} value={exp.squash} disabled={locked}

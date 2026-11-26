@@ -44,7 +44,7 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 | W2.3 ✅ 2026-11-26 (deployed, e2e on NAS; SMB side — hidden, read-only, recycle, per-user enforcement — unverified until Samba is installed; NAS ext4 has no ACL support) | Shared folders: create on data volume, permissions matrix, read-only, hidden, recycle bin, delete (config vs. data) | `/shares` | `share.*` | SHARE-01..05 |
 | W2.4 ✅ 2026-11-26 (deployed, e2e on NAS; browser checked with mock data on desktop only) | Services app: state, PID, RAM, CPU, ports, start/stop/restart/enable, unit log | `/services` | `service.*`, `journal.unit` | SVC-10..12 |
 | W2.5 ✅ 2026-11-26 (deployed, e2e with a real SMB client from the workstation; page typechecked and unit-tested, not yet checked in a browser) | Services → SMB: enable, workgroup, protocol range, sessions, open files | `/services/smb` | `smb.*` | SMB-01, SMB-02 |
-| W2.6 🚧 2026-11-26 (deployed; new kernel and nfs-kernel-server installed, exports applied on the NAS; mount by a real client pending – see OPEN.md) | Services → NFS: exports for Proxmox backups | `/services/nfs` | `nfs.*` | NFS-01, BKP-12 |
+| W2.6 ✅ 2026-11-26 (deployed, e2e from Proxmox; page not yet checked in a browser) | Services → NFS: exports for Proxmox backups | `/services/nfs` | `nfs.*` | NFS-01, BKP-12 |
 | W2.7 | Services → SSH/SFTP: port, password auth, root login, allowed groups, keys | `/services/ssh` | `ssh.*` | SSH-01, SSH-02 |
 | W2.8 | Network: hostname, routes, diagnostics (ping, DNS, gateway, internet, ports) | `/network/*` | `net.diag` | NET-10, NET-11 |
 

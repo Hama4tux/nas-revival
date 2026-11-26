@@ -1,8 +1,8 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: NAS běží s novým jádrem (NFS server, ACL na ext4) ze slotu A, slot B drží předchozí. NFS server je nainstalovaný (jen NFSv4.1/4.2, port 2049) a karta Služby → NFS funguje; zbývá test připojení skutečným klientem. Jádro nemá klienta NFS.
-- Další krok: test NFS skutečným klientem (Proxmox nebo pracovní stanice), pak W2.7 SSH/SFTP.
+- Stav: NAS běží s novým jádrem (NFS server, ACL na ext4). Služba NFS (W2.6) je hotová, nasazená a ověřená připojením z Proxmoxu; zapíná se ve Službách → NFS, zatím je vypnutá.
+- Další krok: vlastník zapne SMB/NFS podle potřeby a vyzkouší zálohu z Proxmoxu; pak W2.7 SSH/SFTP.
 
 ## Čeká na rozhodnutí
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
@@ -16,8 +16,8 @@
 
 
 ## Nedodělané
-- [ ] NFS (W2.6): ověřit připojení skutečným klientem – `scripts/webui/e2e-nfs.sh <klient>` (klient potřebuje mount.nfs4 a sudo; jádro NASu klienta NFS nemá, sám se připojit nemůže). Na NASu už ověřeno: helper exporty použije, poslouchá jen TCP 2049, export s root_squash a anongid nas-users je aktivní. Kartu NFS projít v prohlížeči na telefonu i desktopu. (2026-11-26)
-- [ ] Čeká na vlastníka: kterým klientem NFS otestovat – Proxmox (proxmox.home, má NFS klienta, jen dočasné připojení do /mnt bez přidání úložiště) nebo doinstalovat nfs-common na pracovní stanici. (2026-11-26)
+- [ ] NFS (W2.6): kartu Služby → NFS projít v prohlížeči na telefonu i desktopu a vyzkoušet skutečnou zálohu vzdump z Proxmoxu (pvesm add nfs … --options vers=4.2) – test připojení a zápisu z Proxmoxu prošel (scripts/webui/e2e-nfs.sh proxmox.home). (2026-11-26)
+- [ ] NFS: klienti zapisují jako nobody se skupinou nas-users, takže zálohovací složka musí dát čtení a zápis celé skupině nas-users a tím i všem uživatelům přes SMB. Zvážit vlastní skupinu jen pro NFS (např. nas-nfs), kterou jde ve složce povolit zvlášť – rozhodnutí vlastníka. (2026-11-26)
 - [ ] NFS: nabízí se jen NFSv4.1/4.2 (bez rpcbind); NFSv3 pro starší klienty a výběr exportu v Proxmoxu (showmount) nefunguje – doplnit jen když bude potřeba. (2026-11-26)
 - [ ] NFS: přidat port TCP 2049 do inventáře služeb HomeSecurity, až bude NFS zapnuté (viz bod o záznamu NASu v inventáři). (2026-11-26)
 - [ ] Služby (W2.4): stránku Služby projít v prohlížeči po přihlášení skutečným účtem na telefonu (360 px) i desktopu – ověřeno e2e testem helperu na NASu a ukázkovým režimem na desktopu (zmenšení okna v testovacím prohlížeči nešlo). (2026-11-26)
@@ -78,6 +78,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Služba NFS pro zálohy z Proxmoxu, nové jádro s NFS serverem a ACL (2026-11-26)
 - Služba SMB ve webovém GUI (W2.5): Samba nainstalovaná, smb.conf spravuje NAS Revival (bez hosta, bez SMB1, volitelná nejnižší verze, NetBIOS), připojení a otevřené soubory pro administrátora; ověřeno skutečným klientem SMB včetně oprávnění, skrytých složek a koše (2026-11-26)
 - Rozhodnuto: záchranný administrátor admin.json zůstává natrvalo vedle účtů NASu (heslo jen přes SSH, vždy administrátor); role účtů schváleny vlastníkem. (2026-11-26)
 - Aplikace Služby ve webovém GUI (W2.4): stav a prostředky spravovaných služeb, ovládání s chráněnými službami, záznam deníku; nasazeno a ověřeno na NASu (2026-11-26)

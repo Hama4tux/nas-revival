@@ -279,7 +279,7 @@ export type NfsSquash = 'root' | 'all';
 export interface NfsClient { host: string; readOnly: boolean }
 export interface NfsExport { share: string; clients: NfsClient[]; squash: NfsSquash }
 export interface NfsSettings { enabled: boolean; exports: NfsExport[] }
-export interface NfsShare { name: string; path: string; readOnly: boolean }
+export interface NfsShare { name: string; path: string; readOnly: boolean; groupWrite: boolean }
 export interface NfsService {
   installed: boolean; settings: NfsSettings; running: boolean; managed: boolean; missing: string[]; shares: NfsShare[];
 }
