@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings } from '../api/types';
+import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -476,11 +476,28 @@ let mockPower: { settings: PowerSettings; stored: boolean; state: DiskPower['sta
   settings: { profile: 'balanced', standbyMinutes: 0, apm: 254 }, stored: false, state: 'active',
 };
 
+function mockPowerHistory(): DiskPowerHistory {
+  const now = Date.now(), h = 3600e3;
+  const events: DiskPowerHistory['events'] = [{ t: now - 30 * h, state: 'active' }];
+  for (const [sleep, wake] of [[20, 17.5], [9, 7.2], [5, 4.6], [3.1, 2.4]] as const) {
+    events.push({ t: now - sleep * h, state: 'standby' }, { t: now - wake * h, state: 'active' });
+  }
+  const counters = Array.from({ length: 31 }, (_, i) => ({
+    t: now - (30 - i) * h, loadCycles: 35003 + i * 6, startStop: 10115 + Math.floor(i / 6),
+  }));
+  return {
+    events, counters, wakes24h: 4, wakes7d: 4, standbyPercent24h: 26.5, trackedSince: now - 30 * h, sampleSeconds: 300,
+    growth: { loadCyclesPerDay: 144, startStopPerDay: 4.8, spanHours: 20, loadCycleLimit: 100, startStopLimit: 25,
+      loadCyclesWarn: true, startStopWarn: false, latestLoadCycles: 35183, latestStartStop: 10120, latestCounterAt: now },
+  };
+}
+
 function powerRoute(path: string, method: string, body: unknown): Response | null {
-  const m = /^\/storage\/disks\/([^/]+)\/(power|standby)$/.exec(path);
+  const m = /^\/storage\/disks\/([^/]+)\/(power|standby|power\/history)$/.exec(path);
   if (!m) return null;
   const id = decodeURIComponent(m[1] ?? '');
   if (id !== 'wwn-0x5000c50000000001') return err(404, 'power_unsupported', 'Disk nepodporuje správu napájení.');
+  if (m[2] === 'power/history') return method === 'GET' ? json(200, mockPowerHistory()) : null;
   const profiles: PowerSettings[] = [{ profile: 'performance', standbyMinutes: 0, apm: 254 },
     { profile: 'balanced', standbyMinutes: 0, apm: 254 }, { profile: 'eco', standbyMinutes: 20, apm: 128 }];
   const view = (): DiskPower => ({

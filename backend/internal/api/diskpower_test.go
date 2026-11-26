@@ -116,3 +116,36 @@ func TestDiskStandby(t *testing.T) {
 		t.Fatalf("self-test running: %d", rec.Code)
 	}
 }
+
+type fakePowerHistory struct{ asked []string }
+
+func (f *fakePowerHistory) View(id string, _ time.Time) diskpower.HistoryView {
+	f.asked = append(f.asked, id)
+	return diskpower.HistoryView{Events: []diskpower.Event{{T: 1, State: diskpower.StateStandby}}, Counters: []diskpower.Counter{}, Wakes24h: 3}
+}
+
+func TestDiskPowerHistory(t *testing.T) {
+	p := &fakePower{cfg: diskpower.Config{Disks: map[string]diskpower.Settings{}}}
+	hist := &fakePowerHistory{}
+	h, _ := auth.HashPassword("secret")
+	v, _ := auth.NewVerifier(auth.Credentials{Username: "admin", Hash: h})
+	s := &Server{Verifier: v, Sessions: auth.NewSessions(), Limiter: auth.NewLimiter(),
+		Overview: fakeOverview{}, Smart: fakeSmart{}, Storage: fakeStorage{}, DiskPower: p, DiskPowerSet: p,
+		DiskPowerHistory: hist}
+	hd := s.Handler()
+	c := sessionCookie(t, login(t, hd, "secret"))
+	if rec := do(hd, "GET", "/api/v1/storage/disks/wwn-0x1/power/history", "", nil, nil); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("without session = %d", rec.Code)
+	}
+	rec := do(hd, "GET", "/api/v1/storage/disks/wwn-0x1/power/history", "", nil, c)
+	var got diskpower.HistoryView
+	if rec.Code != 200 || json.Unmarshal(rec.Body.Bytes(), &got) != nil || got.Wakes24h != 3 || len(got.Events) != 1 {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	if rec := do(hd, "GET", "/api/v1/storage/disks/usb-stick/power/history", "", nil, c); rec.Code != 404 {
+		t.Fatalf("usb: %d", rec.Code)
+	}
+	if len(hist.asked) != 1 || hist.asked[0] != "wwn-0x1" {
+		t.Fatalf("asked %v", hist.asked)
+	}
+}

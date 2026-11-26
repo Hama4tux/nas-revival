@@ -46,7 +46,8 @@ export type HealthStatus = 'ok' | 'warn' | 'crit' | 'unknown';
 export type ProblemCode =
   | 'sensorsFault' | 'sensorsUnknown' | 'fanStopped' | 'smartFailed' | 'smartSectors'
   | 'fsCritical' | 'fsWarn' | 'serviceFailed' | 'collectFailed'
-  | 'backupFailed' | 'backupStale' | 'tempWarn' | 'tempCrit' | 'diskTempWarn' | 'diskTempCrit';
+  | 'backupFailed' | 'backupStale' | 'tempWarn' | 'tempCrit' | 'diskTempWarn' | 'diskTempCrit'
+  | 'diskLoadCycles' | 'diskStartStop';
 export interface HealthProblem { severity: 'warn' | 'crit'; code: ProblemCode; subject?: string }
 /** Evaluated on the NAS by the shared collector (MON-01). */
 export interface SystemHealth {
@@ -195,6 +196,18 @@ export interface DiskPower {
   settings: PowerSettings; stored: boolean; profiles: PowerSettings[]; standbyChoices: number[];
 }
 export interface DiskStandbyResult { diskId: string; wasStandby: boolean }
+/** GET /storage/disks/{id}/power/history (PWR-04); times are Unix ms. */
+export interface PowerEvent { t: number; state: PowerState }
+export interface PowerCounter { t: number; loadCycles: number | null; startStop: number | null }
+export interface PowerGrowth {
+  loadCyclesPerDay: number | null; startStopPerDay: number | null; spanHours: number;
+  loadCycleLimit: number; startStopLimit: number; loadCyclesWarn: boolean; startStopWarn: boolean;
+  latestLoadCycles: number | null; latestStartStop: number | null; latestCounterAt: number | null;
+}
+export interface DiskPowerHistory {
+  events: PowerEvent[]; counters: PowerCounter[]; wakes24h: number; wakes7d: number;
+  standbyPercent24h: number | null; trackedSince: number | null; sampleSeconds: number; growth: PowerGrowth;
+}
 
 export type SystemPowerAction = 'reboot' | 'shutdown';
 export type PowerBlockerCode = 'smart_test' | 'copy_running' | 'backup_running' | 'task_running' | 'package_manager' | 'network_pending' | 'check_failed';

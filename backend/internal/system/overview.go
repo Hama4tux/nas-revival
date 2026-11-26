@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/smart"
@@ -26,6 +27,8 @@ type Overview struct {
 	Services    []Service      `json:"services"`
 	Backups     []BackupStatus `json:"backups"`
 	Health      Health         `json:"health"`
+	// DiskWear feeds the health evaluation only (PWR-04).
+	DiskWear []diskpower.Warning `json:"-"`
 }
 
 // BackupStatus is the last result of one backup-pull task.
@@ -146,6 +149,8 @@ type Collector struct {
 	PowerTTL  time.Duration
 	// Thresholds returns the temperature thresholds; nil uses the defaults.
 	Thresholds func() hardware.Thresholds
+	// DiskWear returns the disks whose wear counters grow too fast; nil skips.
+	DiskWear func() []diskpower.Warning
 
 	mu      sync.Mutex
 	prev    *hal.CPUTimes
@@ -280,6 +285,9 @@ func (c *Collector) Collect(ctx context.Context) (Overview, error) {
 	th := hardware.Defaults().Thresholds
 	if c.Thresholds != nil {
 		th = c.Thresholds()
+	}
+	if c.DiskWear != nil {
+		o.DiskWear = c.DiskWear()
 	}
 	o.Health = Evaluate(o, rep, th, o.GeneratedAt)
 	return o, nil

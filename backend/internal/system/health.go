@@ -3,6 +3,7 @@ package system
 import (
 	"time"
 
+	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/smart"
@@ -34,6 +35,9 @@ const (
 	ProblemTempCrit       = "tempCrit"
 	ProblemDiskTempWarn   = "diskTempWarn"
 	ProblemDiskTempCrit   = "diskTempCrit"
+	// PWR-04: SMART wear counters grow faster than the daily limit.
+	ProblemDiskLoadCycles = "diskLoadCycles"
+	ProblemDiskStartStop  = "diskStartStop"
 )
 
 // Filesystem usage thresholds in percent (strictly above).
@@ -138,6 +142,15 @@ func Evaluate(o Overview, rep *smart.Report, th hardware.Thresholds, at time.Tim
 			add(HealthCrit, ProblemBackupFailed, b.Name)
 		} else if b.StaleAfter > 0 && b.LastOKEnd != nil && at.Sub(*b.LastOKEnd) > b.StaleAfter {
 			add(HealthWarn, ProblemBackupStale, b.Name)
+		}
+	}
+
+	for _, w := range o.DiskWear {
+		switch w.Code {
+		case diskpower.WarnLoadCycles:
+			add(HealthWarn, ProblemDiskLoadCycles, w.Name)
+		case diskpower.WarnStartStop:
+			add(HealthWarn, ProblemDiskStartStop, w.Name)
 		}
 	}
 

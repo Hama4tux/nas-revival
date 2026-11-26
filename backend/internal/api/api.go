@@ -63,8 +63,10 @@ type Server struct {
 	SmartDetail SmartDetailSource
 	SmartTests  SmartTester
 	// DiskPower and DiskPowerSet serve /storage/disks/{id}/power; nil answers 503.
-	DiskPower    DiskPowerSource
-	DiskPowerSet DiskPowerSetter
+	DiskPower DiskPowerSource
+	// DiskPowerHistory serves /storage/disks/{id}/power/history; nil answers 503.
+	DiskPowerHistory DiskPowerHistorySource
+	DiskPowerSet     DiskPowerSetter
 	// DiskActivity serves /storage/activity; nil answers 503.
 	DiskActivity DiskActivityMeasurer
 	// SystemPower serves /system/{reboot,shutdown}; nil answers 503.

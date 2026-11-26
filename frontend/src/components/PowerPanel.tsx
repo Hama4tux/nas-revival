@@ -9,6 +9,7 @@ import { Button } from './ui/button';
 import { Dialog } from './ui/dialog';
 import { Field, invalidCls } from './ui/field';
 import { Input } from './ui/input';
+import { PowerHistory } from './PowerHistory';
 import { Skeleton } from './ui/skeleton';
 
 const t = cs.power;
@@ -154,6 +155,8 @@ export function PowerPanel({ diskId }: { diskId: string }) {
           {msg && <p role={msg.ok ? 'status' : 'alert'} className={`text-sm ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
         </div>
       </form>
+
+      <PowerHistory diskId={diskId} />
 
       {dialog === 'confirm' && s && (
         <Dialog title={t.confirmTitle} onClose={() => setDialog(null)} busy={sending}

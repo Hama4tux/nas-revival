@@ -8,14 +8,15 @@ import (
 
 const healthy = `{"smartctl":{"exit_status":0,"messages":[]},"model_name":"ST1000LM014-1EJ164",
 "smart_status":{"passed":true},"temperature":{"current":38},"power_on_time":{"hours":1200},
-"ata_smart_attributes":{"table":[{"id":5,"raw":{"value":0}},{"id":9,"raw":{"value":1200}},{"id":197,"raw":{"value":2}}]}}`
+"ata_smart_attributes":{"table":[{"id":5,"raw":{"value":0}},{"id":9,"raw":{"value":1200}},{"id":197,"raw":{"value":2}},{"id":4,"raw":{"value":310}},{"id":193,"raw":{"value":35003}}]}}`
 
 const standby = `{"smartctl":{"exit_status":2,"messages":[{"string":"Device is in STANDBY mode, exit(2)","severity":"information"}]}}`
 
 func TestParseHealthy(t *testing.T) {
 	d := Parse("sda", []byte(healthy))
 	if d.Health != "passed" || *d.Model != "ST1000LM014-1EJ164" || *d.TemperatureCelsius != 38 ||
-		*d.PowerOnHours != 1200 || *d.ReallocatedSectors != 0 || *d.PendingSectors != 2 || d.Standby {
+		*d.PowerOnHours != 1200 || *d.ReallocatedSectors != 0 || *d.PendingSectors != 2 || d.Standby ||
+		*d.StartStopCount != 310 || *d.LoadCycleCount != 35003 {
 		t.Fatalf("got %+v", d)
 	}
 }

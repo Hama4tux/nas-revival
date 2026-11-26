@@ -123,6 +123,10 @@ func serve(args []string) error {
 	collector.PowerTTL = time.Minute
 	hwSettings := &hardware.Cached{Path: hardware.DefaultConfigPath, TTL: 10 * time.Second, Now: time.Now}
 	collector.Thresholds = func() hardware.Thresholds { return hwSettings.Get().Thresholds }
+	// PWR-04: standby history and wear counters, warnings into health.
+	dhs := &diskHistorySampler{storage: storage.Collector{HAL: reader, StatFS: statFS}, power: diskPower, smart: smartSvc}
+	dhs.tracker = diskpower.NewTracker(filepath.Join(*stateDir, "disk-power-history.json"), dhs.sample)
+	collector.DiskWear = dhs.warnings
 	hc := &helper.Client{Socket: *helperSock}
 	// HW-01/HW-04: journal events on threshold changes, red LED blinks while critical.
 	watcher := &hardware.Watcher{SetFault: hc.LEDFault, Settings: hwSettings.Get}
@@ -139,6 +143,8 @@ func serve(args []string) error {
 	hw := &hardwareSource{root: *root, hal: reader, profile: system.DetectProfile(*root), smart: smartSvc, settings: hwSettings}
 	hw.history = hardware.NewHistory(hw.reading)
 	go hw.history.Run(ctx)
+	trackerDone := make(chan struct{})
+	go func() { dhs.tracker.Run(ctx); close(trackerDone) }()
 
 	srv := &api.Server{
 		Verifier: verifier,
@@ -158,6 +164,7 @@ func serve(args []string) error {
 	srv.SmartTests = hc
 	srv.DiskPower = diskPower
 	srv.DiskPowerSet = hc
+	srv.DiskPowerHistory = dhs.tracker
 	srv.DiskActivity = hc
 	srv.SystemPower = hc
 	srv.Config = hc
@@ -201,7 +208,9 @@ func serve(args []string) error {
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := hs.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	err = hs.Shutdown(shutdownCtx)
+	<-trackerDone // the history saves what is pending on exit
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err
 	}
 	return nil

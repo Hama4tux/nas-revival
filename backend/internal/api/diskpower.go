@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/helper"
@@ -23,6 +24,11 @@ type DiskPowerSetter interface {
 	DiskStandby(ctx context.Context, diskID string) (helper.DiskStandbyResult, error)
 }
 
+// DiskPowerHistorySource is the standby history tracker (PWR-04).
+type DiskPowerHistorySource interface {
+	View(diskID string, at time.Time) diskpower.HistoryView
+}
+
 type diskPowerView struct {
 	DiskID     string `json:"diskId"`
 	SystemDisk bool   `json:"systemDisk"`
@@ -38,6 +44,17 @@ func (s *Server) registerDiskPower(api *http.ServeMux) {
 	api.HandleFunc("GET /api/v1/storage/disks/{id}/power", s.requireSession(s.diskPower))
 	api.HandleFunc("PUT /api/v1/storage/disks/{id}/power", s.requireSession(s.diskPowerPut))
 	api.HandleFunc("POST /api/v1/storage/disks/{id}/standby", s.requireSession(s.diskStandby))
+	api.HandleFunc("GET /api/v1/storage/disks/{id}/power/history", s.requireSession(s.diskPowerHistory))
+}
+
+func (s *Server) diskPowerHistory(w http.ResponseWriter, r *http.Request) {
+	if s.DiskPowerHistory == nil {
+		writeError(w, http.StatusServiceUnavailable, "unavailable", "Historie uspávání disků není dostupná.")
+		return
+	}
+	if d, ok := s.powerDisk(w, r); ok {
+		writeJSON(w, http.StatusOK, s.DiskPowerHistory.View(d.ID, time.Now()))
+	}
 }
 
 func (s *Server) powerDisk(w http.ResponseWriter, r *http.Request) (storage.Disk, bool) {

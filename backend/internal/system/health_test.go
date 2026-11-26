@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/smart"
@@ -277,5 +278,16 @@ func TestEvaluateTemperatureThresholds(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("problem %d = %q, want %q", i, got[i], want[i])
 		}
+	}
+}
+
+func TestEvaluateDiskWear(t *testing.T) {
+	o := healthy()
+	o.DiskWear = []diskpower.Warning{{DiskID: "d1", Name: "sda", Code: diskpower.WarnLoadCycles},
+		{DiskID: "d1", Name: "sda", Code: diskpower.WarnStartStop}}
+	h := Evaluate(o, nil, th, t0)
+	got := codes(h)
+	if h.Status != HealthWarn || len(got) != 2 || got[0] != "warn:diskLoadCycles:sda" || got[1] != "warn:diskStartStop:sda" {
+		t.Fatalf("got %s %v", h.Status, got)
 	}
 }

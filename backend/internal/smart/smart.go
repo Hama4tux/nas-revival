@@ -20,6 +20,8 @@ type Disk struct {
 	PowerOnHours       *int64  `json:"powerOnHours"`
 	ReallocatedSectors *int64  `json:"reallocatedSectors"`
 	PendingSectors     *int64  `json:"pendingSectors"`
+	StartStopCount     *int64  `json:"startStopCount"` // attribute 4
+	LoadCycleCount     *int64  `json:"loadCycleCount"` // attribute 193
 	Standby            bool    `json:"standby"`
 }
 
@@ -152,6 +154,10 @@ func Parse(name string, raw []byte) Disk {
 				d.ReallocatedSectors = &v
 			case 197:
 				d.PendingSectors = &v
+			case 4:
+				d.StartStopCount = &v
+			case 193:
+				d.LoadCycleCount = &v
 			}
 		}
 	}
