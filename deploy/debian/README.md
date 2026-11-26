@@ -55,6 +55,17 @@ systemctl daemon-reload && systemctl enable --now nsa310-fan
 
 Installed on the NAS 2026-11-25. Thresholds are in the script header.
 
+Front panel and network port LEDs (SYS green after boot, HDD disk activity, USB port activity,
+RTL8111D link/activity/gigabit; needs the LED triggers enabled by `scripts/debian/build-kernel.sh`):
+
+```sh
+install -m 0755 nsa310-leds /usr/local/sbin/nsa310-leds
+install -m 0644 nsa310-leds.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now nsa310-leds
+```
+
+`scripts/debian/build-rootfs.sh` already installs and enables the fan and LED services.
+
 COPY button backup (`nsa310-button` is built from `backend/cmd/nsa310-button` with
 `GOARCH=arm GOARM=5`; needs `apt install rsync`):
 

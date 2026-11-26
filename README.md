@@ -1,75 +1,171 @@
-# NAS Revival
+<p align="center">
+  <img src="docs/assets/banner.svg" alt="NAS Revival – a second life for old NAS hardware" width="100%">
+</p>
 
-Give unsupported NAS hardware a useful, maintainable second life with a small Linux system and a modern local administration interface.
+<p align="center">
+  <img alt="Debian 13 armel" src="https://img.shields.io/badge/Debian-13%20armel-A81D33?logo=debian&logoColor=white">
+  <img alt="Linux 6.12 LTS" src="https://img.shields.io/badge/Linux-6.12%20LTS-FCC624?logo=linux&logoColor=black">
+  <img alt="Go backend" src="https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white">
+  <img alt="React UI" src="https://img.shields.io/badge/UI-React%20%2B%20Vite-61DAFB?logo=react&logoColor=black">
+  <img alt="ARMv5" src="https://img.shields.io/badge/CPU-ARMv5%20Kirkwood-0F766E">
+  <img alt="MIT license" src="https://img.shields.io/badge/license-MIT-2DD4BF">
+</p>
 
-**Status 2026-11-25: Debian 13 armel runs on the ZyXEL NSA310** with our own 6.12 LTS kernel in two NAND slots (stock firmware kept as last fallback), the system on the internal disk, automatic fan control, LEDs and the COPY button. A read-only web administration (Go backend + static React UI) is deployed; write operations through a privileged helper are in development. Plan: [ROADMAP](docs/ROADMAP.md), current state: [FEATURE_MATRIX](docs/FEATURE_MATRIX.md).
+<p align="center">
+  <b>Your 2010 NAS deserves better than a dead vendor firmware.</b><br>
+  NAS Revival turns the ZyXEL NSA310 into a current Debian 13 server with its own maintained kernel<br>
+  and a fast, modern web administration that idles in about 20 MB of RAM.
+</p>
 
-The earlier OpenWrt qualification and the shelved Stage 1 chroot ([guide](docs/research/stage1-userspace.md)) are kept as research history.
+<p align="center">
+  <a href="docs/debian/install.md"><b>📀 Install guide</b></a> ·
+  <a href="#-features">✨ Features</a> ·
+  <a href="#-safe-by-design">🛟 Recovery</a> ·
+  <a href="docs/ROADMAP.md">🗺️ Roadmap</a>
+</p>
 
-## Goals
+---
 
-- SMB, NFS and SFTP/SSH; users, groups, shares and explicit permissions.
-- Disk/filesystem management and SMART where supported.
-- CPU, memory, network and storage status; temperatures, fan, LEDs and buttons where verified.
-- Logs, service control, networking, reboot, safe shutdown, configuration backup/restore and recoverable updates.
-- Responsive, accessible administration with clear health states and confirmations for critical operations.
-- Embedded-first resource use, reproducible builds, device profiles and a versioned API independent of the UI.
-- Local operation without required cloud services, telemetry, universal passwords or automatic Internet exposure.
+<p align="center">
+  <img src="docs/assets/ui-overview.png" alt="NAS Revival web UI – overview with health, resources, storage and services" width="88%">
+</p>
 
-This is a distribution integration project, not a rewrite of the kernel or a patch to the vendor web interface. We will reuse maintained upstream drivers and services. Additional devices need their own evidence and recovery qualification.
+<p align="center"><sub>Dashboard in demo mode (<code>npm run dev:mock</code>) – the health panel flags a failed service and a nearly full volume. The UI is in Czech for now, English is planned.</sub></p>
 
-## Technical base
+## 🤔 Why
 
-The owner chose **Debian 13 armel** over OpenWrt on 2026-11-25 (boot details in [debian/boot.md](docs/debian/boot.md)); [ADR 0001](docs/adr/0001-base-distribution.md) still describes the OpenWrt proposal and is to be rewritten. The web stack is [ADR 0002](docs/adr/0002-web-ui-stack-debian.md): one static Go binary for ARMv5 serving the API and a React/TypeScript/Vite UI built on the workstation; no Node.js, containers or database server on the NAS. Debian 13 is the last armel release, so the kernel is maintained by this project.
+The NSA310 has a perfectly fine 1.2 GHz Kirkwood CPU, gigabit Ethernet and a SATA bay – and a vendor
+firmware frozen around Linux 2.6.31, with Telnet, an outdated SMB stack and no updates. NAS Revival
+replaces the software, not the hardware:
 
-## Read next
+- **Current and patched** – Debian 13 "trixie" with security updates, Linux 6.12 LTS built by this project.
+- **Light** – the whole web admin is one static Go binary (~10 MB RSS idle, plus a ~10 MB root helper). No Node.js, no containers,
+  no database on the NAS.
+- **Recoverable** – two kernel slots in NAND plus the untouched stock firmware as a last fallback.
+- **Local** – no cloud account, no telemetry, no default password, nothing exposed to the Internet.
 
-| Document | Purpose |
-| --- | --- |
-| [Architecture](docs/ARCHITECTURE.md) | Running system, process model, modules, config manager, HAL |
-| [Roadmap](docs/ROADMAP.md) | Milestones M0–M6 and the M1 backlog |
-| [Web roadmap](docs/WEB_ROADMAP.md) | Web UI and API steps W0–W6 with definition of done |
-| [Feature matrix](docs/FEATURE_MATRIX.md) | Every feature with priority, state and acceptance criteria |
-| [Hardware compatibility](docs/HARDWARE_COMPATIBILITY.md) | Verified capabilities per device profile |
-| [Performance budget](docs/PERFORMANCE_BUDGET.md) | Targets vs. dated measurements on the NAS |
-| [Security model](docs/SECURITY_MODEL.md) | Trust boundaries, privileged helper, auth, web security |
-| [API design](docs/API_DESIGN.md) | API conventions and planned resources |
-| [UI navigation](docs/UI_NAVIGATION.md) | Apps, dashboard widgets, UI rules |
-| [Recovery](docs/RECOVERY.md) | Failure scenarios and how to get the NAS back |
-| [Test plan](docs/TEST_PLAN.md) | Test levels, module gates, scenario catalogue |
-| [Architecture (OpenWrt era)](docs/architecture/overview.md) | Historical design, superseded by ARCHITECTURE.md |
-| [Technology selection](docs/architecture/technology-selection.md) | Base system and backend tradeoffs |
-| [Hardware abstraction](docs/architecture/hardware-abstraction.md) | Capability API and Linux interfaces |
-| [NSA310 evidence](docs/hardware/zyxel-nsa310.md) | Reported, source-verified and unknown properties |
-| [Threat model](docs/security/threat-model.md) | Authentication, privileges, storage and supply chain |
-| [Recovery plan (OpenWrt era)](docs/recovery/recovery-plan.md) | Historical NAND backup and UART gates |
-| [First experiment](docs/research/phase-1-experiment.md) | Workstation-only investigation; no device access |
-| [Web UI stack (ADR 0002)](docs/adr/0002-web-ui-stack-debian.md) | Go backend, React UI, privileges and auth on Debian |
-| [API v1](docs/api/v1.md) | Administration API contract |
-| [Open items](OPEN.md) | Decisions, blockers and unverified work |
-| [Bootstrap validation](docs/research/bootstrap-validation.md) | Checks performed and their limitations |
-| [OpenWrt qualification](docs/research/openwrt-qualification.md) | Read-only hardware probe and what it decides |
-| [OpenWrt simulation](docs/research/openwrt-simulation.md) | Verified build, layered QEMU simulation, NAND map findings |
+## ✨ Features
 
-## Repository layout
+| | Feature | State |
+| --- | --- | :---: |
+| 🩺 | **Dashboard** – health check with a list of problems, CPU/RAM/swap, temperatures, network graph, services | ✅ |
+| 💽 | **Storage** – disks by stable ID, partitions, usage, system-disk warnings | ✅ |
+| 🔬 | **SMART** – attributes with highlights, self-test history, start short/long tests from the browser | ✅ |
+| 🌙 | **Disk power** – sleep/APM profiles, "sleep now", reads state without waking the disk | ✅ |
+| 🔎 | **Disk activity** – which process and which file keeps your disk from sleeping | ✅ |
+| 🌐 | **Network, DNS, NTP, TLS certificate** – with **automatic rollback** after 180 s if you lock yourself out | ✅ |
+| 🕓 | **Configuration history** – every change versioned, diff and revert | ✅ |
+| 👥 | **Users and groups** – create, disable, passwords, membership | ✅ |
+| 🔁 | **Reboot / shutdown** – pre-flight check (running SMART test, apt, pending network change) | ✅ |
+| 🌀 | **Hardware** – automatic fan control (LM85), front LEDs, **COPY button** backs up a USB stick | ✅ |
+| 📱 | Responsive UI, dark and light theme | ✅ |
+| 🔐 | Multiple admin accounts and roles | 🚧 |
+| 📂 | SMB / NFS / SFTP shares | 🚧 |
+| 💾 | Backups, kernel updates from the web, boot-once for new kernels | 🗺️ |
+
+Full list with acceptance criteria: [FEATURE_MATRIX](docs/FEATURE_MATRIX.md).
+
+<table>
+  <tr>
+    <td width="72%"><img src="docs/assets/ui-storage.png" alt="Storage page with disk details and partitions"></td>
+    <td width="28%"><img src="docs/assets/ui-mobile.png" alt="Dashboard on a phone"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Storage – stable disk IDs, partitions, SMART and power panels</sub></td>
+    <td align="center"><sub>Works on a phone</sub></td>
+  </tr>
+</table>
+
+## 📀 Flash your NSA310 – in short
+
+> [!IMPORTANT]
+> This writes to the NAND flash of your device. You **need a 3.3 V USB–serial adapter** and should
+> read the **[full install guide](docs/debian/install.md)** first. U-Boot itself is never modified and
+> the stock firmware stays bootable.
 
 ```text
-docs/          architecture, hardware, research, security, recovery, ADR, roadmap
-devices/       evidence and future per-board profiles; currently not deployable
-firmware/      integration policy; no images or build configurations yet
-backend/       backend scope and implementation gate
-frontend/      static UI scope and implementation gate
-scripts/       future reproducible build/check entry points
-tests/         validation strategy; no hardware test results yet
-tools/         workstation tooling policy
+ ① backup ─▶ ② build ─▶ ③ disk + stick ─▶ ④ test boot ─▶ ⑤ write slots ─▶ ⑥ boot chain ─▶ ⑦ web UI
 ```
 
-The requested layout is retained. Later OpenWrt packages/overlays belong under `firmware/openwrt/`, or a Buildroot `br2-external` tree under `firmware/buildroot/`, once ADR-0001 is accepted. Do not fork or vendor an entire upstream distribution now.
+1. **Console & backup.** Connect the adapter to header **J2** (115200 8N1, never connect 3.3 V),
+   stop U-Boot, save `printenv` and dump all 9 NAND partitions with OOB.
+2. **Build** on a Linux workstation:
+   ```sh
+   scripts/debian/build-kernel.sh                  # Linux 6.12 LTS + appended NSA310 device tree → uImage
+   NAS_MAC=<ethaddr> scripts/debian/build-rootfs.sh \
+     output/kernel/modules-6.12.119.tar.gz ~/.ssh/id_ed25519.pub   # Debian 13 armel root FS
+   ```
+3. **Prepare** the SATA disk (GPT: 30 GB root, 1 GB swap, data) and a USB stick (MBR, ext2, `uImage`).
+4. **Test boot from RAM** – nothing is written; power off and the stock firmware is back:
+   ```
+   usb start
+   ext2load usb 0:1 0x2000000 /uImage
+   setenv bootargs console=ttyS0,115200 root=PARTUUID=<root> rootwait rw
+   bootm 0x2000000
+   ```
+5. **Write the kernel** from the running Debian into NAND slot A (`/dev/mtd7`) and slot B
+   (`/dev/mtd8`), verifying each with a read-back.
+6. **Save the boot chain** with a single `saveenv`: slot A → slot B → stock firmware.
+7. **Install the web UI** (`scripts/webui/build.sh`, [deploy guide](deploy/debian/README.md)) and open
+   `https://<nas>:8443`.
 
-## Safety and contributing
+## 🛟 Safe by design
 
-The current phase permits public research, documentation and preparation of read-only diagnostics and a temporary-boot plan. Device commands only from an owner-approved read-only list. No automatic deployment, network scans, flashing, NAND writes, boot environment changes, disk initialization or host software installation. No kexec or boot experiments without separate approval and UART access. Follow [AGENTS.md](AGENTS.md).
+```mermaid
+flowchart LR
+    P([Power on]) --> U[U-Boot 1.1.4<br/>untouched]
+    U --> A{Slot A<br/>kernel_2}
+    A -- valid image --> D[(Debian 13<br/>on internal disk)]
+    A -- bad image --> B{Slot B<br/>previous kernel}
+    B -- valid image --> D
+    B -- bad image --> S[Stock ZyXEL firmware<br/>last fallback]
+```
 
-The pre-existing `nas_proxy.py` in the parent workspace is outside this repository and was left untouched. It is a legacy access aid with weakened TLS validation, not a production component or a security pattern to reuse. No local addresses, credentials or device dumps belong in the public repository.
+- Every NAND write is verified by reading it back; Linux and U-Boot use byte-identical ECC.
+- Network changes from the web roll back automatically unless confirmed from the new address.
+- Privileged changes go through a small root helper that accepts only validated operations – the
+  web server itself runs unprivileged.
+- Everything the UI changes is a plain text file with a snapshot, revertible from SSH too.
 
-Original project material is [MIT licensed](LICENSE). Kernel, OpenWrt, Buildroot and bundled applications keep their own licenses; MIT does not relicense them. Binary distribution will require corresponding source, notices and a license/SBOM review.
+What breaks and how to get back: [RECOVERY.md](docs/RECOVERY.md).
+
+## 🔧 Hardware
+
+| Device | State |
+| --- | --- |
+| **ZyXEL NSA310** (88F6281 A1 @ 1.2 GHz, 256 MB RAM, RTL8111D, LM85, 128 MB NAND) | ✅ in daily use |
+| NSA310b, NSA310S, NSA320, other Kirkwood NAS | ❓ not tested – similar, but not the same hardware |
+
+Verified capabilities per device: [HARDWARE_COMPATIBILITY](docs/HARDWARE_COMPATIBILITY.md).
+Have another box? Issues with a boot log and `cat /proc/mtd` are welcome.
+
+## 🧱 Under the hood
+
+```text
+backend/    Go: API server (unprivileged) + root helper over a Unix socket, HAL, SMART, disk power
+frontend/   React + TypeScript + Vite + Tailwind, built on the workstation and embedded into the binary
+deploy/     systemd units and NAS scripts (fan, LEDs, COPY button), base system tuning
+scripts/    kernel, root FS and web UI builds; U-Boot console helpers; NAND ECC check
+docs/       architecture, ADRs, API, security model, recovery, test plan, roadmap
+```
+
+Build and test the web UI: `scripts/webui/build.sh` (Go + Node via nvm). Try the UI without a NAS:
+`cd frontend && npm ci && npm run dev:mock` – log in with any user name and password `demo`.
+
+| Read next | |
+| --- | --- |
+| [Install guide](docs/debian/install.md) | Step-by-step flashing of a stock NSA310 |
+| [Boot layout](docs/debian/boot.md) | NAND slots, U-Boot environment, writing kernels |
+| [Architecture](docs/ARCHITECTURE.md) | Process model, modules, config manager, HAL |
+| [Security model](docs/SECURITY_MODEL.md) | Trust boundaries, privileged helper, auth |
+| [API v1](docs/api/v1.md) | Administration API contract |
+| [Roadmap](docs/ROADMAP.md) · [Web roadmap](docs/WEB_ROADMAP.md) | What comes next |
+| [Open items](OPEN.md) | Decisions, blockers and unverified work |
+
+The project started by qualifying OpenWrt and a minimal Buildroot userspace; that research is kept in
+[docs/research](docs/research/) and the [OpenWrt-era architecture](docs/architecture/overview.md).
+
+## 📜 License
+
+Project code and documentation are [MIT licensed](LICENSE). The Linux kernel, Debian packages and other
+upstream components keep their own licenses. Not affiliated with ZyXEL. Flashing is at your own risk.

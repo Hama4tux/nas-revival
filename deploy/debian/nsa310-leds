@@ -1,0 +1,15 @@
+#!/bin/sh
+# NSA310 front panel and network port LEDs; missing triggers (older kernel) are ignored.
+L=/sys/class/leds
+echo default-on    > $L/nsa310:green:sys/trigger
+echo panic         > $L/nsa310:red:sys/trigger 2>/dev/null || true
+echo disk-activity > $L/nsa310:green:hdd/trigger 2>/dev/null || true
+if echo usbport > $L/nsa310:green:usb/trigger 2>/dev/null; then
+  for p in $L/nsa310:green:usb/ports/*; do echo 1 > "$p"; done
+fi
+# RTL8111D port LEDs (offloaded to the NIC): 0 = link at any speed, 1 = activity, 2 = gigabit link
+for i in 0 1 2; do echo netdev > "$L/enp1s0-$i::lan/trigger" 2>/dev/null || true; done
+for f in link_10 link_100 link_1000; do echo 1 > "$L/enp1s0-0::lan/$f" 2>/dev/null || true; done
+echo 1 > "$L/enp1s0-1::lan/rx" 2>/dev/null || true
+echo 1 > "$L/enp1s0-1::lan/tx" 2>/dev/null || true
+echo 1 > "$L/enp1s0-2::lan/link_1000" 2>/dev/null || true

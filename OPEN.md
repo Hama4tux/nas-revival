@@ -1,10 +1,13 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, síť, NTP, certifikát, Systém s historií konfigurace, Úložiště se SMART, napájením a aktivitou disků, restart/vypnutí a nově správu uživatelů a skupin (W2.1, nasazeno a ověřeno přes helper). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: W2.2 – přihlášení více účtů a role (převod admin.json na linuxového uživatele v nas-admin).
+- Stav: Repo je veřejné na GitHubu s úvodní stránkou a návodem k instalaci na původní NSA310; jádro i rootfs se staví skripty v repu (rootfs ověřen sestavením a kontrolou obsahu). Webové GUI má přehled, síť, systém, úložiště a uživatele (W2.1).
+- Další krok: reprodukovatelný release (verze jádra v jednom souboru, release.sh, build v GitHub Actions, skript pro aktualizaci jádra A/B), potom W2.2.
 
 ## Čeká na rozhodnutí
+- [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
+- [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
+- [ ] Reprodukovatelný release: KERNEL_VERSION v jednom souboru, scripts/debian/release.sh (jádro + rootfs + manifest + SHA256SUMS), build v GitHub Actions na tag, skript pro aktualizaci jádra (A→B, zápis A, zpětné čtení) – navrženo, čeká na souhlas. (2026-11-26)
 - [ ] Jádro NASu nemá CONFIG_TASK_IO_ACCOUNTING (chybí /proc/<pid>/io), takže měření aktivity neukazuje bajty po procesech, jen soubory otevřené pro zápis. Zapnout ho při příštím sestavení jádra? Vyžaduje zápis do NAND slotu a restart – jen se souhlasem. (2026-11-26)
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
 - [ ] Vyzkoušet vypnutí z GUI – device tree má gpio-poweroff, ale že NSA310 opravdu odpojí napájení (a jde znovu zapnout tlačítkem), není ověřené. (2026-11-25)
@@ -12,6 +15,8 @@
 
 
 ## Nedodělané
+- [ ] Návod docs/debian/install.md a rootfs ze scripts/debian/build-rootfs.sh zatím nebyly vyzkoušené na čistém NSA310 (rootfs ověřen jen sestavením a kontrolou obsahu tarballu, nenabootován). (2026-11-26)
+- [ ] GUI je jen česky – pro veřejné repo doplnit angličtinu (i18n už je připravené v frontend/src/i18n). (2026-11-26)
 - [ ] Uživatelé a skupiny (W2.1) ověřené na NASu jen přes root helper – po přihlášení projít stránku Uživatelé v prohlížeči na telefonu (360 px) i desktopu (založit, heslo, zakázat, skupina, smazat). (2026-11-26)
 - [ ] Samba není na NASu nainstalovaná – hesla pro SMB se u účtů nastaví až při první změně hesla po jejím zapnutí (W2.5); UI to uživateli říká. (2026-11-26)
 - [ ] Aktivita disků (W1.9) ověřená jen přes root helper na NASu – v prohlížeči po přihlášení zkontrolovat Úložiště → „Aktivita disků“ na telefonu (360 px) i desktopu. (2026-11-26)
@@ -39,7 +44,6 @@
 - [ ] Při chybějícím nebo vadném disku jádro čeká na kořen donekonečna (rootwait) – zvážit nouzový kořen (USB flashka) nebo timeout. (2026-11-25)
 - [ ] Starý kořen na USB flashce (oddíl rootfs) je zamrzlá kopie z 2026-11-25 jako záloha; neaktualizuje se. (2026-11-25)
 - [ ] LED eSATA a COPY zatím nic neukazují a HDD bliká při činnosti kteréhokoli disku (i USB flashky); pro LED jednotlivých SATA portů je potřeba dohledat volbu jádra (per-port trigger ata1/ata2 v 6.12 chybí). Přiřazení tří LED síťového portu (link, aktivita, gigabit) ověřit pohledem. (2026-11-25)
-- [ ] Build rootfs (mmdebstrap) převzal resolv.conf stavebního počítače (127.0.0.53 bez resolved) – v receptu doinstalovat systemd-resolved nebo zapsat správný resolv.conf; na NASu opraveno ručně. (2026-11-25)
 - [ ] Debian 13 armel nemá oficiální jádro Kirkwood: jádro (mainline LTS 6.12) aktualizujeme sami – zautomatizovat build a hlídat nové verze 6.12.x. (2026-11-25)
 - [ ] Přepsat ADR 0001 podle rozhodnutí pro Debian 13 (vlastní jádro 6.12 ve slotech NAND, konec armel po Debianu 13); roadmapa, architektura a README už jsou přepsané. (2026-11-25)
 - [ ] NAS se po výpadku napájení nezapne sám (nutné tlačítko) – zohlednit u napájení z Delty a v plánu obnovy. (2026-11-18)
@@ -60,6 +64,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Veřejná úvodní stránka repa (banner, snímky GUI, funkce, schéma bootu), návod k instalaci na původní NSA310 a build jádra i rootfs jako skripty v repu; rootfs postaven a zkontrolován. (2026-11-26)
 - Repozitář zveřejněn na GitHubu (Hama4tux/nas-revival); z historie odstraněna domácí podsíť. (2026-11-26)
 - Aktivita disků na požádání (W1.9): zápisy a čtení po discích a oddílech, změněné soubory a procesy, které je drží otevřené, žurnál ext4, swap a vysvětlení, proč disk neusne; nebudí spící disk, jedno měření naráz. Ověřeno na NASu přes root helper. (2026-11-26)
 - Přehled se zdravím z NASu (W1.7): seznam problémů s časem kontroly, stav napájení disku ve widgetu Úložiště, jeden společný sběr dat pro všechny prohlížeče (5 s / 60 s v klidu); nasazeno na NAS, služba běží, v prohlížeči s přihlášením zatím nezkontrolováno. (2026-11-25)
