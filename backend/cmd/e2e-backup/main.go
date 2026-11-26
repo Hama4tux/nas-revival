@@ -6,8 +6,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -53,10 +58,68 @@ func main() {
 		r, err := c.BackupTest(ctx, b.Host, b.Port, b.User, b.Paths[0])
 		check("backup.test "+t.ID, err == nil && r.OK && !r.FullAccess,
 			fmt.Sprintf("entries=%d fullAccess=%v %s", len(r.Entries), r.FullAccess, errText(err)))
+		checkVersions(ctx, c, t.ID, check)
 	}
 	check("backup-pull tasks present", n > 0, fmt.Sprintf("count=%d", n))
 	if fail > 0 {
 		os.Exit(1)
+	}
+}
+
+// checkVersions lists the versions, walks the newest one down to its first
+// file, reads it through the passed descriptor and checks that the web
+// account cannot open the same file directly. Prints counts only.
+func checkVersions(ctx context.Context, c *helper.Client, id string, check func(string, bool, string)) {
+	v, err := c.BackupVersions(ctx, id)
+	check("backup.versions "+id, err == nil && len(v.Versions) > 0 && v.Complete,
+		fmt.Sprintf("versions=%d complete=%v %s", len(v.Versions), v.Complete, errText(err)))
+	if err != nil || len(v.Versions) == 0 {
+		return
+	}
+	date, dir, file := v.Versions[0].Date, "", ""
+	var size int64
+	for depth := 0; depth < 8 && file == ""; depth++ {
+		b, err := c.BackupBrowse(ctx, id, date, dir, 0)
+		if err != nil {
+			check("backup.browse "+id, false, errText(err))
+			return
+		}
+		next := ""
+		for _, e := range b.Entries {
+			if e.BadName {
+				continue
+			}
+			if e.Type == "file" && file == "" {
+				file, size = path.Join(dir, e.Name), e.Size
+			}
+			if e.Type == "dir" && next == "" {
+				next = path.Join(dir, e.Name)
+			}
+		}
+		if file == "" {
+			if next == "" {
+				break
+			}
+			dir = next
+		}
+	}
+	check("backup.browse "+id, file != "", fmt.Sprintf("depth=%d", strings.Count(file, "/")))
+	if file == "" {
+		return
+	}
+	f, meta, err := c.BackupOpen(ctx, id, date, file)
+	if err != nil {
+		check("backup.open "+id, false, errText(err))
+		return
+	}
+	n, rerr := io.Copy(io.Discard, io.LimitReader(f, 64<<20))
+	f.Close()
+	check("backup.open "+id, rerr == nil && meta.Size == size && (n == size || n == 64<<20),
+		fmt.Sprintf("read=%d size=%d", n, size))
+	_, derr := os.Open(filepath.Join(tasks.BackupVolume, "versions", date, id, file))
+	check("web account has no direct read access "+id, derr != nil && errors.Is(derr, fs.ErrPermission), "")
+	if _, _, err := c.BackupOpen(ctx, id, date, "../"+id); err == nil {
+		check("backup.open refuses ..", false, "")
 	}
 }
 

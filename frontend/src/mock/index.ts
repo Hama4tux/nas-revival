@@ -626,7 +626,7 @@ const taskView = () => mockTasks.map((t) => ({
 
 const MOCK_FP = 'SHA256:q3Zk0m7H1nP2yB8cV5xT9aLwR4eDfG6uJhS1oXiNtEw';
 let mockShareOn = false;
-function backupRoute(path: string, method: string, body: Record<string, unknown>): Response | null {
+function backupRoute(path: string, method: string, body: Record<string, unknown>, search = ''): Response | null {
   if (path === '/backup/share' && method === 'GET') return json(200, { enabled: mockShareOn, name: 'zalohy', path: '/srv/data/versions' });
   if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
   if (path === '/backup/share' && method === 'PUT') {
@@ -646,6 +646,29 @@ function backupRoute(path: string, method: string, body: Record<string, unknown>
       { type: 'ssh-ed25519', key: 'AAAAC3NzaC1lZDI1NTE5AAAAIMockHostKeyMockHostKeyMockHostKeyMockHost', fingerprint: MOCK_FP },
       { type: 'ssh-rsa', key: 'AAAAB3NzaC1yc2EAAAADAQABAAABAQMockRsaKey', fingerprint: 'SHA256:Lm2Pq9Rt4Vx7Yb1Cd6Fg8Hj3Kn5Ws0ZaEiOuTyUrQeA' },
     ], known: false, changed: host === '192.0.2.11' });
+  }
+  const vm = /^\/backup\/([^/]+)\/versions(?:\/([^/]+)\/(browse|file))?$/.exec(path);
+  if (vm && method === 'GET') {
+    if (!vm[2]) {
+      return json(200, { complete: true, versions: [
+        { date: '2026-11-25', files: 1240, bytes: 4_800_000_000, addedBytes: 12_900_000 },
+        { date: '2026-11-24', files: 1236, bytes: 4_790_000_000, addedBytes: 31_000_000 },
+        { date: '2026-11-23', files: 1230, bytes: 4_760_000_000, addedBytes: 2_400_000_000 },
+      ] });
+    }
+    if (vm[3] === 'file') return new Response(new Blob(['mock']), { status: 200 });
+    const q = new URLSearchParams(search);
+    const dir = q.get('path') ?? '';
+    const now = new Date().toISOString();
+    const tree: Record<string, { name: string; type: string; size: number; modified: string }[]> = {
+      '': [{ name: 'nas-export', type: 'dir', size: 0, modified: now }, { name: 'readme.txt', type: 'file', size: 1234, modified: now },
+        { name: 'latest', type: 'link', size: 0, modified: now }],
+      'nas-export': [{ name: 'db', type: 'dir', size: 0, modified: now }, { name: 'last-ok', type: 'file', size: 20, modified: now }],
+      'nas-export/db': [{ name: 'dump.sql.gz', type: 'file', size: 8_400_000, modified: now }],
+    };
+    const entries = tree[dir];
+    if (!entries) return err(404, 'not_found', 'Složka ve verzi neexistuje.');
+    return json(200, { path: dir, entries, offset: 0, total: entries.length, truncated: false });
   }
   if (path === '/backup/hostkey/trust' && method === 'POST') return json(200, {});
   if (path === '/backup/test' && method === 'POST') {
@@ -921,7 +944,7 @@ export function installMock(): void {
     if (path.startsWith('/backup/')) {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
-      const r = backupRoute(path, method, body);
+      const r = backupRoute(path, method, body, url.search);
       if (r) return r;
     }
     if (path.startsWith('/tasks')) {

@@ -335,3 +335,8 @@ export interface Task extends TaskDef { running: boolean; nextRun: string | null
 export interface TaskList { tasks: Task[] }
 export interface TaskHistory { runs: TaskRun[] }
 export interface BackupShare { enabled: boolean; name: string; path: string }
+
+export interface BackupVersion { date: string; files: number; bytes: number; addedBytes: number }
+export interface BackupVersionList { versions: BackupVersion[]; complete: boolean }
+export interface BackupEntry { name: string; type: 'dir' | 'file' | 'link' | 'other'; size: number; modified: string; badName?: boolean }
+export interface BackupBrowse { path: string; entries: BackupEntry[]; offset: number; total: number; truncated: boolean }

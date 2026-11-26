@@ -1,4 +1,4 @@
-import { CalendarClock, History, Loader2, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { CalendarClock, FolderClock, History, Loader2, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { StorageDisk, StorageReport, Task, TaskDef, TaskHistory, TaskList, TaskRun, TaskWeekday } from '../api/types';
@@ -11,6 +11,7 @@ import {
 } from '../lib/tasks';
 import { BackupShareCard } from './BackupShareCard';
 import { BackupTaskFields } from './BackupTaskFields';
+import { BackupVersions } from './BackupVersions';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
@@ -194,9 +195,9 @@ function HistoryDialog({ task, onClose }: { task: Task; onClose: () => void }) {
   );
 }
 
-function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHistory, onRemove }: {
+function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHistory, onVersions, onRemove }: {
   task: Task; readOnly: boolean; busy: boolean;
-  onToggle: () => void; onRun: () => void; onStop: () => void; onEdit: () => void; onHistory: () => void; onRemove: () => void;
+  onToggle: () => void; onRun: () => void; onStop: () => void; onEdit: () => void; onHistory: () => void; onVersions: () => void; onRemove: () => void;
 }) {
   const n = task.name;
   const sub = task.type === 'smart' && task.smart ? `${t.types.smart}, ${t.testShort[task.smart.test]} test`
@@ -242,6 +243,7 @@ function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHis
           ? <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.stopAria(n)} onClick={onStop}><Square className="h-4 w-4" aria-hidden />{t.stop}</Button>
           : <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.runAria(n)} onClick={onRun}><Play className="h-4 w-4" aria-hidden />{t.runNow}</Button>)}
         <Button type="button" size="sm" variant="outline" aria-label={t.historyAria(n)} onClick={onHistory}><History className="h-4 w-4" aria-hidden />{t.history}</Button>
+        {!readOnly && task.type === 'backup-pull' && <Button type="button" size="sm" variant="outline" aria-label={t.versionsAria(n)} onClick={onVersions}><FolderClock className="h-4 w-4" aria-hidden />{t.versions}</Button>}
         {!readOnly && <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.editAria(n)} onClick={onEdit}><Pencil className="h-4 w-4" aria-hidden />{t.edit}</Button>}
         {!readOnly && <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.removeAria(n)} onClick={onRemove}><Trash2 className="h-4 w-4" aria-hidden />{t.remove}</Button>}
       </div>
@@ -257,6 +259,7 @@ export function TasksPage({ readOnly }: { readOnly: boolean }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [editing, setEditing] = useState<TaskDef | null>(null);
   const [history, setHistory] = useState<Task | null>(null);
+  const [versions, setVersions] = useState<Task | null>(null);
   const [removing, setRemoving] = useState<Task | null>(null);
   const loading = useRef(false);
 
@@ -324,7 +327,7 @@ export function TasksPage({ readOnly }: { readOnly: boolean }) {
             {tasks.map((task) => (
               <TaskCard key={task.id} task={task} readOnly={readOnly} busy={busy}
                 onToggle={() => toggle(task)} onRun={() => action(task, 'run')} onStop={() => action(task, 'stop')}
-                onEdit={() => setEditing(normalizeTask(task))} onHistory={() => setHistory(task)} onRemove={() => setRemoving(task)} />
+                onEdit={() => setEditing(normalizeTask(task))} onHistory={() => setHistory(task)} onVersions={() => setVersions(task)} onRemove={() => setRemoving(task)} />
             ))}
           </ul>
         )}
@@ -338,6 +341,7 @@ export function TasksPage({ readOnly }: { readOnly: boolean }) {
       {tasks.some((x) => x.type === 'backup-pull') && <BackupShareCard readOnly={readOnly} />}
       {editing && <EditorDialog initial={editing} disks={disks} onSave={saveEdited} onClose={() => setEditing(null)} />}
       {history && <HistoryDialog task={history} onClose={() => setHistory(null)} />}
+      {versions && <BackupVersions task={versions} onClose={() => setVersions(null)} />}
       {removing && (
         <Dialog title={t.removeTitle(removing.name)} onClose={() => setRemoving(null)} busy={busy}
           footer={<>
