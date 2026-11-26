@@ -77,7 +77,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | STOR-16 | Storage | exFAT / NTFS (ntfs3) support | P2 | Blocked | — | kernel modules | L | FS corruption on NTFS | needs new kernel with `exfat`, `ntfs3` | UPD-04 |
 | SMART-10 | SMART | Attribute table with vendor-aware highlights (5, 187, 188, 197, 198, 193, 9, 4, 12, 194) | P0 | Implemented | SMART | smartmontools | L | none | raw values parsed per vendor (Seagate 48-bit packed) | SMART-01 |
 | SMART-11 | SMART | Self-test short/long: start, progress %, last result | P0 | Implemented | SMART | smartctl -t/-c | M (disk busy) | DoS by repeated tests | one test per disk; progress shown; result in history | PRIV-01 |
-| SMART-12 | SMART | Scheduled tests via timers | P1 | Planned | SMART | systemd timers | L | conflicts with backup | not concurrent with backup (lock) | TASK-01 |
+| SMART-12 | SMART | Scheduled tests via timers | P1 | Implemented (W3.3; NAS 2026-11-26) | SMART | systemd timers | L | conflicts with backup | not concurrent with backup (lock) | TASK-01 |
 | SMART-13 | SMART | History of results and temperature, deterioration alerts | P1 | Planned | SMART | — | L | none | increase of 5/197/198 raises warning notification | LOG-10 |
 | PWR-01 | Disk power | Current power state (active/idle/standby) without waking | P0 | Implemented | ATA | hdparm -C | L | none | query never spins the disk up (test with standby disk) | PRIV-01 |
 | PWR-02 | Disk power | Standby timeout, APM level, profiles (performance/balanced/eco/custom) | P0 | Implemented | ATA APM | hdparm -S/-B | L | wear from frequent spin-ups | settings persist after reboot and re-plug; unsupported APM hidden | CFG-02 |
@@ -137,9 +137,9 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | MON-04 | Monitoring | Disk throughput, IOPS, busy %, latency | P1 | Planned | — | /proc/diskstats | L | — | does not wake disk (diskstats only) | MON-01 |
 | MON-05 | Monitoring | Network errors, totals, history | P1 | Planned | — | /sys/class/net stats | L | — | — | MON-01 |
 | MON-06 | Monitoring | Process list, sort by CPU/RSS, kill (admin, protected PIDs) | P1 | Planned | — | /proc | M (while open) | killing critical process | PID 1, sshd, helper, journald protected | PRIV-01 |
-| TASK-01 | Scheduler | Task list (name, type, enabled, interval, last/next run, result, duration, history) | P1 | Planned | — | systemd timers | L | — | matches `systemctl list-timers` | PRIV-01 |
-| TASK-02 | Scheduler | Built-in task types (SMART, backup, cleanup, restart, power) | P1 | Planned | — | — | L | arbitrary commands | no free-form command type | TASK-01 |
-| TASK-03 | Scheduler | Run now / stop, heavy-task lock | P1 | Planned | — | flock | L | — | SMART long and backup never overlap | TASK-01 |
+| TASK-01 | Scheduler | Task list (name, type, enabled, interval, last/next run, result, duration, history) | P1 | Implemented (W3.3; NAS 2026-11-26) | — | systemd timers | L | — | matches `systemctl list-timers` | PRIV-01 |
+| TASK-02 | Scheduler | Built-in task types (SMART, backup, cleanup, restart, power) | P1 | Partial (W3.3: SMART, recycle cleanup; backup with W4.3) | — | — | L | arbitrary commands | no free-form command type | TASK-01 |
+| TASK-03 | Scheduler | Run now / stop, heavy-task lock | P1 | Implemented (W3.3; NAS 2026-11-26) | — | flock | L | — | SMART long and backup never overlap | TASK-01 |
 | TASK-04 | Scheduler | Custom scripts for trusted admin | P3 | Not started | — | — | L | code execution | separate ADR; off by default | TASK-01 |
 | HW-01 | Hardware | Temperature history, thresholds, critical events | P1 | Planned | LM85 | — | L | — | event at threshold, deduplicated | MON-02, LOG-10 |
 | HW-02 | Hardware | Fan profiles quiet/balanced/performance mapped to LM85 zone limits | P1 | Planned | LM85 PWM auto | sysfs | L | overheating | only verified ranges; disk temp watchdog → 100 % | HAL-10 |

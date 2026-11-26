@@ -13,14 +13,19 @@
 ## Decision
 
 - **Order (owner, 2026-11-26):** the scheduler (W3.3) comes first and is the task core; backup jobs
-  (W4.3) add the task type `backup-pull` on it. The paragraph "Task core" is updated to the built
-  state when W3.3 is merged.
-- **Task core:** one systemd template unit + timer per task, rendered by the helper from
-  `/etc/nas-revival/tasks.json`; runner `nas-revival task-run <id>`. One heavy-task lock
-  `/run/lock/nas-heavy.lock` (flock for the whole run; tmpfiles `0660 root:nas-heavy` – it must be
-  root-owned because of `fs.protected_regular`; runners open it without O_CREAT), shared with the
-  interim pull job; power preflight probes it (`task_running`). Run history per task as bounded JSONL (last N runs) with start,
-  duration, bytes, result and error code. No free-form command task type (TASK-02).
+  (W4.3) add the task type `backup-pull` on it. The paragraph "Task core" describes the state built in W3.3
+  (2026-11-26).
+- **Task core (built in W3.3):** `/etc/nas-revival/tasks.json` (fixed types `smart`, `recycle-cleanup`;
+  `backup-pull` comes with W4.3) is validated and written by the helper (`task.get/set/run/stop`), which
+  renders one `nas-revival-task-<id>.timer` per task for the static template `nas-revival-task@.service`
+  and reconciles the timers at start. The runner `nas-revival task run <id>` runs as `nas-revival`
+  (no capabilities, `SupplementaryGroups=nas-heavy`) and does the work through existing helper ops.
+  One heavy-task lock `/run/lock/nas-heavy.lock` (flock for the whole run, waits up to 3 h, then the run
+  is recorded as skipped; tmpfiles `f`+`z` `0660 root:nas-heavy` – root-owned because of
+  `fs.protected_regular`; runners open it without O_CREAT), shared with the interim pull job; power
+  preflight probes it (`task_running`). History: `/var/lib/nas-revival/task-history.json`, last 30 runs
+  per task (start, end, result ok/failed/skipped/stopped, short message); W4.3 adds bytes for backups.
+  No free-form command task type (TASK-02).
 - **Backup job type "pull over SSH"** (validated fields only): name, host (IP or hostname), user,
   remote paths (relative, no `..`), daily or weekly time, version retention days (required,
   1–90), optional freshness marker file and maximum age, optional bandwidth limit and excludes.
