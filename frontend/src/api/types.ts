@@ -226,3 +226,21 @@ export interface UserInfo {
 export interface GroupInfo { name: string; gid: number; members: string[]; builtin: boolean }
 export interface UserList { users: UserInfo[]; groups: GroupInfo[]; samba: boolean }
 export interface PasswordResult { samba: boolean }
+
+/** GET /shares (W2.3): shared folders, data volumes and who may use them. */
+export type ShareAccess = 'rw' | 'ro' | 'none';
+export type PrincipalKind = 'user' | 'group';
+export interface SharePermission { kind: PrincipalKind; name: string; access: ShareAccess }
+export interface Share {
+  name: string; description: string; volume: string; folder: string; readOnly: boolean; hidden: boolean;
+  recycle: { enabled: boolean; days: number }; permissions: SharePermission[];
+}
+export interface UserAccess { user: string; access: ShareAccess; via: string }
+export interface ShareInfo extends Share { path: string; exists: boolean; enforcement: 'acl' | 'smb'; effective: UserAccess[]; conflicts: string[] }
+export interface ShareVolume { path: string; fsType: string; totalBytes: number; availBytes: number; acl: boolean }
+export interface ShareList {
+  shares: ShareInfo[]; volumes: ShareVolume[]; smb: { installed: boolean; included: boolean };
+  principals: { users: string[]; groups: string[] };
+}
+export interface ShareDeleteResult extends ShareList { dataRemoval: 'none' | 'started' }
+export interface RecycleCleanupResult { removedFiles: number; removedBytes: number }

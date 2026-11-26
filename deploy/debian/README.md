@@ -20,6 +20,12 @@ membership in `nas-admin` / `nas-viewer` (created by the helper on first use). A
 `scripts/webui/e2e-roles.sh` from the workstation: it creates three throw-away accounts, checks login,
 the role policy, own password change, role change and disable over HTTPS, and deletes them again.
 
+Shared folders (W2.3) live in `/etc/nas-revival/shares.json` (root, 0644, written only by the helper);
+folders are `<data volume>/<name>`, the helper unit needs `ReadWritePaths=-/srv`. With Samba installed
+the helper also writes `/etc/samba/nas-revival-shares.conf` (checked with `testparm`, smb.conf has to
+include it – W2.5). After deploying, run `scripts/webui/e2e-shares.sh` from the workstation: it creates a
+throw-away admin, user and share `nrt-e2e`, checks create/edit/permissions/delete over HTTPS and removes them.
+
 Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
 balanced profile (APM 254, no standby on the system disk).

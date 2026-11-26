@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -495,6 +495,78 @@ function usersRoute(path: string, method: string, body: Record<string, unknown>)
   return null;
 }
 
+/* ---------- shared folders (W2.3) ---------- */
+const mockVolumes: ShareVolume[] = [
+  { path: '/srv/data', fsType: 'ext4', totalBytes: 2e12, availBytes: 1.2e12, acl: false },
+  { path: '/srv/usb1', fsType: 'ext4', totalBytes: 5e11, availBytes: 4.1e11, acl: true },
+];
+let mockShares: Share[] = [
+  { name: 'Fotky', description: 'Rodinné fotky', volume: '/srv/data', folder: 'Fotky', readOnly: false, hidden: false,
+    recycle: { enabled: true, days: 30 },
+    permissions: [{ kind: 'group', name: 'rodina', access: 'rw' }, { kind: 'user', name: 'petr', access: 'none' }] },
+  { name: 'Archiv', description: '', volume: '/srv/usb1', folder: 'Archiv', readOnly: true, hidden: true,
+    recycle: { enabled: false, days: 30 }, permissions: [{ kind: 'group', name: 'nas-users', access: 'ro' }, { kind: 'user', name: 'jana', access: 'ro' }] },
+];
+const rank = (a: ShareAccess) => (a === 'rw' ? 2 : a === 'ro' ? 1 : 0);
+function effective(s: Share): UserAccess[] {
+  return mockUsers.map((u) => {
+    const direct = s.permissions.find((p) => p.kind === 'user' && p.name === u.name);
+    const groups = userList().groups.filter((g) => g.members.includes(u.name));
+    let access: ShareAccess = 'none'; let via = '';
+    if (direct) { access = direct.access; via = 'user'; } else {
+      for (const p of s.permissions) {
+        if (p.kind === 'group' && groups.some((g) => g.name === p.name) && rank(p.access) > rank(access)) { access = p.access; via = `group:${p.name}`; }
+      }
+    }
+    if (s.readOnly && access === 'rw') access = 'ro';
+    return { user: u.name, access, via };
+  });
+}
+const shareInfo = (s: Share): ShareInfo => ({
+  ...s, path: `${s.volume}/${s.folder}`, exists: true,
+  enforcement: mockVolumes.find((v) => v.path === s.volume)?.acl ? 'acl' : 'smb',
+  effective: effective(s),
+  conflicts: s.permissions.filter((p) => p.kind === 'user' && p.access === 'none' &&
+    s.permissions.some((g) => g.kind === 'group' && userList().groups.some((x) => x.name === g.name && x.members.includes(p.name))))
+    .map((p) => `Uživatel ${p.name}: bez přístupu přebíjí oprávnění skupiny.`),
+});
+const shareList = (): ShareList => ({
+  shares: mockShares.map(shareInfo), volumes: mockVolumes, smb: { installed: false, included: false },
+  principals: { users: mockUsers.map((u) => u.name), groups: userList().groups.map((g) => g.name) },
+});
+const SHARE_NAME = /^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$/;
+
+function sharesRoute(path: string, method: string, body: Record<string, unknown>): Response | null {
+  if (path === '/shares' && method === 'GET') return json(200, shareList());
+  if (path === '/shares/recycle-cleanup' && method === 'POST') return json(200, { removedFiles: 12, removedBytes: 48 * 1024 * 1024 });
+  if (path === '/shares' && method === 'POST') {
+    const s = body as unknown as Share;
+    if (!SHARE_NAME.test(s.name ?? '')) return bad('name', 'Název nesplňuje pravidla.');
+    if (['global', 'homes', 'printers', 'print$', 'ipc$', 'netlogon', 'profiles'].includes(s.name.toLowerCase())) return bad('name', 'Tento název je vyhrazený.');
+    if (mockShares.some((x) => x.name.toLowerCase() === s.name.toLowerCase())) return bad('name', 'Složka s tímto názvem už existuje.');
+    if (!mockVolumes.some((v) => v.path === s.volume)) return bad('volume', 'Svazek není připojený.');
+    mockShares = [...mockShares, { ...s, folder: s.name, description: (s.description ?? '').trim() }].sort((a, b) => a.name.localeCompare(b.name));
+    return json(201, shareList());
+  }
+  const m = /^\/shares\/([^/]+)$/.exec(path);
+  if (!m) return null;
+  const cur = mockShares.find((x) => x.name === m[1]);
+  if (!cur) return err(404, 'not_found', 'Sdílená složka neexistuje.');
+  if (method === 'PUT') {
+    const s = body as unknown as Share;
+    if (s.permissions?.some((p) => p.kind === 'group' && p.access === 'none')) return bad('permissions', 'Skupině nelze přístup zakázat.');
+    mockShares = mockShares.map((x) => (x.name === cur.name ? { ...cur, description: (s.description ?? '').trim(), readOnly: !!s.readOnly,
+      hidden: !!s.hidden, recycle: s.recycle, permissions: s.permissions } : x));
+    return json(200, shareList());
+  }
+  if (method === 'DELETE') {
+    if (body.deleteData && body.confirmName !== cur.name) return bad('confirmName', 'Pro smazání dat napište přesný název složky.');
+    mockShares = mockShares.filter((x) => x.name !== cur.name);
+    return json(200, { ...shareList(), dataRemoval: body.deleteData ? 'started' : 'none' });
+  }
+  return null;
+}
+
 export function installMock(): void {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
@@ -554,6 +626,12 @@ export function installMock(): void {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = usersRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/shares')) {
+      let body: Record<string, unknown> = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = sharesRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/config/')) {

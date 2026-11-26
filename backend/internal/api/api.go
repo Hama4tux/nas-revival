@@ -72,7 +72,9 @@ type Server struct {
 	// Config serves /config/history and /config/rollback; nil answers 503.
 	Config ConfigHistory
 	// Users serves /users and /groups; nil answers 503.
-	Users       UserAdmin
+	Users UserAdmin
+	// Shares serves /shares; nil answers 503.
+	Shares      ShareAdmin
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
@@ -92,6 +94,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerStorage(api)
 	s.registerConfig(api)
 	s.registerUsers(api)
+	s.registerShares(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

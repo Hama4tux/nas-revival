@@ -16,7 +16,7 @@ rm -rf "linux-$V"; tar xf "linux-$V.tar.xz"; cd "linux-$V"
 export ARCH=arm CROSS_COMPILE=arm-linux-gnueabi-
 make -s mvebu_v5_defconfig
 ./scripts/config \
-  -e EXT4_FS -e USB_STORAGE -e USB_EHCI_HCD -e USB_EHCI_HCD_ORION -e SATA_MV \
+  -e EXT4_FS -e EXT4_FS_POSIX_ACL -e USB_STORAGE -e USB_EHCI_HCD -e USB_EHCI_HCD_ORION -e SATA_MV \
   -e MD -e BLK_DEV_MD -e MD_RAID1 -e DEVTMPFS -e DEVTMPFS_MOUNT -e CGROUPS -e AUTOFS_FS \
   -e TMPFS_POSIX_ACL -e FHANDLE -m SENSORS_LM85 -m R8169 \
   -e LEDS_TRIGGER_DISK -e LEDS_TRIGGER_NETDEV -e LEDS_TRIGGER_PANIC -e USB_LEDS_TRIGGER_USBPORT \

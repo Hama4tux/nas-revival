@@ -32,6 +32,7 @@ import (
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
+	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smart"
 	"nas-revival/backend/internal/storage"
 	"nas-revival/backend/internal/system"
@@ -131,6 +132,7 @@ func serve(args []string) error {
 	srv.SystemPower = hc
 	srv.Config = hc
 	srv.Users = hc
+	srv.Shares = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -266,16 +268,25 @@ func runHelper(args []string) error {
 			{ID: helper.FileNetwork, Path: *netFile},
 			{ID: helper.FileTime, Path: *dropin},
 			{ID: helper.FileDiskPower, Path: diskpower.DefaultConfigPath},
+			{ID: helper.FileShares, Path: shares.DefaultConfigPath},
 		},
 		Pending: func(id string) bool { return id == helper.FileNetwork && nm.HasPending() }}
+	acls := shares.NewACLProbe(shares.SysSetxattr)
+	shm := &helper.ShareManager{Path: shares.DefaultConfigPath,
+		Accounts:  accounts.Paths{Passwd: accounts.SystemPaths.Passwd, Group: accounts.SystemPaths.Group},
+		Mountinfo: "/proc/self/mountinfo", Statfs: shares.SysStatfs, Probe: acls,
+		SetXattr: shares.SysSetxattr, Chown: shares.SysLchown, Run: helper.ExecRunner, LookPath: exec.LookPath,
+		SambaDir: "/etc/samba", SambaConf: shares.SambaConfPath, SambaMain: "/etc/samba/smb.conf", Now: time.Now}
 	var cm *helper.ConfigManager
 	if err := store.Init(); err != nil {
 		slog.Error("helper: config history disabled", "err", err)
 	} else {
-		cm = &helper.ConfigManager{Store: store, Net: nm, Time: tm, Power: dp}
+		cm = &helper.ConfigManager{Store: store, Net: nm, Time: tm, Power: dp, Shares: shm}
 	}
 	// Boot task disk-power: hdparm settings do not survive a power cycle.
 	go dp.ApplyAll(ctx)
+	// Recycle bins of the shared folders (SHARE-04): at start and daily.
+	go shm.RunRecycleLoop(ctx)
 	ln, err := helper.Listen(*sock, gid)
 	if err != nil {
 		return err
@@ -288,6 +299,7 @@ func runHelper(args []string) error {
 		Power:    dp,
 		SysPower: sp,
 		Config:   cm,
+		Shares:   shm,
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 		Users: &helper.UserManager{Paths: accounts.SystemPaths,
 			// The web process (uid of -user) reads the web hashes at login.

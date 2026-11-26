@@ -10,6 +10,7 @@ import (
 	"nas-revival/backend/internal/config"
 	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/shares"
 )
 
 type userKey struct{}
@@ -250,6 +251,44 @@ func (c *Client) GroupDelete(ctx context.Context, name string) (UserList, error)
 	var l UserList
 	err := c.users(ctx, "group.delete", map[string]string{"name": name}, &l)
 	return l, err
+}
+
+// Shared folder operations (SHARE-01..05); applying ACLs to a big folder can
+// take a while, hence the longer timeout.
+func (c *Client) shares(ctx context.Context, op string, args any, result any) error {
+	long := *c
+	long.Timeout = 65 * time.Second
+	return long.Call(ctx, op, args, result)
+}
+
+func (c *Client) ShareList(ctx context.Context) (ShareList, error) {
+	var l ShareList
+	err := c.shares(ctx, "share.list", struct{}{}, &l)
+	return l, err
+}
+
+func (c *Client) ShareCreate(ctx context.Context, s shares.Share) (ShareList, error) {
+	var l ShareList
+	err := c.shares(ctx, "share.create", map[string]any{"share": s}, &l)
+	return l, err
+}
+
+func (c *Client) ShareUpdate(ctx context.Context, s shares.Share) (ShareList, error) {
+	var l ShareList
+	err := c.shares(ctx, "share.update", map[string]any{"share": s}, &l)
+	return l, err
+}
+
+func (c *Client) ShareDelete(ctx context.Context, d ShareDelete) (ShareDeleteResult, error) {
+	var r ShareDeleteResult
+	err := c.shares(ctx, "share.delete", d, &r)
+	return r, err
+}
+
+func (c *Client) ShareRecycleCleanup(ctx context.Context) (shares.RecycleResult, error) {
+	var r shares.RecycleResult
+	err := c.shares(ctx, "share.recycleCleanup", struct{}{}, &r)
+	return r, err
 }
 
 // AsError extracts a *Error from err.

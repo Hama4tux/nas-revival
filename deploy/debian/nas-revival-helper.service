@@ -1,5 +1,5 @@
 [Unit]
-Description=NAS Revival privileged helper (network, DNS, NTP settings, SMART self-tests, disk power and activity, restart/shutdown, NAS users)
+Description=NAS Revival privileged helper (network, DNS, NTP settings, SMART self-tests, disk power and activity, restart/shutdown, NAS users, shared folders)
 Documentation=file:///usr/share/doc/nas-revival/adr-0003
 # Started before the web UI so its socket exists; the web UI only Wants= it.
 Before=nas-revival.service
@@ -23,7 +23,9 @@ ExecStartPre=+/usr/bin/mkdir -p -m 0755 /etc/systemd/timesyncd.conf.d
 # gshadow, subuid/subgid through lock and temp files next to them, so the whole /etc
 # directory must be writable – single-file entries are not enough. The helper only runs
 # those tools with validated names, never with request-supplied paths.
-ReadWritePaths=/etc -/var/log/lastlog -/var/log/faillog
+# Shared folders (W2.3): the helper creates, sets ACLs on and removes folders on the data
+# volumes under /srv and writes /etc/nas-revival/shares.json and the Samba fragment (/etc).
+ReadWritePaths=/etc -/var/log/lastlog -/var/log/faillog -/srv
 Environment=GOMEMLIMIT=16MiB GOGC=50
 MemoryMax=48M
 # Hardening. The helper stays root because it writes /etc/systemd/network and talks

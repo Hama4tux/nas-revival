@@ -31,7 +31,7 @@ LAN client ──HTTPS──▶ nas-revival (uid nas-revival, sandbox) ──Uni
 | No shell strings | `exec.Command(abs, args...)`; arguments validated by regex/enum; `--` before positional args |
 | Bounded requests | ≤ 16 KiB JSON, 5 s read deadline, per-op timeout, one config transaction at a time |
 | Audit | every op → journald record (`SYSLOG_IDENTIFIER=nas-revival-audit`, fields `NR_USER`, `NR_OP`, `NR_OBJECT`, `NR_RESULT`); no secrets |
-| Helper sandbox | `ProtectSystem=strict` + `ReadWritePaths` (`/etc` since W2.1: the shadow tools need lock/temp files next to `/etc/passwd`), `ProtectHome`, `PrivateTmp` |
+| Helper sandbox | `ProtectSystem=strict` + `ReadWritePaths` (`/etc` since W2.1: the shadow tools need lock/temp files next to `/etc/passwd`; `/srv` since W2.3 for share folders, which are only created under a mounted data volume, never from a request path), `RestrictSUIDSGID` (share folders therefore use no setgid bit), `ProtectHome`, `PrivateTmp` |
 
 Helper op naming: `<module>.<verb>` (`network.apply`, `smart.test`, `disk.setPower`, `share.create`,
 `user.setPassword`, `service.restart`, `power.reboot`). Each op declares: required role, validator,

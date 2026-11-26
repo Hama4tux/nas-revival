@@ -104,11 +104,11 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | USR-06 | Users | Effective permission view per user/share | P1 | Not started | — | getfacl | L | none | matches actual access test | SHARE-02 |
 | USR-07 | Users | Home directories (optional) | P2 | Not started | — | — | L | — | `homes` share off by default | SHARE-01 |
 | USR-08 | Users | Disk quotas | P3 | Not started | — | quota tools | M | — | ext4 quota feature needed | STOR-14 |
-| SHARE-01 | Shares | Create/edit share on a data volume (name, description, path, protocols) | P0 | Not started | — | — | L | share on unmounted path writes to root FS | refuse path whose mount is not the data FS | STOR-13 |
-| SHARE-02 | Shares | User/group RW/RO/none permissions → POSIX + ACL | P0 | Not started | — | acl | L | permission conflicts | conflicts listed; ACL only if FS supports | USR-03 |
-| SHARE-03 | Shares | Hidden share, read-only share | P1 | Not started | — | samba | L | — | `browseable = no`, `read only = yes` | SMB-01 |
-| SHARE-04 | Shares | SMB recycle bin with automatic cleanup | P1 | Not started | — | vfs_recycle, timer | L | disk fill | cleanup older than N days via timer | TASK-01 |
-| SHARE-05 | Shares | Delete share: config only vs. config + data | P0 | Not started | — | — | L | data loss | data deletion requires typing share name | SHARE-01 |
+| SHARE-01 | Shares | Create/edit share on a data volume (name, description, path, protocols) | P0 | Tested | — | — | L | share on unmounted path writes to root FS | refuse path whose mount is not the data FS | STOR-13 |
+| SHARE-02 | Shares | User/group RW/RO/none permissions → POSIX + ACL | P0 | Implemented | — | acl | L | permission conflicts | conflicts listed; ACL only if FS supports | USR-03 |
+| SHARE-03 | Shares | Hidden share, read-only share | P1 | Implemented | — | samba | L | — | `browseable = no`, `read only = yes` | SMB-01 |
+| SHARE-04 | Shares | SMB recycle bin with automatic cleanup | P1 | Implemented | — | vfs_recycle, timer | L | disk fill | cleanup older than N days via timer | TASK-01 |
+| SHARE-05 | Shares | Delete share: config only vs. config + data | P0 | Tested | — | — | L | data loss | data deletion requires typing share name | SHARE-01 |
 | SHARE-06 | Shares | Share size on demand | P2 | Not started | — | du | M (disk scan) | — | cancellable, never automatic | — |
 | SMB-01 | SMB | Enable/disable, workgroup, description, SMB2–3 only, SMB1 off | P0 | Not started | — | samba (~20–30 MiB RSS est.) | H (daemon when on) | SMB1, guest access | `testparm` before apply; min protocol SMB2_10 | SVC-10, SHARE-01 |
 | SMB-02 | SMB | Active sessions and open files | P1 | Not started | — | smbstatus --json | M | info disclosure | admin only | SMB-01 |

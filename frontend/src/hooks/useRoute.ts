@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 
-export type Route = 'overview' | 'storage' | 'network' | 'system' | 'users' | 'account';
+export type Route = 'overview' | 'storage' | 'network' | 'system' | 'users' | 'shares' | 'account';
 
-const routes: Record<string, Route> = { '#/storage': 'storage', '#/network': 'network', '#/system': 'system', '#/users': 'users', '#/account': 'account' };
+const routes: Record<string, Route> = { '#/storage': 'storage', '#/network': 'network', '#/system': 'system', '#/users': 'users', '#/shares': 'shares', '#/account': 'account' };
 
 export const parseRoute = (hash: string): Route => routes[hash] ?? 'overview';
 

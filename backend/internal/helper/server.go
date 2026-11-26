@@ -18,6 +18,7 @@ import (
 
 	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/shares"
 )
 
 const (
@@ -40,6 +41,8 @@ type Dispatcher struct {
 	Activity *ActivityManager
 	// Users manages NAS accounts and groups; nil disables it.
 	Users *UserManager
+	// Shares manages shared folders; nil disables it.
+	Shares *ShareManager
 }
 
 type request struct {
@@ -191,6 +194,53 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if (strings.HasPrefix(req.Op, "user.") || strings.HasPrefix(req.Op, "group.")) && d.Users != nil {
 		return d.handleUsers(ctx, req, user)
+	}
+	if strings.HasPrefix(req.Op, "share.") && d.Shares != nil {
+		return d.handleShares(ctx, req, user)
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleShares runs the shared folder operations (SHARE-01..05).
+func (d *Dispatcher) handleShares(ctx context.Context, req request, user string) (any, error) {
+	var a struct {
+		Share       *shares.Share `json:"share"`
+		Name        string        `json:"name"`
+		DeleteData  bool          `json:"deleteData"`
+		ConfirmName string        `json:"confirmName"`
+	}
+	if err := decodeArgs(req.Args, &a); err != nil {
+		return nil, err
+	}
+	m := d.Shares
+	switch req.Op {
+	case "share.list":
+		return m.List(ctx)
+	case "share.create", "share.update":
+		if a.Share == nil {
+			return nil, invalid("share", "Chybí sdílená složka.")
+		}
+		d.Config.Prepare()
+		var l ShareList
+		var err error
+		if req.Op == "share.create" {
+			l, err = m.Create(ctx, *a.Share, user)
+		} else {
+			l, err = m.Update(ctx, *a.Share, user)
+		}
+		if err == nil {
+			d.Config.Changed(user, FileShares)
+		}
+		return l, err
+	case "share.delete":
+		d.Config.Prepare()
+		r, err := m.Delete(ctx, ShareDelete{Name: a.Name, DeleteData: a.DeleteData, ConfirmName: a.ConfirmName}, user)
+		if err == nil {
+			d.Config.Changed(user, FileShares)
+		}
+		return r, err
+	case "share.recycleCleanup":
+		return m.RecycleCleanup(ctx, user)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

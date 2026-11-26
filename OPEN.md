@@ -1,14 +1,15 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: Repo je veřejné na GitHubu s úvodní stránkou a návodem k instalaci na původní NSA310; jádro i rootfs se staví skripty v repu (rootfs ověřen sestavením a kontrolou obsahu). Webové GUI má přehled, síť, systém, úložiště, uživatele a role s přihlášením účtů NASu (W2.2, nasazeno a ověřeno na NASu).
-- Další krok: W2.3 sdílené složky (nebo reprodukovatelný release, až ho vlastník schválí).
+- Stav: Webové GUI má přehled, síť, systém, úložiště, uživatele s rolemi a nově sdílené složky (W2.3: oprávnění, skryté/jen pro čtení, koš, smazání s potvrzením; nasazeno a ověřeno e2e testem na NASu). Přístup po síti čeká na Sambu (W2.5).
+- Další krok: W2.4 aplikace Služby, pak W2.5 SMB (instalace Samby jen se souhlasem vlastníka).
 
 ## Čeká na rozhodnutí
 - [ ] Záchranný administrátor: ADR 0004 původně chtěl účet z admin.json převést na účet NASu; ve W2.2 zůstal jako záchranný účet (heslo jen přes SSH, vždy administrátor). Ponechat, nebo po založení vlastního administrátora admin.json smazat? (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
 - [ ] Reprodukovatelný release: KERNEL_VERSION v jednom souboru, scripts/debian/release.sh (jádro + rootfs + manifest + SHA256SUMS), build v GitHub Actions na tag, skript pro aktualizaci jádra (A→B, zápis A, zpětné čtení) – navrženo, čeká na souhlas. (2026-11-26)
+- [ ] Jádro NASu nemá ACL na ext4 (CONFIG_EXT4_FS_POSIX_ACL), proto oprávnění sdílených složek vynucuje jen Samba a na úrovni souborů mají přístup všichni uživatelé NASu (důležité pro budoucí SFTP). Volba je od W2.3 ve scripts/debian/build-kernel.sh; nové jádro (spolu s TASK_IO_ACCOUNTING, exfat, ntfs3) vyžaduje zápis do NAND slotu a restart – jen se souhlasem. Po nasazení stačí u každé složky uložit oprávnění znovu. (2026-11-26)
 - [ ] Jádro NASu nemá CONFIG_TASK_IO_ACCOUNTING (chybí /proc/<pid>/io), takže měření aktivity neukazuje bajty po procesech, jen soubory otevřené pro zápis. Zapnout ho při příštím sestavení jádra? Vyžaduje zápis do NAND slotu a restart – jen se souhlasem. (2026-11-26)
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
 - [ ] Vyzkoušet vypnutí z GUI – device tree má gpio-poweroff, ale že NSA310 opravdu odpojí napájení (a jde znovu zapnout tlačítkem), není ověřené. (2026-11-25)
@@ -22,6 +23,8 @@
 - [ ] Návod docs/debian/install.md a rootfs ze scripts/debian/build-rootfs.sh zatím nebyly vyzkoušené na čistém NSA310 (rootfs ověřen jen sestavením a kontrolou obsahu tarballu, nenabootován). (2026-11-26)
 - [ ] GUI je jen česky – pro veřejné repo doplnit angličtinu (i18n už je připravené v frontend/src/i18n). (2026-11-26)
 - [ ] Uživatelé a skupiny (W2.1) ověřené na NASu jen přes root helper – po přihlášení projít stránku Uživatelé v prohlížeči na telefonu (360 px) i desktopu (založit, heslo, zakázat, skupina, smazat). (2026-11-26)
+- [ ] Sdílené složky (W2.3): skrytá složka, jen pro čtení, koš a oprávnění po uživatelích se projeví až se Sambou (W2.5) – tehdy ověřit přístupem z klienta SMB (čtení/zápis/odepření, koš a jeho vysypání); smb.conf musí obsahovat include = /etc/samba/nas-revival-shares.conf. Stránku Sdílené složky projít v prohlížeči na telefonu (360 px) i desktopu – ověřena jen API e2e testem a typecheckem, ne v prohlížeči. (2026-11-26)
+- [ ] Sdílené složky: denní vysypání košů drží zámek správy složek po dobu průchodu košem (max. 10 min) – u velkých košů by se úprava složek mezitím zdržela; případně přesunout do plánovače úloh (W3.3). (2026-11-26)
 - [ ] Samba není na NASu nainstalovaná – hesla pro SMB se u účtů nastaví až při první změně hesla po jejím zapnutí (W2.5); UI to uživateli říká. (2026-11-26)
 - [ ] Aktivita disků (W1.9) ověřená jen přes root helper na NASu – v prohlížeči po přihlášení zkontrolovat Úložiště → „Aktivita disků“ na telefonu (360 px) i desktopu. (2026-11-26)
 - [ ] Historie konfigurace (W1.8) je nasazená, ale změna a návrat byly ověřené jen testy a v mock režimu: v GUI uložit NTP servery, ověřit novou verzi s uživatelem, zobrazit rozdíly a vrátit se na verzi 1 (návrat sítě musí ukázat pruh s potvrzením). (2026-11-25)
@@ -68,6 +71,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Sdílené složky ve webovém GUI (W2.3), nasazeno na NAS (2026-11-26)
 - Role Administrátor / Jen pro čtení / Uživatel a přihlášení účtů NASu do webu, stránka Můj účet se změnou vlastního hesla (W2.2); nasazeno a ověřeno na NASu. (2026-11-26)
 - Veřejná úvodní stránka repa (banner, snímky GUI, funkce, schéma bootu), návod k instalaci na původní NSA310 a build jádra i rootfs jako skripty v repu; rootfs postaven a zkontrolován. (2026-11-26)
 - Repozitář zveřejněn na GitHubu (Hama4tux/nas-revival); z historie odstraněna domácí podsíť. (2026-11-26)
