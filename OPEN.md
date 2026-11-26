@@ -80,6 +80,8 @@
 - [ ] Upřesnit podepisování aktualizací, důvěryhodné klíče, migrace konfigurace a recovery při výpadku napájení bez předpokladu dvou NAND slotů; mechanismus dosud není implementovaný. (2026-11-16)
 - [ ] Dialog restartu/vypnutí ověřen jen v ukázkovém režimu na šířce desktopu; zobrazení na telefonu (360 px) neověřeno. (2026-11-25)
 - [ ] BKP-10/11: na NASu dnes běží dočasná úloha mimo NAS Revival (systemd timer, rsync přes SSH s klíčem, cíle jen ke čtení přes rrsync, denní hardlink verze, stav v JSON, zámek /run/lock/nas-heavy.lock). Až budou zálohovací úlohy v NAS Revival, převzít její konfiguraci a adresáře, zobrazit stav na přehledu, hlásit selhání a dočasnou úlohu vypnout; kontrola před restartem a SMART mají brát ohled na její zámek (2026-11-26)
+- [ ] Na Macu a Windows v klonu spustit `git config core.hooksPath scripts/git-hooks` a zkopírovat `~/.config/nas-revival/private-patterns` (mimo git) – jinak tam kontrola soukromých dat před commitem neběží (2026-11-26)
+- [ ] Zálohy jako typ úlohy v Plánovaných úlohách (TASK-01..03 + BKP-10/11): sepsat ADR 0008 – jeden zámek náročných úloh, adresáře stažených záloh pod vyhrazený kořen mimo sdílené složky, povinná doba držení verzí s horní mezí (2026-11-26)
 - [ ] Kontrola před restartem zatím nehlídá budoucí zálohovací úlohy – zámky /run/nas-revival/locks doplnit spolu s úlohami zálohování (TASK-*). (2026-11-25)
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
