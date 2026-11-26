@@ -1,5 +1,5 @@
 [Unit]
-Description=NAS Revival privileged helper (network, DNS, NTP settings, SMART self-tests, disk power and activity, restart/shutdown, NAS users, shared folders, services, SMB, NFS)
+Description=NAS Revival privileged helper (network, DNS, NTP settings, SMART self-tests, disk power and activity, restart/shutdown, NAS users, shared folders, services, SMB, NFS, SSH)
 Documentation=file:///usr/share/doc/nas-revival/adr-0003
 # Started before the web UI so its socket exists; the web UI only Wants= it.
 Before=nas-revival.service
@@ -35,6 +35,7 @@ ExecStartPre=+/usr/bin/mkdir -p -m 0755 /etc/systemd/timesyncd.conf.d
 # SMB (W2.5): smb.conf in /etc; smbpasswd writes the passdb in /var/lib/samba/private,
 # smbstatus and smbcontrol open the tdbs and message sockets in /run/samba and /var/lib/samba.
 # NFS (W2.6): nfs.json and /etc/exports.d in /etc; exportfs -ra writes /var/lib/nfs/etab.
+# SSH (W2.7): ssh.json, the sshd drop-in and the keys directory in /etc; sshd -t/-T and systemctl reload ssh.
 ReadWritePaths=/etc -/var/log/lastlog -/var/log/faillog -/srv -/var/lib/samba -/var/cache/samba -/run/samba -/var/lib/nfs
 Environment=GOMEMLIMIT=16MiB GOGC=50
 MemoryMax=48M

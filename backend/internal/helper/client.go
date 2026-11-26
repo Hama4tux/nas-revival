@@ -13,6 +13,7 @@ import (
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
+	"nas-revival/backend/internal/sshd"
 )
 
 type userKey struct{}
@@ -359,5 +360,20 @@ func (c *Client) NfsSet(ctx context.Context, s nfs.Settings) (NfsService, error)
 func (c *Client) NfsStatus(ctx context.Context) (NfsStatus, error) {
 	var r NfsStatus
 	err := c.Call(ctx, "nfs.status", nil, &r)
+	return r, err
+}
+
+func (c *Client) SshGet(ctx context.Context) (SshService, error) {
+	var r SshService
+	err := c.Call(ctx, "ssh.get", nil, &r)
+	return r, err
+}
+
+// SshSet runs sshd -t and reloads sshd, a few seconds on the NAS.
+func (c *Client) SshSet(ctx context.Context, s sshd.Settings) (SshService, error) {
+	long := *c
+	long.Timeout = 45 * time.Second
+	var r SshService
+	err := long.Call(ctx, "ssh.set", map[string]any{"settings": s}, &r)
 	return r, err
 }

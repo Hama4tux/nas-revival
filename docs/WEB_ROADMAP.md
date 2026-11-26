@@ -45,7 +45,8 @@ data; CHANGELOG, FEATURE_MATRIX state and this file updated in the same commit.
 | W2.4 ✅ 2026-11-26 (deployed, e2e on NAS; browser checked with mock data on desktop only) | Services app: state, PID, RAM, CPU, ports, start/stop/restart/enable, unit log | `/services` | `service.*`, `journal.unit` | SVC-10..12 |
 | W2.5 ✅ 2026-11-26 (deployed, e2e with a real SMB client from the workstation; page typechecked and unit-tested, not yet checked in a browser) | Services → SMB: enable, workgroup, protocol range, sessions, open files | `/services/smb` | `smb.*` | SMB-01, SMB-02 |
 | W2.6 ✅ 2026-11-26 (deployed, e2e from Proxmox; page not yet checked in a browser) | Services → NFS: exports for Proxmox backups | `/services/nfs` | `nfs.*` | NFS-01, BKP-12 |
-| W2.7 | Services → SSH/SFTP: port, password auth, root login, allowed groups, keys | `/services/ssh` | `ssh.*` | SSH-01, SSH-02 |
+| W2.7 ✅ 2026-11-26 (deployed, e2e with a real SSH client on the NAS; page not yet checked in a browser; per-user keys → W2.7b) | Services → SSH/SFTP: port, password auth, root login (fixed: key only), SFTP-only groups in a chroot | `/services/ssh` | `ssh.*` | SSH-01, SSH-02 |
+| W2.7b | Services → SSH: public keys per NAS user (upload, list, remove) | `/services/ssh/keys` | `ssh.keys.*` | SSH-02 |
 | W2.8 | Network: hostname, routes, diagnostics (ping, DNS, gateway, internet, ports) | `/network/*` | `net.diag` | NET-10, NET-11 |
 
 ## W3 – Monitoring & hardware (M3)

@@ -285,3 +285,10 @@ export interface NfsService {
 }
 export interface NfsConnected { address: string; name: string; version: string; confirmed: boolean }
 export interface NfsStatus { clients: NfsConnected[] }
+
+// SSH/SFTP (W2.7, SSH-01).
+export interface SshSettings { port: number; passwordAuth: boolean; sftpGroups: string[] }
+export interface SshEffective { ports: number[]; passwordAuth: boolean; rootLogin: string }
+export interface SshService {
+  settings: SshSettings; managed: boolean; running: boolean; effective: SshEffective; groups: string[]; chrootOk: boolean;
+}

@@ -17,6 +17,7 @@ recorded as ADRs in [adr/](adr/).
 | Board services | `nsa310-leds`, `nsa310-fan` (LM85 automatic mode), `nsa310-button` + `nsa310-copy` (COPY button backup) | in use, [deploy/debian](../deploy/debian/README.md) |
 | System services | ssh, systemd-networkd/resolved/timesyncd, smartmontools, cron, journald (persistent) | in use |
 | File services | samba 4.22 (Debian, GPL-3.0; smbd, nmbd only with NetBIOS), configured only by the helper (`smb.json` → `smb.conf`) | installed 2026-11-26 ([install-samba.sh](../deploy/debian/install-samba.sh)), off until enabled in the UI |
+| SSH/SFTP (W2.7) | openssh-server (Debian, BSD); the helper owns the drop-in `/etc/ssh/sshd_config.d/10-nas-revival.conf` rendered from `ssh.json` (port, password auth, `AllowGroups root <SFTP groups>`, `Match Group` → `internal-sftp` in chroot `/srv`), checked with `sshd -t` and applied with `systemctl reload ssh` | in the Debian base system; managed since 2026-11-26 |
 | NFS (W2.6) | nfs-kernel-server (Debian, GPL-2.0), NFSv4.1/4.2 only over TCP 2049, statd masked, rpcbind TCP 111 only (Proxmox online check); exports rendered by the helper (`nfs.json` → `/etc/exports.d/nas-revival.exports`) | installed 2026-11-26 ([install-nfs.sh](../deploy/debian/install-nfs.sh)), kernel with `CONFIG_NFSD=m` in slot A; off until enabled in the UI |
 | Not installed | avahi, acl, quota | – |
 

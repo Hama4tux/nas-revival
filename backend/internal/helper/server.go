@@ -21,6 +21,7 @@ import (
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
+	"nas-revival/backend/internal/sshd"
 )
 
 const (
@@ -51,6 +52,8 @@ type Dispatcher struct {
 	Smb *SmbManager
 	// Nfs manages the NFS exports; nil disables it.
 	Nfs *NfsManager
+	// Ssh manages the SSH/SFTP settings; nil disables it.
+	Ssh *SshManager
 }
 
 type request struct {
@@ -212,6 +215,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	if strings.HasPrefix(req.Op, "nfs.") && d.Nfs != nil {
 		return d.handleNfs(ctx, req, user)
 	}
+	if strings.HasPrefix(req.Op, "ssh.") && d.Ssh != nil {
+		return d.handleSsh(ctx, req, user)
+	}
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
 	}
@@ -266,6 +272,31 @@ func (d *Dispatcher) handleNfs(ctx context.Context, req request, user string) (a
 		st, err := d.Nfs.Set(ctx, *a.Settings, user)
 		if err == nil {
 			d.Config.Changed(user, FileNfs)
+		}
+		return st, err
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleSsh runs the SSH/SFTP operations (SSH-01).
+func (d *Dispatcher) handleSsh(ctx context.Context, req request, user string) (any, error) {
+	var a struct {
+		Settings *sshd.Settings `json:"settings"`
+	}
+	if err := decodeArgs(req.Args, &a); err != nil {
+		return nil, err
+	}
+	switch req.Op {
+	case "ssh.get":
+		return d.Ssh.Get(ctx)
+	case "ssh.set":
+		if a.Settings == nil {
+			return nil, invalid("settings", "Chybí nastavení SSH.")
+		}
+		d.Config.Prepare()
+		st, err := d.Ssh.Set(ctx, *a.Settings, user)
+		if err == nil {
+			d.Config.Changed(user, FileSsh)
 		}
 		return st, err
 	}

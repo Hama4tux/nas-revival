@@ -150,7 +150,7 @@ export const cs = {
     logRefresh: 'Načíst znovu',
   },
   smb: {
-    tabs: { list: 'Přehled služeb', smb: 'SMB (sdílení Windows)', nfs: 'NFS (Linux, Proxmox)' },
+    tabs: { list: 'Přehled služeb', smb: 'SMB (sdílení Windows)', nfs: 'NFS (Linux, Proxmox)', ssh: 'SSH a SFTP' },
     title: 'SMB', refresh: 'Načíst znovu', loadError: 'Nastavení SMB nelze načíst.',
     hint: 'SMB zpřístupní sdílené složky počítačům s Windows, macOS i Linuxem. Přihlašuje se účtem NASu a jeho heslem; host ani anonymní přístup nejsou povolené a stará verze SMB1 je vypnutá vždy.',
     health: {
@@ -229,6 +229,29 @@ export const cs = {
       address: 'Adresa', name: 'Klient', version: 'Verze', pending: 'navazuje spojení',
       loadError: 'Seznam klientů nelze načíst.', adminOnly: 'Připojené klienty vidí jen administrátor.',
     },
+  },
+  ssh: {
+    title: 'SSH a SFTP', refresh: 'Načíst znovu', loadError: 'Nastavení SSH nelze načíst.',
+    hint: 'SSH je nouzový přístup administrátora (root, jen klíčem) a zůstává vždy zapnuté. Účty NASu nemají příkazový řádek; vybraným skupinám lze povolit jen přenos souborů přes SFTP (např. WinSCP, FileZilla, Soubory v Linuxu nebo macOS) do datových svazků.',
+    health: {
+      ok: 'SSH běží s nastavením z této stránky.',
+      notRunning: 'Služba SSH neběží – podívejte se do záznamu služby SSH v přehledu služeb.',
+      unmanaged: 'SSH běží s výchozím nastavením Debianu nebo s ručně změněnou konfigurací; uložením se použije nastavení z této stránky.',
+    } as Record<string, string>,
+    effective: (ports: string, pw: boolean) => `Skutečně platí: port ${ports}, přihlášení heslem ${pw ? 'povolené' : 'vypnuté'}, root jen klíčem.`,
+    port: 'Port', portHint: '22 nebo 1024–65535. Jiný port ubere automatických pokusů o přihlášení, ale klienty je pak potřeba nastavit.',
+    portErr: 'Port musí být 22 nebo 1024–65535 a nesmí to být 2049 (NFS) ani 8443 (webové rozhraní).',
+    passwordAuth: 'Povolit přihlášení heslem', passwordAuthHint: 'Týká se jen uživatelů SFTP (heslo účtu NASu). Root se heslem nepřihlásí nikdy.',
+    sftp: 'SFTP pro skupiny', sftpHint: (dir: string) => `Členové vybraných skupin se přihlásí jen do SFTP a uvidí složku ${dir} (každý svazek jako podsložku). Co smí číst a zapisovat, určují oprávnění sdílených složek. Koš sdílených složek se přes SFTP nepoužije a skryté složky jsou v seznamu vidět.`,
+    noGroups: 'Na NASu zatím není žádná skupina.', chrootBad: (dir: string) => `SFTP nejde zapnout: složka ${dir} musí patřit rootovi a nesmí být zapisovatelná pro ostatní.`,
+    connect: 'Připojení přes SFTP', connectHint: 'Server = adresa NASu, protokol SFTP, uživatel a heslo účtu NASu. Z příkazové řádky:',
+    warn: {
+      port: 'Po uložení poslouchá SSH na novém portu. Otevřená spojení zůstanou; nová musí použít nový port (ssh -p, nastavení klienta, ~/.ssh/config).',
+      noPassword: 'Přihlášení heslem bude vypnuté a klíče uživatelům NASu zatím nelze nahrát – uživatelé SFTP se nepřihlásí.',
+      sftpOff: 'Uložením přijdou o přístup přes SFTP členové odebraných skupin.',
+    } as Record<string, string>,
+    save: 'Uložit', saving: 'Ukládám…', saved: 'Nastavení SSH je uložené a načtené; otevřená spojení zůstala.', unchanged: 'Beze změn.',
+    readOnly: 'Nastavení může měnit jen administrátor.',
   },
   shares: {
     listTitle: 'Sdílené složky', refresh: 'Načíst znovu', loadError: 'Seznam sdílených složek nelze načíst.',

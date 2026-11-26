@@ -69,6 +69,18 @@ first NFS save) has read/write; it gives SMB users no access. The NFS tab warns 
 Proxmox: `pvesm add nfs <id> --server <nas> --export /srv/data/<share> --content backup --options vers=4.2`
 (the Proxmox export scan uses NFSv3 and finds nothing; the UI shows the line).
 
+SSH/SFTP (W2.7): the helper owns `/etc/ssh/sshd_config.d/10-nas-revival.conf` from the first save in
+Services → SSH, rendered from `/etc/nas-revival/ssh.json` (port, password login, SFTP groups). Debian
+includes the drop-ins before its own options and sshd keeps the first value, so it wins over `sshd_config`.
+Fixed: `PermitRootLogin prohibit-password`, `AllowGroups root <SFTP groups>`, `AuthorizedKeysFile
+.ssh/authorized_keys /etc/ssh/nas-revival-keys/%u` (directory 0755, prepared for per-user keys), SFTP groups
+in `Match Group` with `internal-sftp` chrooted to `/srv`. The helper runs `sshd -t`, puts the old drop-in
+back when sshd rejects it and runs `systemctl reload ssh.service`; open sessions stay. No package to install.
+After deploying, run `scripts/webui/e2e-ssh.sh` from the workstation: it creates throw-away accounts and the
+group `nrt-sftp`, logs in with a real SSH client on the NAS (SFTP in the chroot, no command or TTY, account
+outside the group and wrong password refused, password login off, port 2222 and back) and restores the
+previous settings. Passed 2026-11-26.
+
 Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
 balanced profile (APM 254, no standby on the system disk).

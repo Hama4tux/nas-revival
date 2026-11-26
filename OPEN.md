@@ -1,8 +1,8 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: NAS běží na novém 3,5" disku WD Red 2 TB (systém přenesený z flashky bez konzole), s novým jádrem (NFS server, ACL). Služba NFS (W2.6) je hotová a ověřená z Proxmoxu, zatím vypnutá.
-- Další krok: dlouhý test SMART nového disku, zkušební záloha z Proxmoxu přes NFS, pak W2.7 SSH/SFTP.
+- Stav: NAS běží na novém disku WD Red 2 TB s jádrem s NFS a ACL. Ve webu jsou hotové síťové služby SMB, NFS a nově SSH/SFTP (W2.7, nasazeno a ověřené skutečným klientem); SMB a NFS jsou zatím vypnuté.
+- Další krok: dlouhý test SMART nového disku, zkušební záloha z Proxmoxu přes NFS, pak W2.7b (SSH klíče uživatelů) nebo W2.8 (síť: název, trasy, diagnostika).
 
 ## Čeká na rozhodnutí
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
@@ -16,6 +16,11 @@
 
 
 ## Nedodělané
+- [ ] SSH/SFTP (W2.7): kartu Služby → SSH a SFTP projít v prohlížeči po přihlášení na telefonu (360 px) i desktopu – ověřeno e2e testem se skutečným SSH klientem na NASu, typecheckem a testy, v prohlížeči zatím ne. (2026-11-26)
+- [ ] SSH: nahrávání veřejných klíčů uživatelům NASu (W2.7b) – sshd už klíče hledá v /etc/ssh/nas-revival-keys/<uživatel>, správa z webu chybí; do té doby se uživatelé SFTP přihlašují jen heslem. (2026-11-26)
+- [ ] SSH: přihlášení roota zůstává povolené (jen klíčem) – vypnout ho půjde, až bude mít administrátor pojmenovaný účet s příkazovým řádkem (SECURITY_MODEL, M2). (2026-11-26)
+- [ ] SFTP: skryté sdílené složky jsou v SFTP vidět (přístup dál hlídají oprávnění) a mazání přes SFTP nejde do koše sdílené složky – případně řešit podle potřeby. (2026-11-26)
+- [ ] SSH: od 26. 11. platí na NASu drop-in z GUI (AllowGroups root – jiné účty než root se přes SSH nepřihlásí, soubor authorized_keys2 se už nečte); kdyby se někdo přihlašoval jinak než rootem s klíčem, povolit mu skupinu SFTP nebo upravit nastavení. (2026-11-26)
 - [ ] Web: po nasazení nové verze běží v otevřené záložce dál starý kód (nutné Ctrl+Shift+R) – zvážit upozornění „je dostupná nová verze, obnovte stránku“. (2026-11-26)
 - [ ] Nový disk WD Red 2 TB (WD20EFRX, CMR, 36 900 provozních hodin, SMART bez chyb): spustit dlouhý test SMART z GUI (Úložiště → SMART) a nastavit profil napájení – po výměně běží výchozí Vyvážený bez uloženého nastavení. (2026-11-26)
 - [ ] Po nejbližším plánovaném restartu NASu ověřit, že helper startuje až po připojení /proc/fs/nfsd (seznam připojených klientů NFS; `scripts/webui/e2e-nfs.sh proxmox.home`) – opraveno pořadím v nas-revival-helper.service, ověřeno restartem helperu, ne restartem NASu. (2026-11-26)

@@ -90,8 +90,13 @@ files touched, commands run, whether it needs confirmation, whether it takes the
   clients write as `nobody` with the member-less group `nas-nfs`, so NFS write access is granted per share
   without granting it to SMB users. NFSv4.1/4.2 only (TCP 2049; rpcbind on TCP 111 only for the Proxmox online check, UDP on loopback). Exports
   reference shared folders by name; paths never come from the request. NFS off renders an empty exports file.
-- SSH: keys preferred, `PermitRootLogin prohibit-password` (current setup uses root with key; M2
-  moves admin access to a named user in `nas-admin` and offers disabling root login).
+- SSH (W2.7): always on (the recovery path; the Services app cannot stop it either),
+  `PermitRootLogin prohibit-password` fixed, `AllowGroups root` plus the groups granted SFTP. NAS accounts
+  have no shell; SFTP groups get `ForceCommand internal-sftp`, `ChrootDirectory /srv` (root-owned, checked
+  before enabling) and no TTY, TCP/agent/X11 forwarding or tunnels; file access follows the share ACLs.
+  Port 22 or 1024–65535 (not 2049/8443, not used by another listener). The drop-in is checked with `sshd -t`
+  and restored when rejected; reload keeps open sessions. Disabling root login waits until admin access moves to a
+  named user with a shell (M2 follow-up).
 
 ## Security Advisor checks (M5)
 

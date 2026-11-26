@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -630,6 +630,29 @@ function nfsRoute(path: string, method: string, body: unknown): Response | null 
   return null;
 }
 
+const mockSsh: SshService = {
+  settings: { port: 22, passwordAuth: true, sftpGroups: [] }, managed: false, running: true,
+  effective: { ports: [22], passwordAuth: true, rootLogin: 'without-password' }, groups: ['nas-users', 'rodina'], chrootOk: true,
+};
+
+function sshRoute(path: string, method: string, body: unknown): Response | null {
+  if (path !== '/services/ssh') return null;
+  if (method === 'GET') return json(200, mockSsh);
+  if (method !== 'PUT') return null;
+  if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+  const b = body as SshSettings;
+  const port = Number(b.port);
+  if (!Number.isInteger(port) || (port !== 22 && (port < 1024 || port > 65535)) || port === 2049 || port === 8443) {
+    return bad('port', 'Port musí být 22 nebo 1024–65535.');
+  }
+  const groups = [...new Set(b.sftpGroups ?? [])].sort();
+  if (groups.some((g) => !mockSsh.groups.includes(g))) return bad('sftpGroups', 'Skupině nelze povolit SFTP.');
+  mockSsh.settings = { port, passwordAuth: !!b.passwordAuth, sftpGroups: groups };
+  mockSsh.effective = { ports: [port], passwordAuth: !!b.passwordAuth, rootLogin: 'without-password' };
+  mockSsh.managed = true;
+  return json(200, mockSsh);
+}
+
 function smbRoute(path: string, method: string, body: unknown): Response | null {
   if (path === '/services/smb' && method === 'GET') return json(200, mockSmb);
   if (path === '/services/smb/status' && method === 'GET') {
@@ -773,6 +796,12 @@ export function installMock(): void {
       let body: unknown = {};
       try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = nfsRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/services/ssh')) {
+      let body: unknown = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = sshRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/services/smb')) {

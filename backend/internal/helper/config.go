@@ -18,6 +18,7 @@ const (
 	FileShares    = "shares"
 	FileSmb       = "smb"
 	FileNfs       = "nfs"
+	FileSsh       = "ssh"
 )
 
 // ConfigManager serves config.list, config.get and config.rollback and
@@ -33,6 +34,8 @@ type ConfigManager struct {
 	Smb *SmbManager
 	// Nfs restores nfs.json; nil when NFS is disabled.
 	Nfs *NfsManager
+	// Ssh restores ssh.json; nil when SSH settings are disabled.
+	Ssh *SshManager
 	mu  sync.Mutex // one rollback at a time
 }
 
@@ -150,6 +153,12 @@ func (c *ConfigManager) Rollback(ctx context.Context, id int, takeover bool, use
 				err = internalErr("Nastavení NFS není dostupné.")
 			} else {
 				err = c.Nfs.Restore(ctx, r.Data, r.Present)
+			}
+		case FileSsh:
+			if c.Ssh == nil {
+				err = internalErr("Nastavení SSH není dostupné.")
+			} else {
+				err = c.Ssh.Restore(ctx, r.Data, r.Present)
 			}
 		default:
 			err = internalErr("Neznámý spravovaný soubor.")
