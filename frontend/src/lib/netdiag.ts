@@ -1,7 +1,4 @@
-import { isValidIPv6, parseIPv4 } from './netvalidate';
-
-const label = /^[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?$/;
-const isName = (s: string) => s.length <= 253 && s.split('.').every((l) => label.test(l));
+import { isHostname, isValidIPv6, parseIPv4 } from './netvalidate';
 
 /** Mirrors helper.ValidateDiag for the tests with a target. */
 export function diagTargetError(test: 'ping' | 'dns', target: string): 'required' | 'invalid' | 'dnsNeedsName' | null {
@@ -15,7 +12,7 @@ export function diagTargetError(test: 'ping' | 'dns', target: string): 'required
     return v4 === 0 || v4 === 0xffffffff || (first >= 224 && first <= 239) ? 'invalid' : null;
   }
   if (v6) return s.toLowerCase().startsWith('ff') || s === '::' ? 'invalid' : null;
-  return isName(s) ? null : 'invalid';
+  return isHostname(s) ? null : 'invalid';
 }
 
 /** Who can reach a listening socket: every interface, or only the NAS itself. */

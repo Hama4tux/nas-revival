@@ -1,3 +1,4 @@
+import type { NetConfig } from '../api/types';
 // Client-side validation mirroring docs/api/v1.md "Settings (write operations)". The server stays authoritative.
 
 export function parseIPv4(s: string): number | null {
@@ -120,4 +121,15 @@ export function validateNtp(list: string[]): string | null {
   if (l.some((s) => !isHostname(s) && !isIP(s))) return 'invalid';
   if (new Set(l.map((s) => s.toLowerCase())).size !== l.length) return 'duplicate';
   return null;
+}
+
+/**
+ * Form config equals the stored one. A stored static config reports useDhcpDns: true (the [DHCPv4]
+ * default the helper reads back) while the form sends false, so the flag is ignored for static.
+ */
+export function sameNetConfig(a: NetConfig, b: NetConfig): boolean {
+  const norm = (c: NetConfig): NetConfig => (c.mode === 'static' ? { ...c, useDhcpDns: false } : c);
+  const x = norm(a), y = norm(b);
+  return x.mode === y.mode && x.address === y.address && x.prefixLength === y.prefixLength && x.gateway === y.gateway
+    && x.useDhcpDns === y.useDhcpDns && x.dns.join(',') === y.dns.join(',');
 }

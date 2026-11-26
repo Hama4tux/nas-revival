@@ -1,11 +1,10 @@
-import { Network, Settings2 } from 'lucide-react';
+import { Settings2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { NetConfig, NetworkSettings } from '../api/types';
 import type { useNetworkSettings } from '../hooks/useNetworkSettings';
 import { cs } from '../i18n/cs';
-import { parsePrefix, prefixToMask, validateDns, validateStatic, type FieldErrors } from '../lib/netvalidate';
-import { Badge } from './ui/badge';
+import { parsePrefix, prefixToMask, sameNetConfig, validateDns, validateStatic, type FieldErrors } from '../lib/netvalidate';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
@@ -17,7 +16,6 @@ import { NetworkInfoPanel } from './NetworkInfoPanel';
 import { Skeleton } from './ui/skeleton';
 
 const t = cs.net;
-const dash = '–';
 const radio = 'flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm has-[:checked]:border-primary has-[:checked]:bg-primary/10';
 
 interface Form { mode: 'dhcp' | 'static'; address: string; prefix: string; gateway: string; dns: string[]; useDhcpDns: boolean }
@@ -36,9 +34,6 @@ function toConfig(f: Form): NetConfig {
 function dnsMsg(code: string): string {
   return code === 'invalid' ? t.err.dnsInvalid! : (t.err[code] ?? code);
 }
-
-const List = ({ items }: { items: string[] }) =>
-  items.length ? <>{items.map((x) => <div key={x} className="font-mono">{x}</div>)}</> : <span className="text-muted-foreground">{dash}</span>;
 
 export function NetworkPage({ net, readOnly }: { net: ReturnType<typeof useNetworkSettings>; readOnly: boolean }) {
   const { data, error, setData } = net;
@@ -88,7 +83,7 @@ export function NetworkPage({ net, readOnly }: { net: ReturnType<typeof useNetwo
   const prefixNum = parsePrefix(form.prefix);
   const maskHint = prefixNum != null && prefixNum >= 8 && prefixNum <= 30 ? t.prefixHint(prefixToMask(prefixNum)) : t.prefixHintBad;
   const cfg = toConfig(form);
-  const unchanged = JSON.stringify(cfg) === JSON.stringify(data.config);
+  const unchanged = sameNetConfig(cfg, data.config);
   const hasErrors = Object.keys(errors).length > 0;
 
   function submit(e: React.FormEvent) {
@@ -117,17 +112,9 @@ export function NetworkPage({ net, readOnly }: { net: ReturnType<typeof useNetwo
 
   return (
     <div className="grid items-start gap-4 lg:grid-cols-5">
-      <NetworkInfoPanel readOnly={readOnly} />
-      <Widget id="net-current" title={t.current} icon={<Network />} className="lg:col-span-2"
-        right={<Badge variant="neutral" className="font-mono">{data.interface}</Badge>}>
-        <dl className="grid grid-cols-[7rem_1fr] gap-x-3 gap-y-2 text-sm">
-          <dt className="text-muted-foreground">{t.addresses}</dt><dd><List items={data.current.addresses} /></dd>
-          <dt className="text-muted-foreground">{t.gateway}</dt><dd className="font-mono">{data.current.gateway ?? dash}</dd>
-          <dt className="text-muted-foreground">{t.dns}</dt><dd><List items={data.current.dns} /></dd>
-        </dl>
-      </Widget>
+      <NetworkInfoPanel readOnly={readOnly} current={data.current} />
 
-      <Widget id="net-settings" title={t.settings} icon={<Settings2 />} className="lg:col-span-3">
+      <Widget id="net-settings" title={t.settings} icon={<Settings2 />} className="min-w-0 lg:col-span-3">
         <form onSubmit={submit} noValidate className="space-y-4">
           {sent && locked && <p role="status" className="rounded-md bg-primary/10 p-2 text-sm">{t.sent}</p>}
           {locked && <p className="text-sm text-warning">{t.pendingLock}</p>}

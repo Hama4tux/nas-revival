@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  checkHostAddress, isHostname, isValidIPv6, parseIPv4, prefixToMask, validateDns, validateNtp, validateStatic,
+  checkHostAddress, isHostname, sameNetConfig, isValidIPv6, parseIPv4, prefixToMask, validateDns, validateNtp, validateStatic,
 } from './netvalidate';
 
 describe('parseIPv4', () => {
@@ -84,5 +84,18 @@ describe('hostnames and NTP', () => {
     expect(validateNtp([''])).toBe('empty');
     expect(validateNtp(['bad host'])).toBe('invalid');
     expect(validateNtp(['a.cz', 'A.cz'])).toBe('duplicate');
+  });
+});
+
+describe('sameNetConfig', () => {
+  const stored = { mode: 'static' as const, address: '192.0.2.4', prefixLength: 24, gateway: '192.0.2.1', dns: ['192.0.2.1'], useDhcpDns: true };
+  it('ignores useDhcpDns for a static config (no false "changed")', () => {
+    expect(sameNetConfig({ ...stored, useDhcpDns: false }, stored)).toBe(true);
+  });
+  it('sees real changes', () => {
+    expect(sameNetConfig({ ...stored, dns: ['192.0.2.1', '192.0.2.2'] }, stored)).toBe(false);
+    expect(sameNetConfig({ ...stored, address: '192.0.2.5' }, stored)).toBe(false);
+    const dhcp = { mode: 'dhcp' as const, address: null, prefixLength: null, gateway: null, dns: [], useDhcpDns: true };
+    expect(sameNetConfig({ ...dhcp, useDhcpDns: false }, dhcp)).toBe(false);
   });
 });

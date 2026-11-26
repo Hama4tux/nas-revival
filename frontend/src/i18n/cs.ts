@@ -407,9 +407,9 @@ export const cs = {
     nothing: 'Není co potvrzovat (změna už byla vrácena nebo potvrzena).',
   },
   netInfo: {
-    title: 'Název a rozhraní', routes: 'Směrovací tabulka', hostname: 'Název NASu', domains: 'Vyhledávací domény',
-    loadError: 'Přehled sítě se nepodařilo načíst.', none: 'žádné',
-    mac: 'MAC adresa', mtu: 'MTU', speed: 'Rychlost', addresses: 'Adresy', linkChanges: 'Změny spojení od startu',
+    title: 'Připojení', routes: 'Směrovací tabulka', hostname: 'Název NASu', domains: 'Domény', gateway: 'Brána', dns: 'DNS servery',
+    loadError: 'Přehled sítě se nepodařilo načíst.',
+    mac: 'MAC adresa', mtu: 'MTU', speed: 'Rychlost', addresses: 'Adresy', linkChanges: 'Změny spojení',
     state: { up: 'Připojeno', down: 'Odpojeno', dormant: 'Neaktivní', unknown: 'Neznámý stav' } as Record<string, string>,
     noCable: 'Bez kabelu nebo bez spojení', duplex: { full: 'plný duplex', half: 'poloviční duplex' } as Record<string, string>,
     halfDuplex: 'Poloviční duplex zpomaluje přenosy – zkontrolujte kabel a nastavení portu na switchi.',

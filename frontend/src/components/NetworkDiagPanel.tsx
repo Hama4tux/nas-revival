@@ -54,7 +54,7 @@ function ResultView({ r }: { r: DiagResult }) {
       {r.message && <p className={r.ok ? 'text-muted-foreground' : 'text-danger'}>{r.message}</p>}
       {r.ping && (
         <div>
-          {r.ping.address && <div className="font-mono text-xs text-muted-foreground">{t.address}: {r.ping.address}</div>}
+          {r.ping.address && <div className="text-xs text-muted-foreground">{t.address}: <span className="font-mono">{r.ping.address}</span></div>}
           <div>{t.pingSummary(r.ping.received, r.ping.sent, Math.round(r.ping.lossPercent))}</div>
           {r.ping.avgMs != null && <div>{t.rtt(ms(r.ping.minMs), ms(r.ping.avgMs), ms(r.ping.maxMs))}</div>}
         </div>
@@ -86,7 +86,9 @@ function ResultView({ r }: { r: DiagResult }) {
                 return (
                   <tr key={`${p.proto} ${p.address} ${p.port}`} className="border-t border-border">
                     <td className={`${td} font-mono`}>{p.port}</td><td className={`${td} uppercase`}>{p.proto}</td>
-                    <td className={td}>{scope === 'all' ? t.allIfaces : scope === 'local' ? t.localOnly : <span className="font-mono">{p.address}</span>}</td>
+                    <td className={td}>{scope === 'all' ? t.allIfaces : scope === 'local'
+                      ? <>{t.localOnly} <span className="font-mono text-xs text-muted-foreground">{p.address}</span></>
+                      : <span className="font-mono">{p.address}</span>}</td>
                     <td className={`${td} font-mono`}>{p.process || <span className="font-sans text-muted-foreground">{t.kernel}</span>}</td>
                   </tr>
                 );
@@ -148,7 +150,7 @@ export function NetworkDiagPanel() {
   }
 
   return (
-    <Widget id="net-diag" title={t.title} icon={<Activity />} className="lg:col-span-5">
+    <Widget id="net-diag" title={t.title} icon={<Activity />} className="min-w-0 lg:col-span-5">
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">{t.intro}</p>
         <div className="flex flex-wrap gap-2">
@@ -159,12 +161,14 @@ export function NetworkDiagPanel() {
           ))}
         </div>
         <form onSubmit={submit} noValidate className="flex flex-wrap items-start gap-3">
-          <label className="flex flex-col gap-1 text-sm font-medium">{t.test}
-            <select className={select} value={kind} disabled={busy != null}
-              onChange={(e) => { setKind(e.target.value as 'ping' | 'dns'); setFieldErr(null); }}>
-              <option value="ping">{t.kinds.ping}</option><option value="dns">{t.kinds.dns}</option>
-            </select>
-          </label>
+          <Field label={t.test}>
+            {(p) => (
+              <select {...p} className={`${select} block`} value={kind} disabled={busy != null}
+                onChange={(e) => { setKind(e.target.value as 'ping' | 'dns'); setFieldErr(null); }}>
+                <option value="ping">{t.kinds.ping}</option><option value="dns">{t.kinds.dns}</option>
+              </select>
+            )}
+          </Field>
           <div className="min-w-0 flex-1 basis-56">
             <Field label={t.target} hint={t.targetHint[kind]} error={shownErr}>
               {(p) => <Input {...p} className={invalidCls} value={target} maxLength={253} autoComplete="off" autoCapitalize="none"
