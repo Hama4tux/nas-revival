@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-// File Station client calls (W4.1). The session user travels in ctx.
+// File Station (W4.1) and USB storage (W4.2) client calls. The session user travels in ctx.
 
 func (c *Client) withTimeout(d time.Duration) *Client {
 	long := *c
@@ -71,4 +71,31 @@ func (c *Client) FileUploadCommit(ctx context.Context, share, dir, token, name s
 
 func (c *Client) FileUploadAbort(ctx context.Context, share, dir, token string) error {
 	return c.Call(ctx, "fs.uploadAbort", map[string]any{"share": share, "path": dir, "token": token}, nil)
+}
+
+// USB storage (W4.2). Mounting waits for systemd; ejecting unmounts every
+// partition first.
+
+func (c *Client) UsbList(ctx context.Context) (UsbList, error) {
+	var r UsbList
+	err := c.Call(ctx, "usb.list", struct{}{}, &r)
+	return r, err
+}
+
+func (c *Client) UsbMount(ctx context.Context, diskID, part string, readOnly bool) (UsbList, error) {
+	var r UsbList
+	err := c.withTimeout(65*time.Second).Call(ctx, "usb.mount", map[string]any{"diskId": diskID, "partition": part, "readOnly": readOnly}, &r)
+	return r, err
+}
+
+func (c *Client) UsbUnmount(ctx context.Context, diskID, part string) (UsbList, error) {
+	var r UsbList
+	err := c.withTimeout(65*time.Second).Call(ctx, "usb.unmount", map[string]any{"diskId": diskID, "partition": part}, &r)
+	return r, err
+}
+
+func (c *Client) UsbEject(ctx context.Context, diskID string) (UsbList, error) {
+	var r UsbList
+	err := c.withTimeout(65*time.Second).Call(ctx, "usb.eject", map[string]any{"diskId": diskID}, &r)
+	return r, err
 }

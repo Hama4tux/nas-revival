@@ -177,6 +177,7 @@ func serve(args []string) error {
 	srv.Tasks = hc
 	srv.Backup = hc
 	srv.Files = hc
+	srv.Usb = hc
 	srv.NetInfo = netinfo.Reader{Root: "/", Run: netinfo.Runner(helper.ExecRunner), Now: time.Now}
 	srv.NetAdmin = hc
 	srv.Monitor = resources
@@ -378,6 +379,8 @@ func runHelper(args []string) error {
 		Ssh:      sshm,
 		Tasks:    tkm,
 		Backup:   bkm,
+		Usb: &helper.UsbManager{Report: storage.Collector{HAL: hal.Reader{Root: "/"}, StatFS: statFS}.Report,
+			Run: helper.ExecRunner, DB: shm.LoadDB, Exclude: "/etc/nsa310-copy.exclude", Taken: helper.SysTaken},
 		Files: &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, HasACL: acls,
 			Chown: helper.SysFileChown, Statfs: helper.SysFstatfs, Now: time.Now},
 		Hostname: &helper.HostnameManager{HostsFile: "/etc/hosts", Run: helper.ExecRunner},

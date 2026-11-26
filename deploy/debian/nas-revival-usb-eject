@@ -1,0 +1,27 @@
+#!/bin/sh
+# Safe removal of a USB disk (W4.2, ADR 0010): started by the helper as
+# nas-revival-usb-eject@<sdX>.service after it unmounted every partition.
+# Flushes the disk and removes the SCSI device, so the stick can be pulled.
+set -eu
+dev=${1:-}
+case "$dev" in
+sd[a-z] | sd[a-z][a-z]) ;;
+*) echo "invalid device: $dev" >&2; exit 2 ;;
+esac
+sys=/sys/block/$dev
+[ -e "$sys" ] || { echo "$dev is gone" >&2; exit 0; }
+case "$(readlink -f "$sys")" in
+*/usb*) ;;
+*) echo "$dev is not a USB disk" >&2; exit 2 ;;
+esac
+for part in /dev/"$dev" /dev/"$dev"[0-9]*; do
+	[ -b "$part" ] || continue
+	if findmnt -rn -S "$part" >/dev/null; then
+		echo "$part is still mounted" >&2
+		exit 1
+	fi
+done
+sync
+blockdev --flushbufs /dev/"$dev"
+echo 1 >"$sys/device/delete"
+echo "$dev removed"

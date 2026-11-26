@@ -87,8 +87,8 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | PWR-06 | Disk power | Reduce system writes (journal mode, noatime, commit) | P1 | Partial | — | journald, fstab | L | lost logs on crash | idle writes measured before/after; owner decision | CFG-02 |
 | DIAG-01 | Diagnostics | Current disk activity and per-process I/O (on demand) | P1 | Partial | — | /proc/diskstats, /proc/PID/fd, jbd2, /proc/PID/io if the kernel has it | M | info disclosure (process names, file paths) | 10–45 s window only on request, one at a time, idle disks not searched; bytes per process need CONFIG_TASK_IO_ACCOUNTING (missing in the NSA310 kernel) – attribution today by files open for writing | PRIV-01 |
 | DIAG-02 | Diagnostics | Standby/active transition history, "why not asleep" | P2 | Planned | ATA | hdparm -C sampling | L | none | unknown reason shown as unknown, never guessed | PWR-01 |
-| STOR-USB-01 | USB storage | Detect USB disks, info, capacity | P1 | Planned | USB | udev, lsblk | L | malicious FS | listed with stable id | STOR-10 |
-| STOR-USB-02 | USB storage | Mount, safe eject, automount, share USB | P1 | Planned | USB | udisks-free (mount, hdparm -y, sysfs delete) | L | data loss on pull | eject flushes, unmounts and powers down port device | STOR-14 |
+| STOR-USB-01 | USB storage | Detect USB disks, info, capacity | P1 | Implemented (2026-11-26, W4.2, ADR 0010; tests, deployed; owner tests on the NAS) | USB | udev, lsblk | L | malicious FS | listed with stable id | STOR-10 |
+| STOR-USB-02 | USB storage | Mount, safe eject, automount, share USB | P1 | Partial (mount ro/rw, unmount, safe eject, sharing via /srv/usb 2026-11-26; automount open; ext2/3/4 and FAT only) | USB | udisks-free (mount, hdparm -y, sysfs delete) | L | data loss on pull | eject flushes, unmounts and powers down port device | STOR-14 |
 | STOR-USB-03 | USB storage | Backup destination and transfer state | P2 | Planned | USB | rsync | M | — | used by BKP-10 | BKP-10 |
 | RAID-01 | Extended storage | mdadm RAID status, rebuild, replacement | P3 | Unsupported by hardware | ≥ 2 bays | mdadm | M | data loss | only on multi-bay profiles | HAL-10 |
 

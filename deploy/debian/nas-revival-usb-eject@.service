@@ -1,0 +1,9 @@
+[Unit]
+Description=NAS Revival: safe removal of USB disk %i
+Documentation=file:///usr/share/doc/nas-revival/adr-0010
+
+[Service]
+Type=oneshot
+# Runs outside the helper's sandbox: /sys must be writable for device/delete.
+ExecStart=/usr/local/sbin/nas-revival-usb-eject %i
+TimeoutStartSec=60

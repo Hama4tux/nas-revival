@@ -73,7 +73,7 @@ func writeHelperError(w http.ResponseWriter, err error) {
 		helper.CodeActivityRunning, helper.CodeDiagBusy, helper.CodeProcessChanged, helper.CodeProcessProtected,
 		helper.CodeRunNotAllowed:
 		writeError(w, http.StatusConflict, he.Code, he.Message)
-	case helper.CodeFileExists:
+	case helper.CodeFileExists, helper.CodeUsbBusy:
 		writeError(w, http.StatusConflict, he.Code, he.Message)
 	case helper.CodeForbidden:
 		writeError(w, http.StatusForbidden, he.Code, he.Message)

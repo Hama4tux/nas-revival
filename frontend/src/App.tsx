@@ -76,7 +76,7 @@ export function App() {
       onPowerStarted={setPowering} title={page.title} subtitle={page.subtitle} route={route}
       banner={pending && <PendingBanner pending={pending} onConfirm={confirmPending} />}>
       {route === 'overview' && <Overview onHost={setHost} />}
-      {route === 'storage' && <StoragePage />}
+      {route === 'storage' && <StoragePage readOnly={role !== 'admin'} />}
       {route === 'network' && <NetworkPage net={net} readOnly={role !== 'admin'} />}
       {route === 'monitor' && <MonitorPage readOnly={role !== 'admin'} />}
       {route === 'system' && <SystemPage readOnly={role !== 'admin'} />}

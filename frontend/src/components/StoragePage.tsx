@@ -6,6 +6,7 @@ import { cs } from '../i18n/cs';
 import { formatBytes, ratioPercent } from '../lib/format';
 import { diskTitle, diskWarnings, unpartitionedBytes } from '../lib/storage';
 import { ActivityPanel } from './ActivityPanel';
+import { UsbPanel } from './UsbPanel';
 import { PowerPanel } from './PowerPanel';
 import { SmartPanel } from './SmartPanel';
 import { Badge } from './ui/badge';
@@ -130,7 +131,7 @@ function DiskCard({ d }: { d: StorageDisk }) {
   );
 }
 
-export function StoragePage() {
+export function StoragePage({ readOnly }: { readOnly: boolean }) {
   const [data, setData] = useState<StorageReport | null>(null);
   const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -157,6 +158,7 @@ export function StoragePage() {
       ) : (
         data.disks.map((d) => <DiskCard key={d.id} d={d} />)
       )}
+      <UsbPanel readOnly={readOnly} />
       <ActivityPanel storage={data?.disks ?? null} />
     </div>
   );

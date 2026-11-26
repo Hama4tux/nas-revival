@@ -61,7 +61,9 @@ func ParseMountinfo(r io.Reader) []Mount {
 	return out
 }
 
-var dataFs = map[string]bool{"ext4": true, "xfs": true, "btrfs": true}
+// vfat only appears as a USB volume mounted by usb.mount (W4.2) with fixed
+// owner and modes; ext2/ext3 sticks are mounted by the ext4 driver.
+var dataFs = map[string]bool{"ext4": true, "xfs": true, "btrfs": true, "vfat": true}
 
 // DataMounts filters the mounts that may carry shares: a mountpoint under
 // /srv/, a block device source, a data filesystem and a device other than the

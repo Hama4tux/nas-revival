@@ -923,6 +923,18 @@ export const cs = {
       elapsed: (s: string) => `Uplynulo ${s}`,
     },
   },
+  usb: {
+    title: 'USB disky', loadError: 'USB disky se nepodařilo načíst.', unavailable: 'Služba pro USB disky není dostupná.',
+    none: 'Žádný USB disk není připojený.',
+    hint: 'Připojený oddíl je ve složce /srv/usb/… a v Sdílení ho jde vybrat jako svazek pro sdílenou složku. Před vytažením disk vždy bezpečně vysuňte.',
+    noFs: 'bez souborového systému', mounted: (p: string) => `Připojeno v ${p}`, mountedRo: 'jen ke čtení',
+    notMounted: 'Nepřipojeno', used: (u: string, t: string) => `obsazeno ${u} z ${t}`,
+    mount: 'Připojit', mountRo: 'Připojit jen ke čtení', unmount: 'Odpojit', eject: 'Bezpečně vysunout',
+    ejectBlocked: 'Disk používá jiná úloha (např. kopírování tlačítkem COPY).',
+    ejectTitle: (n: string) => `Bezpečně vysunout ${n}?`,
+    ejectText: 'Odpojí všechny oddíly disku, zapíše data z mezipaměti a disk vypne. Sdílené složky na něm přestanou být dostupné, dokud disk znovu nepřipojíte. Otevřené soubory vysunutí zastaví.',
+    ejected: 'Disk je vysunutý, můžete ho vytáhnout.',
+  },
   files: {
     loadError: 'Soubory se nepodařilo načíst.', unavailable: 'Služba pro soubory není dostupná.',
     noAccount: 'Tento účet je záchranný správce a nemá vlastní soubory. Přihlaste se účtem NASu.',

@@ -430,3 +430,11 @@ export interface FileShareList { shares: FileShare[]; noAccount: boolean }
 export interface FileList extends BackupBrowse { share: string; access: 'rw' | 'ro' }
 export interface FileItemError { path: string; message: string }
 export interface FileBatch { done: number; failed: FileItemError[]; recycled: boolean }
+
+/** GET /storage/usb (W4.2). blocked = why the partition cannot be mounted ("" = it can). */
+export interface UsbPartition {
+  name: string; sizeBytes: number; fsType: string; label: string; mountPoint: string; ours: boolean; readOnly: boolean;
+  usedBytes: number; totalBytes: number; blocked: string;
+}
+export interface UsbDisk { id: string; name: string; model: string; vendor: string; sizeBytes: number; partitions: UsbPartition[] }
+export interface UsbList { disks: UsbDisk[] }

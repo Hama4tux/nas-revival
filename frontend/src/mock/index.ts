@@ -1034,6 +1034,30 @@ function processList() {
 }
 
 
+
+/* ---------- USB storage (W4.2) ---------- */
+let usbDisks = [
+  { id: 'usb-SanDisk_Cruzer_Fit_4C53', name: 'sdb', model: 'Cruzer Fit', vendor: 'SanDisk', sizeBytes: 15_376_000_000, partitions: [
+    { name: 'sdb1', sizeBytes: 15_375_000_000, fsType: 'ext4', label: 'nrinstall', mountPoint: '', ours: false, readOnly: false, usedBytes: 0, totalBytes: 0,
+      blocked: 'Záchranná nebo instalační flashka NASu – nepřipojuje se.' }] },
+  { id: 'usb-Kingston_DataTraveler_01', name: 'sdc', model: 'DataTraveler 3.0', vendor: 'Kingston', sizeBytes: 64_000_000_000, partitions: [
+    { name: 'sdc1', sizeBytes: 64_000_000_000, fsType: 'vfat', label: 'FOTKY', mountPoint: '', ours: false, readOnly: false, usedBytes: 0, totalBytes: 0, blocked: '' }] },
+];
+function usbRoute(path: string, body: Record<string, unknown>): Response | null {
+  if (path === '/storage/usb') return json(200, { disks: usbDisks });
+  const d = usbDisks.find((x) => x.id === body.diskId);
+  if (!d) return err(404, 'not_found', 'USB disk není připojený.');
+  if (path === '/storage/usb/eject') { usbDisks = usbDisks.filter((x) => x !== d); return json(200, { disks: usbDisks }); }
+  const p = d.partitions.find((x) => x.name === body.partition);
+  if (!p) return err(404, 'not_found', 'Oddíl na disku není.');
+  if (path === '/storage/usb/mount') {
+    if (p.blocked) return bad('partition', p.blocked);
+    Object.assign(p, { mountPoint: `/srv/usb/${p.label || `usb-${p.name}`}`, ours: true, readOnly: body.readOnly === true, usedBytes: 21_000_000_000, totalBytes: p.sizeBytes });
+  }
+  if (path === '/storage/usb/unmount') Object.assign(p, { mountPoint: '', ours: false, usedBytes: 0, totalBytes: 0 });
+  return json(200, { disks: usbDisks });
+}
+
 /* ---------- File Station (W4.1) ---------- */
 type MockEntry = { name: string; type: string; size: number; modified: string };
 const fsNow = new Date().toISOString();
@@ -1268,6 +1292,12 @@ export function installMock(): void {
     }
     if (path.startsWith('/services')) {
       const r = servicesRoute(path, method, url);
+      if (r) return r;
+    }
+    if (path.startsWith('/storage/usb')) {
+      let body: Record<string, unknown> = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = usbRoute(path, body);
       if (r) return r;
     }
     if (path.startsWith('/shares')) {

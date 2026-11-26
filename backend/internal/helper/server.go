@@ -72,6 +72,8 @@ type Dispatcher struct {
 	Hardware *HardwareManager
 	// Files runs the File Station (W4.1); nil disables it.
 	Files *FileManager
+	// Usb mounts and ejects USB disks (W4.2); nil disables it.
+	Usb *UsbManager
 }
 
 type request struct {
@@ -314,6 +316,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if strings.HasPrefix(req.Op, "task.") && d.Tasks != nil {
 		return d.handleTasks(ctx, req, user)
+	}
+	if strings.HasPrefix(req.Op, "usb.") && d.Usb != nil {
+		return d.handleUsb(ctx, req, user)
 	}
 	if strings.HasPrefix(req.Op, "fs.") && d.Files != nil {
 		return d.handleFiles(ctx, req, user)

@@ -102,6 +102,8 @@ type Server struct {
 	// Hardware is the W3.4 hardware page; HardwareAdmin changes it through the helper.
 	Hardware      HardwareSource
 	HardwareAdmin HardwareAdmin
+	// Usb serves /storage/usb (W4.2); nil answers 503.
+	Usb UsbAdmin
 	// Files serves /files (File Station); nil answers 503.
 	Files       FileStation
 	uploads     atomic.Int32
@@ -132,6 +134,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerTasks(api)
 	s.registerBackup(api)
 	s.registerFiles(api)
+	s.registerUsb(api)
 	s.registerNetwork(api)
 	s.registerMonitor(api)
 	s.registerHardware(api)

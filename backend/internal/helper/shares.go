@@ -218,9 +218,14 @@ func volumeMissing(v string) error {
 }
 
 // applyFS gives a folder its owner, mode and (in ACL mode) ACLs.
-func (m *ShareManager) applyFS(ctx context.Context, s shares.Share, db accounts.DB, acl, adopted bool) error {
+func (m *ShareManager) applyFS(ctx context.Context, s shares.Share, db accounts.DB, vol shares.Volume, adopted bool) error {
 	path := s.Path()
-	if acl {
+	// FAT has no owners or modes: the USB mount options give root:nas-users
+	// 0770/0660 to everything (W4.2), Samba enforces the rest.
+	if vol.FsType == "vfat" {
+		return nil
+	}
+	if vol.ACL {
 		if err := shares.SetupRootACL(path, m.Chown); err != nil {
 			slog.Error("helper: share root", "path", path, "err", err)
 			return internalErr("Složku se nepodařilo nastavit.")
@@ -360,7 +365,7 @@ func (m *ShareManager) Create(ctx context.Context, in shares.Share, actor string
 			os.Remove(s.Path())
 		}
 	}
-	if err := m.applyFS(ctx, s, db, vol.ACL, adopted); err != nil {
+	if err := m.applyFS(ctx, s, db, vol, adopted); err != nil {
 		cleanup()
 		return ShareList{}, err
 	}
@@ -423,7 +428,7 @@ func (m *ShareManager) Update(ctx context.Context, in shares.Share, actor string
 		return ShareList{}, err
 	}
 	if fi, err := os.Lstat(s.Path()); err == nil && fi.IsDir() {
-		if err := m.applyFS(ctx, s, db, vol.ACL, false); err != nil {
+		if err := m.applyFS(ctx, s, db, vol, false); err != nil {
 			return ShareList{}, err
 		}
 	}
@@ -571,7 +576,7 @@ func (m *ShareManager) Restore(ctx context.Context, data []byte, present bool) e
 			if fi, err := os.Lstat(s.Path()); err != nil || !fi.IsDir() {
 				continue
 			}
-			if err := m.applyFS(ctx, s, db, v.ACL, false); err != nil {
+			if err := m.applyFS(ctx, s, db, v, false); err != nil {
 				slog.Warn("helper: share restore", "share", s.Name, "err", err)
 			}
 		}

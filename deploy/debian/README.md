@@ -252,3 +252,18 @@ No unit or package change: the binary serves `/api/v1/files` and the helper runs
 and share `nrt-files`, tests the operations over HTTPS, prints owner and mode of the created entries and
 removes everything. The optional big upload (second argument, default 0) keeps the NAS CPU at 100 % for minutes
 (TLS on one ARM core) – run it only when that is acceptable.
+
+## USB storage (W4.2)
+
+Storage → USB mounts USB partitions (ext2/3/4, FAT) through `systemd-mount` below `/srv/usb/<label>`
+(nosuid, nodev, noexec; FAT as root:nas-users 0770/0660), where shared folders can use them, and ejects a
+disk: unmount, flush, remove the device. The removal runs outside the helper's sandbox:
+
+```sh
+install -m 0755 nas-revival-usb-eject /usr/local/sbin/nas-revival-usb-eject
+install -m 0644 nas-revival-usb-eject@.service /etc/systemd/system/
+systemctl daemon-reload
+```
+
+Partitions whose UUID is in `/etc/nsa310-copy.exclude` (rescue stick) or labelled `nrinstall` (disk swap
+stick) are never mounted. exFAT and NTFS need the kernel options `CONFIG_EXFAT_FS` / `CONFIG_NTFS3_FS`.
