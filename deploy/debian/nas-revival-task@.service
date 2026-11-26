@@ -1,0 +1,37 @@
+[Unit]
+Description=NAS Revival scheduled task %i
+After=nas-revival-helper.service
+Wants=nas-revival-helper.service
+
+[Service]
+# Started by the generated nas-revival-task-<id>.timer (the helper writes it from
+# /etc/nas-revival/tasks.json) or by "Run now" in the web UI. The runner waits for the
+# heavy-job lock (/run/lock/nas-heavy.lock, group nas-heavy) and asks the helper to do
+# the work; a SMART test keeps running on the drive after the runner exits.
+Type=oneshot
+ExecStart=/usr/local/bin/nas-revival task run -config /etc/nas-revival -state /var/lib/nas-revival %i
+User=nas-revival
+Group=nas-revival
+SupplementaryGroups=nas-heavy
+StateDirectory=nas-revival
+StateDirectoryMode=0700
+Nice=10
+IOSchedulingClass=idle
+# Waiting for the lock takes up to 3 h; the work itself may run long as well.
+TimeoutStartSec=6h
+Environment=GOMEMLIMIT=40MiB GOGC=50
+MemoryMax=64M
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+# History in the state directory, the heavy lock file in /run/lock.
+ReadWritePaths=/run/lock

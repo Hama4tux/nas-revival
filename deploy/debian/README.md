@@ -14,6 +14,21 @@ chown nas-revival:nas-revival /etc/nas-revival/admin.json
 systemctl daemon-reload && systemctl enable --now nas-revival-helper nas-revival
 ```
 
+Scheduled tasks (W3.3): the helper keeps `/etc/nas-revival/tasks.json` (root, 0644; without it only the
+daily recycle bin cleanup at 03:30 exists) and writes one `nas-revival-task-<id>.timer` per task to
+`/etc/systemd/system`; all of them start the template `nas-revival-task@.service`, which runs
+`nas-revival task run <id>` as `nas-revival` and records the outcome in `/var/lib/nas-revival/task-history.json`.
+Heavy jobs are serialised with `flock` on `/run/lock/nas-heavy.lock` (group `nas-heavy`, created by tmpfiles).
+Install once, as root (the helper reconciles the timers when it starts):
+
+```sh
+groupadd --system nas-heavy
+install -m 0644 nas-revival-task@.service /etc/systemd/system/
+install -m 0644 nas-revival-tmpfiles.conf /etc/tmpfiles.d/nas-revival.conf
+systemd-tmpfiles --create /etc/tmpfiles.d/nas-revival.conf
+systemctl daemon-reload && systemctl restart nas-revival-helper
+```
+
 Web login (W2.2, ADR 0004): `admin.json` is the recovery administrator (set over SSH as above);
 NAS accounts log in with the web hash the helper keeps in `/etc/nas-revival/credentials.json`, role by
 membership in `nas-admin` / `nas-viewer` (created by the helper on first use). After deploying, run

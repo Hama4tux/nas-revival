@@ -23,8 +23,6 @@ const (
 	EnforceSMB = "smb" // the filesystem has no ACLs, Samba enforces
 )
 
-const recycleInterval = 24 * time.Hour
-
 // ShareInfo is a share with its derived state.
 type ShareInfo struct {
 	shares.Share
@@ -518,24 +516,6 @@ func (m *ShareManager) RecycleCleanup(ctx context.Context, actor string) (shares
 	}
 	slog.Info("helper: share.recycleCleanup", "files", total.RemovedFiles, "bytes", total.RemovedBytes, "user", actor)
 	return total, nil
-}
-
-// RunRecycleLoop cleans the recycle bins at start and every 24 hours.
-func (m *ShareManager) RunRecycleLoop(ctx context.Context) {
-	t := time.NewTicker(recycleInterval)
-	defer t.Stop()
-	for {
-		cctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
-		if _, err := m.RecycleCleanup(cctx, "system"); err != nil {
-			slog.Warn("helper: recycle cleanup", "err", err)
-		}
-		cancel()
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-		}
-	}
 }
 
 // Restore writes an older shares.json back (config rollback), re-applies the

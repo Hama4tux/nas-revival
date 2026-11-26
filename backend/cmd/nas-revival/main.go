@@ -2,6 +2,7 @@
 //
 //	nas-revival [-listen :8443] [-config /etc/nas-revival] [-state /var/lib/nas-revival]
 //	nas-revival set-password [-config /etc/nas-revival] [-user admin]
+//	nas-revival task run [-config /etc/nas-revival] [-state /var/lib/nas-revival] <id>
 //	nas-revival helper [-socket /run/nas-revival-helper/helper.sock] [-user nas-revival]
 package main
 
@@ -40,6 +41,7 @@ import (
 	"nas-revival/backend/internal/sshd"
 	"nas-revival/backend/internal/storage"
 	"nas-revival/backend/internal/system"
+	"nas-revival/backend/internal/tasks"
 	"nas-revival/backend/internal/tlscert"
 	"nas-revival/backend/internal/web"
 )
@@ -49,6 +51,8 @@ func main() {
 	var err error
 	if len(os.Args) > 1 && os.Args[1] == "set-password" {
 		err = setPassword(os.Args[2:])
+	} else if len(os.Args) > 2 && os.Args[1] == "task" && os.Args[2] == "run" {
+		err = runTask(os.Args[3:])
 	} else if len(os.Args) > 1 && os.Args[1] == "helper" {
 		err = runHelper(os.Args[2:])
 	} else {
@@ -141,6 +145,8 @@ func serve(args []string) error {
 	srv.Smb = hc
 	srv.Nfs = hc
 	srv.Ssh = hc
+	srv.Tasks = hc
+	srv.TaskStatus = api.TaskStatus{Run: helper.ExecRunner, HistoryPath: filepath.Join(*stateDir, "task-history.json")}
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -304,8 +310,12 @@ func runHelper(args []string) error {
 	}
 	// Boot task disk-power: hdparm settings do not survive a power cycle.
 	go dp.ApplyAll(ctx)
-	// Recycle bins of the shared folders (SHARE-04): at start and daily.
-	go shm.RunRecycleLoop(ctx)
+	// Scheduled tasks (W3.3): timers follow tasks.json; the default "recycle" task
+	// replaces the old in-process recycle bin loop.
+	tkm := &helper.TaskManager{Path: tasks.DefaultConfigPath, UnitDir: "/etc/systemd/system", Run: helper.ExecRunner}
+	if err := tkm.Reconcile(ctx); err != nil {
+		slog.Error("helper: task timers", "err", err)
+	}
 	ln, err := helper.Listen(*sock, gid)
 	if err != nil {
 		return err
@@ -322,6 +332,7 @@ func runHelper(args []string) error {
 		Smb:      smbm,
 		Nfs:      nfsm,
 		Ssh:      sshm,
+		Tasks:    tkm,
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
 			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},
@@ -399,3 +410,65 @@ type systemSource struct {
 
 func (s systemSource) Info() (system.Info, error)        { return system.SystemInfo(s.root, version) }
 func (s systemSource) Capabilities() system.Capabilities { return system.CapabilitiesOf(s.profile) }
+
+// taskBackend runs the task work through the helper socket.
+type taskBackend struct{ c *helper.Client }
+
+func helperMsg(err error) error {
+	if he, ok := helper.AsError(err); ok {
+		return errors.New(he.Message)
+	}
+	return nil
+}
+
+func (b taskBackend) SmartTest(ctx context.Context, diskID, test string) (*int, error) {
+	r, err := b.c.SmartTest(ctx, diskID, test)
+	if err != nil {
+		if he, ok := helper.AsError(err); ok && he.Code == helper.CodeTestRunning {
+			return nil, tasks.ErrTestRunning
+		}
+		if m := helperMsg(err); m != nil {
+			return nil, m
+		}
+		return nil, errors.New(tasks.MsgFailed)
+	}
+	return r.EstimatedMinutes, nil
+}
+
+func (b taskBackend) RecycleCleanup(ctx context.Context) (int, int64, error) {
+	r, err := b.c.ShareRecycleCleanup(ctx)
+	if err != nil {
+		if m := helperMsg(err); m != nil {
+			return 0, 0, m
+		}
+		return 0, 0, errors.New(tasks.MsgFailed)
+	}
+	return r.RemovedFiles, r.RemovedBytes, nil
+}
+
+// runTask is the ExecStart of nas-revival-task@.service: it runs one task and
+// exits 1 unless it succeeded or was skipped.
+func runTask(args []string) error {
+	fl := flag.NewFlagSet("task run", flag.ContinueOnError)
+	configDir := fl.String("config", "/etc/nas-revival", "configuration directory (tasks.json)")
+	stateDir := fl.String("state", "/var/lib/nas-revival", "state directory (task history)")
+	helperSock := fl.String("helper-socket", "/run/nas-revival-helper/helper.sock", "privileged helper socket")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	if fl.NArg() != 1 || !tasks.ValidID(fl.Arg(0)) {
+		return errors.New("usage: nas-revival task run [-config D] [-state D] <id>")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	r := tasks.NewRunner(filepath.Join(*configDir, "tasks.json"), filepath.Join(*stateDir, "task-history.json"),
+		taskBackend{c: &helper.Client{Socket: *helperSock}})
+	run, err := r.Run(ctx, fl.Arg(0))
+	if err != nil {
+		return err
+	}
+	if run.Result == tasks.ResultFailed || run.Result == tasks.ResultStopped {
+		return fmt.Errorf("task %s: %s: %s", fl.Arg(0), run.Result, run.Message)
+	}
+	return nil
+}

@@ -29,6 +29,8 @@ const (
 	readDeadline = 5 * time.Second
 	opTimeout    = 60 * time.Second
 	maxConns     = 8
+	// recycleTimeout: emptying the recycle bins of big shares (task runner).
+	recycleTimeout = 11 * time.Minute
 )
 
 // Dispatcher executes the fixed list of operations.
@@ -54,6 +56,8 @@ type Dispatcher struct {
 	Nfs *NfsManager
 	// Ssh manages the SSH/SFTP settings; nil disables it.
 	Ssh *SshManager
+	// Tasks manages the scheduled tasks; nil disables it.
+	Tasks *TaskManager
 }
 
 type request struct {
@@ -217,6 +221,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if strings.HasPrefix(req.Op, "ssh.") && d.Ssh != nil {
 		return d.handleSsh(ctx, req, user)
+	}
+	if strings.HasPrefix(req.Op, "task.") && d.Tasks != nil {
+		return d.handleTasks(ctx, req, user)
 	}
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
@@ -472,7 +479,11 @@ func serveConn(ctx context.Context, conn net.Conn, allowedUID uint32, d *Dispatc
 		reply(uc, nil, invalid("", "Požadavek je příliš velký."))
 		return
 	}
-	octx, cancel := context.WithTimeout(ctx, opTimeout)
+	to := opTimeout
+	if req.Op == "share.recycleCleanup" {
+		to = recycleTimeout
+	}
+	octx, cancel := context.WithTimeout(ctx, to)
 	defer cancel()
 	res, err := d.Handle(octx, req)
 	reply(uc, res, err)

@@ -14,6 +14,7 @@ import (
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
 	"nas-revival/backend/internal/sshd"
+	"nas-revival/backend/internal/tasks"
 )
 
 type userKey struct{}
@@ -290,7 +291,9 @@ func (c *Client) ShareDelete(ctx context.Context, d ShareDelete) (ShareDeleteRes
 
 func (c *Client) ShareRecycleCleanup(ctx context.Context) (shares.RecycleResult, error) {
 	var r shares.RecycleResult
-	err := c.shares(ctx, "share.recycleCleanup", struct{}{}, &r)
+	long := *c
+	long.Timeout = 11 * time.Minute
+	err := long.Call(ctx, "share.recycleCleanup", struct{}{}, &r)
 	return r, err
 }
 
@@ -394,4 +397,27 @@ func (c *Client) SshKeyRemove(ctx context.Context, name, fingerprint string) (Ss
 	var r SshKeys
 	err := c.Call(ctx, "ssh.keys.remove", map[string]string{"name": name, "fingerprint": fingerprint}, &r)
 	return r, err
+}
+
+func (c *Client) TaskGet(ctx context.Context) (TaskList, error) {
+	var r TaskList
+	err := c.Call(ctx, "task.get", nil, &r)
+	return r, err
+}
+
+// TaskSet writes the timers; many systemctl calls on a slow CPU.
+func (c *Client) TaskSet(ctx context.Context, l []tasks.Task) (TaskList, error) {
+	long := *c
+	long.Timeout = 60 * time.Second
+	var r TaskList
+	err := long.Call(ctx, "task.set", map[string]any{"tasks": l}, &r)
+	return r, err
+}
+
+func (c *Client) TaskRun(ctx context.Context, id string) error {
+	return c.Call(ctx, "task.run", map[string]string{"id": id}, nil)
+}
+
+func (c *Client) TaskStop(ctx context.Context, id string) error {
+	return c.Call(ctx, "task.stop", map[string]string{"id": id}, nil)
 }

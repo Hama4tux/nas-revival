@@ -82,7 +82,10 @@ type Server struct {
 	// Nfs serves /services/nfs; nil answers 503.
 	Nfs NfsAdmin
 	// Ssh serves /services/ssh; nil answers 503.
-	Ssh         SshAdmin
+	Ssh SshAdmin
+	// Tasks serves /tasks; nil answers 503. TaskStatus adds timers, state and history.
+	Tasks       TaskAdmin
+	TaskStatus  TaskStatus
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
@@ -107,6 +110,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerSmb(api)
 	s.registerNfs(api)
 	s.registerSsh(api)
+	s.registerTasks(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})
