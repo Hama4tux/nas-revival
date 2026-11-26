@@ -5,7 +5,6 @@
 - Další krok: W2.5 SMB (instalace Samby jen se souhlasem vlastníka).
 
 ## Čeká na rozhodnutí
-- [ ] Záchranný administrátor: ADR 0004 původně chtěl účet z admin.json převést na účet NASu; ve W2.2 zůstal jako záchranný účet (heslo jen přes SSH, vždy administrátor). Ponechat, nebo po založení vlastního administrátora admin.json smazat? (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
 - [ ] Reprodukovatelný release: KERNEL_VERSION v jednom souboru, scripts/debian/release.sh (jádro + rootfs + manifest + SHA256SUMS), build v GitHub Actions na tag, skript pro aktualizaci jádra (A→B, zápis A, zpětné čtení) – navrženo, čeká na souhlas. (2026-11-26)
@@ -73,6 +72,7 @@
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
 ## Dokončené etapy
+- Rozhodnuto: záchranný administrátor admin.json zůstává natrvalo vedle účtů NASu (heslo jen přes SSH, vždy administrátor); role účtů schváleny vlastníkem. (2026-11-26)
 - Aplikace Služby ve webovém GUI (W2.4): stav a prostředky spravovaných služeb, ovládání s chráněnými službami, záznam deníku; nasazeno a ověřeno na NASu (2026-11-26)
 - Sdílené složky ve webovém GUI (W2.3), nasazeno na NAS (2026-11-26)
 - Role Administrátor / Jen pro čtení / Uživatel a přihlášení účtů NASu do webu, stránka Můj účet se změnou vlastního hesla (W2.2); nasazeno a ověřeno na NASu. (2026-11-26)
