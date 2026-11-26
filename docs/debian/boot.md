@@ -69,6 +69,23 @@ nanddump -l <size> -f check /dev/mtd8 # compare sha256 with uImage; check correc
 Slot A is `/dev/mtd7` (`kernel_2`). Only ever write one slot at a time and verify it before
 touching the other one.
 
+## Installing kernel modules
+
+`/lib` is a symlink to `usr/lib` on Debian 13. The modules tarball of `build-kernel.sh` starts with
+`lib/`, so extract it with `--keep-directory-symlink`, otherwise GNU tar replaces the symlink with a
+directory and the system loses its dynamic loader (`/lib/ld-linux.so.3`): no program can start, SSH
+resets, the next boot fails. Keep the old modules until the new kernel has booted:
+
+```
+tar -C / -czf modules-old-<version>.tar.gz usr/lib/modules/<version>
+tar -C / --keep-directory-symlink -xzf modules-<version>.tar.gz
+depmod -a <version>
+```
+
+If it happened anyway (2026-11-26): `scripts/debian/rescue/fix-lib-symlink.cmds` with
+`uboot-session.py` boots slot B with `init=/usr/lib/ld-linux.so.3 -- /usr/bin/bash`, puts the symlink
+back and moves the modules to `/usr/lib/modules`.
+
 ## Console access and recovery
 
 `scripts/debian/uboot-session.py` stops autoboot (2 s) and runs commands from a file;

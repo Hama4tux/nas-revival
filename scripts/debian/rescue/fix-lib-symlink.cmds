@@ -1,0 +1,22 @@
+# Rescue commands for scripts/debian/uboot-session.py (owner runs it on the console laptop, then powers on).
+# Case: /lib (on Debian 13 a symlink to usr/lib) was replaced by a real directory, e.g. by
+# `tar -C / -xzf modules.tar.gz` without --keep-directory-symlink (2026-11-26). Then the dynamic loader
+# /lib/ld-linux.so.3 is gone: nothing can be executed, SSH resets, systemd cannot start.
+# Boots the known-good kernel in slot B with bash as init, started through the loader in /usr/lib
+# (kernel arguments after -- go to init), restores the symlink, moves the new modules to
+# /usr/lib/modules, flushes and reboots normally (slot A). Nothing is written to NAND or U-Boot env.
+setenv bootargs $(debargs) init=/usr/lib/ld-linux.so.3 -- /usr/bin/bash
+run slotB
+@wait 90
+/usr/lib/ld-linux.so.3 /usr/bin/mv /lib /lib.broken-2026-11-26
+/usr/lib/ld-linux.so.3 /usr/bin/ln -s usr/lib /lib
+@wait 2
+ls -ld /lib && echo LIB-OK
+cp -a /lib.broken-2026-11-26/modules/6.12.119/. /usr/lib/modules/6.12.119/ && echo COPY-OK
+depmod -a 6.12.119 && ls /usr/lib/modules/6.12.119/kernel/fs/nfsd/ && echo MODULES-OK
+@wait 20
+sync
+@wait 5
+mount -t proc proc /proc
+echo b > /proc/sysrq-trigger
+@wait 150
