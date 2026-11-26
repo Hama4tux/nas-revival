@@ -55,6 +55,10 @@ Migration of the interim `nas-pull` job (once, as root, after installing the new
 It is idempotent. Afterwards check Tasks in the web UI and run the task once. Optional: Plánované úlohy → card "Přístup k zálohám v síti"
 publishes `/srv/data/versions` as the read-only SMB share `zalohy` for `nas-admin` (state in
 `/etc/nas-revival/backup.json`; read-only because versions are hardlinks).
+Versions and restore (phase 2): "Verze a obnova" on a backup task lists the versions, browses them and downloads single
+files; the helper opens each file as root and passes the descriptor to the web process, which keeps no read access to
+`/srv/data/versions`. After deploying, run `scripts/webui/e2e-backup.sh` (read-only; also walks the newest version of
+every job to a file and reads it).
 
 Web login (W2.2, ADR 0004): `admin.json` is the recovery administrator (set over SSH as above);
 NAS accounts log in with the web hash the helper keeps in `/etc/nas-revival/credentials.json`, role by
