@@ -374,6 +374,13 @@ export interface BackupVersion { date: string; files: number; bytes: number; add
 export interface BackupVersionList { versions: BackupVersion[]; complete: boolean }
 export interface BackupEntry { name: string; type: 'dir' | 'file' | 'link' | 'other'; size: number; modified: string; badName?: boolean }
 export interface BackupBrowse { path: string; entries: BackupEntry[]; offset: number; total: number; truncated: boolean }
+/** GET /backup/restore (W4.3): the current or last restore of a version into a share. */
+export type RestoreState = 'idle' | 'scanning' | 'copying' | 'done' | 'failed' | 'cancelled';
+export interface RestoreStatus {
+  state: RestoreState; job?: string; date?: string; path: string; share?: string; dest?: string; user?: string;
+  totalFiles: number; totalBytes: number; files: number; bytes: number; skipped: number; message?: string;
+  started?: string; finished?: string;
+}
 
 /** GET /monitor (W3.1): samples every intervalSeconds, the last hour, oldest first. */
 export interface MonitorCpu { user: number; system: number; iowait: number; irq: number; steal: number }

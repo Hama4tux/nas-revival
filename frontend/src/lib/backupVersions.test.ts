@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breadcrumbs, browseUrl, downloadUrl, entryDisabledReason, joinPath, versionDateLabel } from './backupVersions';
+import { breadcrumbs, browseUrl, defaultRestoreName, downloadUrl, entryDisabledReason, joinPath, restorePercent, restoreUrl, versionDateLabel } from './backupVersions';
 
 describe('backupVersions helpers', () => {
   it('formats the version date in Czech', () => {
@@ -26,5 +26,19 @@ describe('backupVersions helpers', () => {
     expect(entryDisabledReason({ type: 'link' })).toBeTruthy();
     expect(entryDisabledReason({ type: 'other' })).toBeTruthy();
     expect(entryDisabledReason({ type: 'file', badName: true })).toBeTruthy();
+  });
+  it('suggests a restore name the NAS accepts', () => {
+    expect(defaultRestoreName('nas-export/db', 'Export', '2026-11-25', false)).toBe('db (záloha 25. 11. 2026)');
+    expect(defaultRestoreName('nas-export/db/dump.sql.gz', 'Export', '2026-11-05', true)).toBe('dump (záloha 5. 11. 2026).sql.gz');
+    expect(defaultRestoreName('', 'Server: web/db', '2026-11-25', false)).toBe('Server- web-db (záloha 25. 11. 2026)');
+    expect(defaultRestoreName('.env', 'x', '2026-11-25', true)).toBe('.env (záloha 25. 11. 2026)');
+  });
+  it('computes restore progress and URL', () => {
+    const s = { totalBytes: 200, bytes: 50, totalFiles: 4, files: 1 };
+    expect(restorePercent({ ...s, state: 'scanning' })).toBe(0);
+    expect(restorePercent({ ...s, state: 'copying' })).toBe(25);
+    expect(restorePercent({ ...s, totalBytes: 0, bytes: 0, files: 2, state: 'copying' })).toBe(50);
+    expect(restorePercent({ ...s, state: 'done' })).toBe(100);
+    expect(restoreUrl('exp ort', '2026-11-25')).toBe('/backup/exp%20ort/versions/2026-11-25/restore');
   });
 });

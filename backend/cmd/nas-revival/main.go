@@ -361,6 +361,8 @@ func runHelper(args []string) error {
 	bkm := helper.NewBackupManager(*iface, helper.ExecRunner)
 	bkm.ApplyShare = shm.Resamba
 	shm.BackupShare = bkm.ShareEnabled
+	files := &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, HasACL: acls,
+		Chown: helper.SysFileChown, Statfs: helper.SysFstatfs, Now: time.Now}
 	ln, err := helper.Listen(*sock, gid)
 	if err != nil {
 		return err
@@ -381,8 +383,8 @@ func runHelper(args []string) error {
 		Backup:   bkm,
 		Usb: &helper.UsbManager{Report: storage.Collector{HAL: hal.Reader{Root: "/"}, StatFS: statFS}.Report,
 			Run: helper.ExecRunner, DB: shm.LoadDB, Exclude: "/etc/nsa310-copy.exclude", Taken: helper.SysTaken},
-		Files: &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, HasACL: acls,
-			Chown: helper.SysFileChown, Statfs: helper.SysFstatfs, Now: time.Now},
+		Files:    files,
+		Restore:  &helper.RestoreManager{Backup: bkm, Files: files, Lower: helper.SysLowerPriority},
 		Hostname: &helper.HostnameManager{HostsFile: "/etc/hosts", Run: helper.ExecRunner},
 		Diag:     helper.NewDiagManager(*iface, helper.ExecRunner),
 		Procs:    &helper.ProcessManager{Root: "/"},

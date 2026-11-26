@@ -612,6 +612,27 @@ func (c *Client) BackupOpen(ctx context.Context, id, date, path string) (*os.Fil
 	return f, m, err
 }
 
+// BackupRestoreStart starts copying a folder or file of a version into a share.
+func (c *Client) BackupRestoreStart(ctx context.Context, req RestoreRequest) (RestoreStatus, error) {
+	var r RestoreStatus
+	err := c.Call(ctx, "backup.restore.start", req, &r)
+	return r, err
+}
+
+// BackupRestoreStatus returns the current or last restore.
+func (c *Client) BackupRestoreStatus(ctx context.Context) (RestoreStatus, error) {
+	var r RestoreStatus
+	err := c.Call(ctx, "backup.restore.status", nil, &r)
+	return r, err
+}
+
+// BackupRestoreCancel stops the running restore.
+func (c *Client) BackupRestoreCancel(ctx context.Context) (RestoreStatus, error) {
+	var r RestoreStatus
+	err := c.Call(ctx, "backup.restore.cancel", nil, &r)
+	return r, err
+}
+
 // HardwareThresholds stores the temperature thresholds (W3.4).
 func (c *Client) HardwareThresholds(ctx context.Context, t hardware.Thresholds) (hardware.Settings, error) {
 	var r hardware.Settings

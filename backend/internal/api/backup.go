@@ -27,6 +27,16 @@ type BackupAdmin interface {
 	BackupVersions(ctx context.Context, id string) (helper.BackupVersions, error)
 	BackupBrowse(ctx context.Context, id, date, path string, offset int) (helper.BrowseResult, error)
 	BackupOpen(ctx context.Context, id, date, path string) (*os.File, helper.BackupFileMeta, error)
+	BackupRestoreStart(ctx context.Context, req helper.RestoreRequest) (helper.RestoreStatus, error)
+	BackupRestoreStatus(ctx context.Context) (helper.RestoreStatus, error)
+	BackupRestoreCancel(ctx context.Context) (helper.RestoreStatus, error)
+}
+
+type restoreBody struct {
+	Path  string `json:"path"`
+	Share string `json:"share"`
+	Dir   string `json:"dir"`
+	Name  string `json:"name"`
 }
 
 const backupBodyLimit = 4 << 10
@@ -61,6 +71,9 @@ func (s *Server) registerBackup(api *http.ServeMux) {
 	api.HandleFunc("GET /api/v1/backup/{id}/versions", admin(s.backupVersions))
 	api.HandleFunc("GET /api/v1/backup/{id}/versions/{date}/browse", admin(s.backupBrowse))
 	api.HandleFunc("GET /api/v1/backup/{id}/versions/{date}/file", admin(s.backupFile))
+	api.HandleFunc("POST /api/v1/backup/{id}/versions/{date}/restore", admin(s.backupRestoreStart))
+	api.HandleFunc("GET /api/v1/backup/restore", admin(s.backupRestoreStatus))
+	api.HandleFunc("POST /api/v1/backup/restore/cancel", admin(s.backupRestoreCancel))
 }
 
 func (s *Server) backupReady(w http.ResponseWriter) bool {
@@ -289,4 +302,53 @@ func (s *Server) backupFile(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	w.Header().Set("Cache-Control", "no-store")
 	http.ServeContent(w, r, "", meta.Modified, f)
+}
+
+// backupRestoreStart copies a folder or file of a version into a share the
+// admin may write to; the helper runs it in the background (202).
+func (s *Server) backupRestoreStart(w http.ResponseWriter, r *http.Request) {
+	if !s.backupReady(w) {
+		return
+	}
+	id, ok := backupJob(w, r)
+	if !ok {
+		return
+	}
+	var b restoreBody
+	if !decodeBody(w, r, backupBodyLimit, &b) {
+		return
+	}
+	st, err := s.Backup.BackupRestoreStart(r.Context(), helper.RestoreRequest{ID: id, Date: r.PathValue("date"),
+		Path: b.Path, Share: b.Share, Dir: b.Dir, Name: b.Name})
+	if err != nil {
+		writeHelperError(w, err)
+		return
+	}
+	slog.Info("backup restore started", "job", id, "date", r.PathValue("date"), "share", b.Share, "by", sessionUser(r))
+	writeJSON(w, http.StatusAccepted, st)
+}
+
+func (s *Server) backupRestoreStatus(w http.ResponseWriter, r *http.Request) {
+	if !s.backupReady(w) {
+		return
+	}
+	st, err := s.Backup.BackupRestoreStatus(r.Context())
+	if err != nil {
+		writeHelperError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+func (s *Server) backupRestoreCancel(w http.ResponseWriter, r *http.Request) {
+	if !s.backupReady(w) {
+		return
+	}
+	st, err := s.Backup.BackupRestoreCancel(r.Context())
+	if err != nil {
+		writeHelperError(w, err)
+		return
+	}
+	slog.Info("backup restore cancel", "by", sessionUser(r))
+	writeJSON(w, http.StatusOK, st)
 }

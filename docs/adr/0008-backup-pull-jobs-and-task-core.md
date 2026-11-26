@@ -34,7 +34,9 @@
 - **Storage root:** pulled backups live under one reserved root on the data volume
   (`/srv/data/apps`, `/srv/data/versions`), owned by the backup user, mode 0700, never offered as an
   SMB/NFS share and refused as a share path. Restore access comes through the web UI (list versions
-  and files first, download and restore-to-share with File Station W4.1).
+  and files first, download and restore-to-share with File Station W4.1). Restore-to-share (phase 2b): the helper
+  copies a folder or file of a version into a share the admin's own account may write to, in the background
+  under a hidden name, never overwriting, owned by the admin like a File Station upload, symlinks skipped.
 - **Runner privileges:** the job runs as the unprivileged backup user in a systemd sandbox with one
   `ReadWritePaths` entry for the data volume root (separate bind mounts break hardlinks, EXDEV),
   `Nice`, idle I/O class; one job at a time through the heavy lock (240 MB RAM).

@@ -735,6 +735,19 @@ const taskView = () => mockTasks.map((t) => ({
 
 const MOCK_FP = 'SHA256:q3Zk0m7H1nP2yB8cV5xT9aLwR4eDfG6uJhS1oXiNtEw';
 let mockShareOn = false;
+// Mock restore: scans 1 s, copies 84 MB in ~8 s.
+let mockRestore: Record<string, unknown> & { state: string; started?: string } | null = null;
+function mockRestoreStatus(): Record<string, unknown> {
+  if (!mockRestore) return { state: 'idle', path: '', totalFiles: 0, totalBytes: 0, files: 0, bytes: 0, skipped: 0 };
+  if (mockRestore.state !== 'scanning' && mockRestore.state !== 'copying') return mockRestore;
+  const sec = (Date.now() - Date.parse(mockRestore.started ?? '')) / 1000;
+  if (sec < 1) return mockRestore;
+  const f = Math.min(1, (sec - 1) / 8);
+  if (f >= 1) mockRestore = { ...mockRestore, state: 'done', files: 40, bytes: 84_000_000, finished: new Date().toISOString() };
+  else return { ...mockRestore, state: 'copying', files: Math.floor(40 * f), bytes: Math.floor(84_000_000 * f) };
+  return mockRestore;
+}
+
 function backupRoute(path: string, method: string, body: Record<string, unknown>, search = ''): Response | null {
   if (path === '/backup/share' && method === 'GET') return json(200, { enabled: mockShareOn, name: 'zalohy', path: '/srv/data/versions' });
   if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
@@ -755,6 +768,20 @@ function backupRoute(path: string, method: string, body: Record<string, unknown>
       { type: 'ssh-ed25519', key: 'AAAAC3NzaC1lZDI1NTE5AAAAIMockHostKeyMockHostKeyMockHostKeyMockHost', fingerprint: MOCK_FP },
       { type: 'ssh-rsa', key: 'AAAAB3NzaC1yc2EAAAADAQABAAABAQMockRsaKey', fingerprint: 'SHA256:Lm2Pq9Rt4Vx7Yb1Cd6Fg8Hj3Kn5Ws0ZaEiOuTyUrQeA' },
     ], known: false, changed: host === '192.0.2.11' });
+  }
+  if (path === '/backup/restore' && method === 'GET') return json(200, mockRestoreStatus());
+  if (path === '/backup/restore/cancel' && method === 'POST') {
+    if (mockRestore && mockRestore.state !== 'done') mockRestore = { ...mockRestoreStatus(), state: 'cancelled', finished: new Date().toISOString() };
+    return json(200, mockRestoreStatus());
+  }
+  const rm = /^\/backup\/([^/]+)\/versions\/([^/]+)\/restore$/.exec(path);
+  if (rm && method === 'POST') {
+    if (mockRestore && ['scanning', 'copying'].includes(String(mockRestoreStatus().state))) return err(409, 'restore_running', 'Jedna obnova už běží; počkejte na její konec nebo ji zrušte.');
+    if (body.name === 'readme.txt') return err(409, 'file_exists', 'Položka s tímto názvem už v cílové složce existuje.');
+    mockRestore = { state: 'scanning', job: rm[1], date: rm[2], path: String(body.path ?? ''), share: String(body.share),
+      dest: body.dir ? `${String(body.dir)}/${String(body.name)}` : String(body.name), user: 'admin',
+      totalFiles: 40, totalBytes: 84_000_000, files: 0, bytes: 0, skipped: 1, started: new Date().toISOString() };
+    return json(202, mockRestore);
   }
   const vm = /^\/backup\/([^/]+)\/versions(?:\/([^/]+)\/(browse|file))?$/.exec(path);
   if (vm && method === 'GET') {

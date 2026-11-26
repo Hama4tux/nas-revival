@@ -510,6 +510,9 @@ func (d *Dispatcher) handleBackup(ctx context.Context, req request, user string)
 		ID      string `json:"id"`
 		Date    string `json:"date"`
 		Offset  int    `json:"offset"`
+		Share   string `json:"share"`
+		Dir     string `json:"dir"`
+		Name    string `json:"name"`
 	}
 	if err := decodeArgs(req.Args, &a); err != nil {
 		return nil, err
@@ -536,6 +539,16 @@ func (d *Dispatcher) handleBackup(ctx context.Context, req request, user string)
 		return d.Backup.Browse(ctx, a.ID, a.Date, a.Path, a.Offset)
 	case "backup.open":
 		return d.Backup.Open(ctx, a.ID, a.Date, a.Path)
+	}
+	if d.Restore != nil {
+		switch req.Op {
+		case "backup.restore.start":
+			return d.Restore.Start(ctx, RestoreRequest{ID: a.ID, Date: a.Date, Path: a.Path, Share: a.Share, Dir: a.Dir, Name: a.Name}, user)
+		case "backup.restore.status":
+			return d.Restore.Status(), nil
+		case "backup.restore.cancel":
+			return d.Restore.Cancel(), nil
+		}
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

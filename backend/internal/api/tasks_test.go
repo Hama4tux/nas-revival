@@ -210,6 +210,36 @@ func (f *fakeBackup) BackupOpen(_ context.Context, id, date, path string) (*os.F
 	return fh, helper.BackupFileMeta{Name: "Fakturace č.1.sql", Size: 9, Modified: time.Unix(1700000000, 0)}, err
 }
 
+func (f *fakeBackup) BackupRestoreStart(_ context.Context, req helper.RestoreRequest) (helper.RestoreStatus, error) {
+	f.calls = append(f.calls, fmt.Sprintf("restore %s %s %q %s %q %q", req.ID, req.Date, req.Path, req.Share, req.Dir, req.Name))
+	return helper.RestoreStatus{State: helper.RestoreScanning, Job: req.ID}, nil
+}
+func (f *fakeBackup) BackupRestoreStatus(context.Context) (helper.RestoreStatus, error) {
+	return helper.RestoreStatus{State: helper.RestoreIdle}, nil
+}
+func (f *fakeBackup) BackupRestoreCancel(context.Context) (helper.RestoreStatus, error) {
+	f.calls = append(f.calls, "restore cancel")
+	return helper.RestoreStatus{State: helper.RestoreIdle}, nil
+}
+
+func TestBackupRestoreStartPassesTargetAndUser(t *testing.T) {
+	s, h, _, _ := newRoleServer(t)
+	fb := &fakeBackup{dir: t.TempDir()}
+	s.Backup = fb
+	ck := loginAs(t, h, "jana")
+	rec := do(h, "POST", "/api/v1/backup/pull/versions/2026-11-25/restore",
+		`{"path":"app/db","share":"data","dir":"obnova","name":"db (2026-11-25)"}`, xrw, ck)
+	if rec.Code != 202 || !strings.Contains(rec.Body.String(), `"state":"scanning"`) {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	if got := fb.calls[len(fb.calls)-1]; got != `restore pull 2026-11-25 "app/db" data "obnova" "db (2026-11-25)"` {
+		t.Errorf("call = %s", got)
+	}
+	if rec := do(h, "POST", "/api/v1/backup/pull/versions/2026-11-25/restore", `{"path":"x","extra":1}`, xrw, ck); rec.Code != 400 {
+		t.Errorf("unknown field: %d", rec.Code)
+	}
+}
+
 func TestBackupFileDownload(t *testing.T) {
 	s, h, _, _ := newRoleServer(t)
 	fb := &fakeBackup{dir: t.TempDir()}
@@ -259,6 +289,10 @@ func TestBackupRoutesRoles(t *testing.T) {
 		{"GET", "/api/v1/backup/pull/versions/2026-11-25/file?path=app/x", "", 200, 403, 403},
 		{"GET", "/api/v1/backup/-x/versions", "", 400, 403, 403},
 		{"GET", "/api/v1/backup/pull/versions/2026-11-25/browse?offset=-1", "", 400, 403, 403},
+		{"POST", "/api/v1/backup/pull/versions/2026-11-25/restore", `{"path":"app","share":"data","dir":"","name":"app"}`, 202, 403, 403},
+		{"POST", "/api/v1/backup/-x/versions/2026-11-25/restore", `{"path":"app","share":"data","dir":"","name":"app"}`, 400, 403, 403},
+		{"GET", "/api/v1/backup/restore", "", 200, 403, 403},
+		{"POST", "/api/v1/backup/restore/cancel", "", 200, 403, 403},
 	}
 	for i, c := range cases {
 		for who, want := range map[string]int{"jana": c.admin, "petr": c.viewer, "eva": c.user} {

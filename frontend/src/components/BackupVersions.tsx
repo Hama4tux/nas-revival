@@ -1,9 +1,10 @@
-import { ChevronRight, File, Folder, Loader2 } from 'lucide-react';
+import { ChevronRight, File, Folder, Loader2, RotateCcw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
-import type { BackupBrowse, BackupVersion, BackupVersionList, Task } from '../api/types';
+import type { BackupBrowse, BackupVersion, BackupVersionList, RestoreStatus, Task } from '../api/types';
 import { cs } from '../i18n/cs';
-import { breadcrumbs, browseUrl, downloadUrl, entryDisabledReason, joinPath, versionDateLabel } from '../lib/backupVersions';
+import { breadcrumbs, browseUrl, downloadUrl, entryDisabledReason, joinPath, restoreRunning, versionDateLabel } from '../lib/backupVersions';
+import { RestoreForm, RestoreProgress, type RestoreTarget } from './BackupRestore';
 import { formatBytes } from '../lib/format';
 import { formatWhen } from '../lib/tasks';
 import { Button } from './ui/button';
@@ -56,7 +57,9 @@ function VersionList({ id, onPick }: { id: string; onPick: (v: BackupVersion) =>
   );
 }
 
-function Browser({ id, version, onBack }: { id: string; version: BackupVersion; onBack: () => void }) {
+function Browser({ id, version, onBack, onRestore }: {
+  id: string; version: BackupVersion; onBack: () => void; onRestore: (t: RestoreTarget) => void;
+}) {
   const [path, setPath] = useState('');
   const [page, setPage] = useState<BackupBrowse | null>(null);
   const [failed, setFailed] = useState(false);
@@ -86,7 +89,12 @@ function Browser({ id, version, onBack }: { id: string; version: BackupVersion; 
   const shown = page ? page.offset + page.entries.length : 0;
   return (
     <div className="space-y-3">
-      <Button type="button" variant="outline" size="sm" onClick={onBack}>{t.back}</Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" size="sm" onClick={onBack}>{t.back}</Button>
+        <Button type="button" variant="outline" size="sm" onClick={() => onRestore({ path, isFile: false })}>
+          <RotateCcw className="mr-1 h-4 w-4" aria-hidden />{t.restoreHere}
+        </Button>
+      </div>
       <nav aria-label={t.crumbs}>
         <ol className="flex flex-wrap items-center gap-1 text-sm">
           <li><button type="button" className="break-all rounded px-1 font-medium underline-offset-2 hover:underline" onClick={() => setPath('')}>{versionDateLabel(date)}</button></li>
@@ -121,11 +129,17 @@ function Browser({ id, version, onBack }: { id: string; version: BackupVersion; 
                 );
                 const cls = 'flex w-full items-start gap-2 rounded-md px-2 py-2 text-left';
                 return (
-                  <li key={e.name}>
+                  <li key={e.name} className="flex items-start gap-1">
                     {reason ? <div className={`${cls} opacity-60`}>{body}</div>
                       : e.type === 'dir'
                         ? <button type="button" aria-label={t.openDir(e.name)} className={`${cls} hover:bg-muted`} onClick={() => setPath(full)}>{body}</button>
                         : <a href={downloadUrl(id, date, full)} download aria-label={t.download(e.name)} className={`${cls} hover:bg-muted`}>{body}</a>}
+                    {!reason && (
+                      <Button type="button" variant="ghost" size="sm" aria-label={t.restoreItem(e.name)} title={t.restoreShort}
+                        className="mt-1 shrink-0" onClick={() => onRestore({ path: full, isFile: e.type === 'file' })}>
+                        <RotateCcw className="h-4 w-4" aria-hidden />
+                      </Button>
+                    )}
                   </li>
                 );
               })}
@@ -144,13 +158,45 @@ function Browser({ id, version, onBack }: { id: string; version: BackupVersion; 
 
 export function BackupVersions({ task, onClose }: { task: Task; onClose: () => void }) {
   const [version, setVersion] = useState<BackupVersion | null>(null);
+  const [target, setTarget] = useState<RestoreTarget | null>(null);
+  const [status, setStatus] = useState<RestoreStatus | null>(null);
+  const running = status ? restoreRunning(status) : false;
+
+  // The last restore is shown on open; while one runs it is polled every 2 s.
+  useEffect(() => {
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const poll = () => {
+      api<RestoreStatus>('/backup/restore').then((s) => {
+        if (!live) return;
+        setStatus(s);
+        if (restoreRunning(s)) timer = setTimeout(poll, 2000);
+      }).catch(() => { if (live) timer = setTimeout(poll, 5000); });
+    };
+    if (status === null || running) timer = setTimeout(poll, status === null ? 0 : 2000);
+    return () => { live = false; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- restarts only when a restore starts or ends
+  }, [running]);
+
+  const stop = async () => {
+    try { setStatus(await api<RestoreStatus>('/backup/restore/cancel', { method: 'POST' })); } catch { /* the poll shows the state */ }
+  };
+  // Another job's restore is shown only while it runs (it blocks a new one).
+  const shown = status && (status.job === task.id || restoreRunning(status)) ? status : null;
   return (
     <Dialog title={t.title(task.name)} onClose={onClose}
       footer={<Button type="button" variant="outline" onClick={onClose}>{cs.common.close}</Button>}>
       <div className="space-y-3">
-        <p className="text-sm text-muted-foreground">{t.hint}</p>
-        {version ? <Browser id={task.id} version={version} onBack={() => setVersion(null)} />
-          : <VersionList id={task.id} onPick={setVersion} />}
+        {shown && <RestoreProgress status={shown} onStop={stop} />}
+        {version && target && (
+          <RestoreForm id={task.id} jobName={task.name} date={version.date} target={target}
+            onStarted={(s) => { setStatus(s); setTarget(null); }} onCancel={() => setTarget(null)} />
+        )}
+        <div className={target ? 'hidden' : 'space-y-3'}>
+          <p className="text-sm text-muted-foreground">{t.hint}</p>
+          {version ? <Browser id={task.id} version={version} onBack={() => setVersion(null)} onRestore={setTarget} />
+            : <VersionList id={task.id} onPick={setVersion} />}
+        </div>
       </div>
     </Dialog>
   );

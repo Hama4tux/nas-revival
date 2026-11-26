@@ -62,6 +62,8 @@ type Dispatcher struct {
 	Tasks *TaskManager
 	// Backup manages the backup pull jobs' key, host keys and share; nil disables it.
 	Backup *BackupManager
+	// Restore copies backup versions into shares (W4.3); nil disables it.
+	Restore *RestoreManager
 	// Hostname changes the NAS name (net.hostname); nil disables it.
 	Hostname *HostnameManager
 	// Diag runs the network diagnostics (net.diag); nil disables it.
