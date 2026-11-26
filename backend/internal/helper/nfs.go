@@ -23,14 +23,14 @@ type NfsShare struct {
 	Name     string `json:"name"`
 	Path     string `json:"path"`
 	ReadOnly bool   `json:"readOnly"`
-	// GroupWrite: nas-users has read/write. Squashed NFS clients write with
+	// GroupWrite: nas-nfs has read/write. Squashed NFS clients write with
 	// that group, so without it every NFS write is refused (ACL volumes).
 	GroupWrite bool `json:"groupWrite"`
 }
 
 func groupWrite(s shares.Share) bool {
 	for _, p := range s.Permissions {
-		if p.Kind == shares.KindGroup && p.Name == accounts.UsersGroup && p.Access == shares.AccessRW {
+		if p.Kind == shares.KindGroup && p.Name == accounts.NfsGroup && p.Access == shares.AccessRW {
 			return true
 		}
 	}
@@ -102,19 +102,34 @@ func (m *NfsManager) loadShares() (shares.Config, error) {
 	return c, nil
 }
 
-// anonGID is the group squashed clients write with: nas-users, which every
-// share folder grants read/write.
+// errNoNfsGroup: nas-nfs does not exist yet (created by the first nfs.set).
+var errNoNfsGroup = internalErr("Na NASu chybí skupina " + accounts.NfsGroup + ".")
+
+// anonGID is the group squashed clients write with: nas-nfs, which has no
+// members, so a share decides NFS write access separately from SMB users.
 func (m *NfsManager) anonGID() (int, error) {
 	db, err := accounts.Load(m.Accounts)
 	if err != nil {
 		slog.Error("helper: read accounts", "err", err)
 		return 0, internalErr("Nelze načíst uživatelské účty.")
 	}
-	g, ok := db.Group(accounts.UsersGroup)
+	g, ok := db.Group(accounts.NfsGroup)
 	if !ok {
-		return 0, internalErr("Na NASu chybí skupina " + accounts.UsersGroup + ".")
+		return 0, errNoNfsGroup
 	}
 	return g.GID, nil
+}
+
+// ensureGroup creates nas-nfs on first use, like the role groups.
+func (m *NfsManager) ensureGroup(ctx context.Context) error {
+	if _, err := m.anonGID(); !errors.Is(err, errNoNfsGroup) {
+		return err
+	}
+	if out, err := m.Run(ctx, "groupadd", "--system", accounts.NfsGroup); err != nil {
+		slog.Error("helper: groupadd nas-nfs", "err", err, "out", strings.TrimSpace(string(out)))
+		return internalErr("Nelze vytvořit skupinu " + accounts.NfsGroup + ".")
+	}
+	return nil
 }
 
 func (m *NfsManager) render(s nfs.Settings, cfg shares.Config) (string, []string, error) {
@@ -141,17 +156,18 @@ func (m *NfsManager) state(ctx context.Context) (NfsService, error) {
 		st.Shares = append(st.Shares, NfsShare{Name: sh.Name, Path: sh.Path(), ReadOnly: sh.ReadOnly, GroupWrite: groupWrite(sh)})
 	}
 	text, missing, err := m.render(s, cfg)
-	if err != nil {
+	if err != nil && !errors.Is(err, errNoNfsGroup) {
 		return NfsService{}, err
 	}
-	if missing != nil {
+	// Without nas-nfs nothing was ever saved: not managed, nothing missing.
+	if missing != nil && err == nil {
 		st.Missing = missing
 	}
 	if !st.Installed {
 		return st, nil
 	}
 	st.Running = m.running(ctx)
-	if b, err := os.ReadFile(m.Exports); err == nil && string(b) == text {
+	if b, rerr := os.ReadFile(m.Exports); err == nil && rerr == nil && string(b) == text {
 		st.Managed = true
 	}
 	return st, nil
@@ -180,12 +196,15 @@ func (m *NfsManager) Set(ctx context.Context, in nfs.Settings, actor string) (Nf
 	if err != nil {
 		return NfsService{}, err
 	}
-	text, missing, err := m.render(s, cfg)
-	if err != nil {
+	if _, missing := nfs.Resolve(s, cfg); len(missing) > 0 {
+		return NfsService{}, invalid("exports", "Sdílená složka "+missing[0]+" neexistuje.")
+	}
+	if err := m.ensureGroup(ctx); err != nil {
 		return NfsService{}, err
 	}
-	if len(missing) > 0 {
-		return NfsService{}, invalid("exports", "Sdílená složka "+missing[0]+" neexistuje.")
+	text, _, err := m.render(s, cfg)
+	if err != nil {
+		return NfsService{}, err
 	}
 	oldJSON, oldJSONErr := os.ReadFile(m.Path)
 	oldExports, oldExportsErr := os.ReadFile(m.Exports)
@@ -350,6 +369,9 @@ func (m *NfsManager) Restore(ctx context.Context, data []byte, present bool) err
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if err := m.ensureGroup(ctx); err != nil {
+		return err
+	}
 	cfg, err := m.loadShares()
 	if err != nil {
 		return err

@@ -179,7 +179,8 @@ func CheckPrincipals(s Share, db accounts.DB) error {
 				return bad("permissions", "Uživatel "+p.Name+" neexistuje.")
 			}
 		case KindGroup:
-			if p.Name != accounts.UsersGroup && !db.IsEditableGroup(p.Name) {
+			_, nfs := db.Group(accounts.NfsGroup)
+			if p.Name != accounts.UsersGroup && !(p.Name == accounts.NfsGroup && nfs) && !db.IsEditableGroup(p.Name) {
 				return bad("permissions", "Skupina "+p.Name+" neexistuje nebo ji nelze použít.")
 			}
 		}

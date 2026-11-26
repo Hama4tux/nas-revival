@@ -17,7 +17,6 @@
 
 ## Nedodělané
 - [ ] NFS (W2.6): kartu Služby → NFS projít v prohlížeči na telefonu i desktopu a vyzkoušet skutečnou zálohu vzdump z Proxmoxu (pvesm add nfs … --options vers=4.2) – test připojení a zápisu z Proxmoxu prošel (scripts/webui/e2e-nfs.sh proxmox.home). (2026-11-26)
-- [ ] NFS: klienti zapisují jako nobody se skupinou nas-users, takže zálohovací složka musí dát čtení a zápis celé skupině nas-users a tím i všem uživatelům přes SMB. Zvážit vlastní skupinu jen pro NFS (např. nas-nfs), kterou jde ve složce povolit zvlášť – rozhodnutí vlastníka. (2026-11-26)
 - [ ] NFS: nabízí se jen NFSv4.1/4.2 (bez rpcbind); NFSv3 pro starší klienty a výběr exportu v Proxmoxu (showmount) nefunguje – doplnit jen když bude potřeba. (2026-11-26)
 - [ ] NFS: přidat port TCP 2049 do inventáře služeb HomeSecurity, až bude NFS zapnuté (viz bod o záznamu NASu v inventáři). (2026-11-26)
 - [ ] Služby (W2.4): stránku Služby projít v prohlížeči po přihlášení skutečným účtem na telefonu (360 px) i desktopu – ověřeno e2e testem helperu na NASu a ukázkovým režimem na desktopu (zmenšení okna v testovacím prohlížeči nešlo). (2026-11-26)

@@ -21,6 +21,9 @@ const (
 	UsersGroup  = "nas-users"
 	AdminGroup  = "nas-admin"
 	ViewerGroup = "nas-viewer"
+	// NfsGroup has no members: squashed NFS clients write with it (W2.6), so a
+	// share grants NFS write access without granting it to SMB users.
+	NfsGroup = "nas-nfs"
 )
 
 // First and last id of ordinary (non-system) accounts and groups.

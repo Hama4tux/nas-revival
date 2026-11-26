@@ -20,6 +20,7 @@ type fakeNfsd struct {
 	startFails    bool
 	calls         []string
 	exportsPath   string
+	groupPath     string
 }
 
 func (f *fakeNfsd) run(_ context.Context, name string, args ...string) ([]byte, error) {
@@ -32,6 +33,10 @@ func (f *fakeNfsd) run(_ context.Context, name string, args ...string) ([]byte, 
 	}
 	f.calls = append(f.calls, call)
 	switch {
+	case name == "groupadd":
+		fh, _ := os.OpenFile(f.groupPath, os.O_APPEND|os.O_WRONLY, 0o644)
+		fh.WriteString(args[len(args)-1] + ":x:989:\n")
+		fh.Close()
 	case name == "exportfs":
 		b, _ := os.ReadFile(f.exportsPath)
 		if f.rejectExports && strings.Contains(string(b), f.rejectText) {
@@ -62,14 +67,15 @@ func newNfsFix(t *testing.T, installed bool) *nfsFix {
 	os.WriteFile(filepath.Join(dir, "group"), []byte(baseGroup), 0o644)
 	sh := filepath.Join(dir, "shares.json")
 	cfg := shares.Config{Version: 1, Shares: []shares.Share{
-		{Name: "zalohy", Volume: "/srv/data", Folder: "zalohy", Permissions: []shares.Permission{{Kind: shares.KindGroup, Name: "nas-users", Access: shares.AccessRW}}},
+		{Name: "zalohy", Volume: "/srv/data", Folder: "zalohy", Permissions: []shares.Permission{{Kind: shares.KindGroup, Name: "nas-nfs", Access: shares.AccessRW}}},
+		{Name: "smb", Volume: "/srv/data", Folder: "smb", Permissions: []shares.Permission{{Kind: shares.KindGroup, Name: "nas-users", Access: shares.AccessRW}}},
 		{Name: "archiv", Volume: "/srv/data", Folder: "archiv", ReadOnly: true, Permissions: []shares.Permission{}},
 	}}
 	if err := shares.Save(sh, cfg); err != nil {
 		t.Fatal(err)
 	}
 	exp := filepath.Join(dir, "exports.d", "nas-revival.exports")
-	f := &fakeNfsd{exportsPath: exp}
+	f := &fakeNfsd{exportsPath: exp, groupPath: filepath.Join(dir, "group")}
 	fsys := filepath.Join(dir, "filesystems")
 	os.WriteFile(fsys, []byte("nodev\tsysfs\n\text4\n"), 0o644)
 	m := &NfsManager{Path: filepath.Join(dir, "nfs.json"), Exports: exp, Shares: sh,
@@ -93,11 +99,12 @@ func proxmox(enabled bool) nfs.Settings {
 func TestNfsGetUnconfigured(t *testing.T) {
 	x := newNfsFix(t, true)
 	st, err := x.m.Get(context.Background())
-	if err != nil || !st.Installed || st.Settings.Enabled || st.Running || len(st.Shares) != 2 || len(st.Missing) != 0 {
+	if err != nil || !st.Installed || st.Settings.Enabled || st.Running || len(st.Shares) != 3 || len(st.Missing) != 0 {
 		t.Fatalf("%+v %v", st, err)
 	}
 	// Sorted by name like shares.json.
-	if st.Shares[1].Path != "/srv/data/zalohy" || !st.Shares[0].ReadOnly || !st.Shares[1].GroupWrite || st.Shares[0].GroupWrite {
+	// nas-users rw is not NFS write access: squashed clients write with nas-nfs.
+	if st.Shares[2].Path != "/srv/data/zalohy" || !st.Shares[0].ReadOnly || !st.Shares[2].GroupWrite || st.Shares[1].GroupWrite {
 		t.Fatalf("shares %+v", st.Shares)
 	}
 }
@@ -110,11 +117,11 @@ func TestNfsSetEnableAndDisable(t *testing.T) {
 		t.Fatalf("%+v %v", st, err)
 	}
 	b, _ := os.ReadFile(x.m.Exports)
-	// anongid is the nas-users group of the account database (990).
-	if !strings.Contains(string(b), "/srv/data/zalohy 192.168.1.30(rw,sync,secure,no_subtree_check,sec=sys,root_squash,anonuid=65534,anongid=990)") {
+	// anongid is nas-nfs, created by the first nfs.set (989), not nas-users (990).
+	if !strings.Contains(string(b), "/srv/data/zalohy 192.168.1.30(rw,sync,secure,no_subtree_check,sec=sys,root_squash,anonuid=65534,anongid=989)") {
 		t.Fatalf("exports:\n%s", b)
 	}
-	if got := strings.Join(x.f.calls, "|"); got != "systemctl enable --now nfs-server.service|exportfs -ra" {
+	if got := strings.Join(x.f.calls, "|"); got != "groupadd --system nas-nfs|systemctl enable --now nfs-server.service|exportfs -ra" {
 		t.Fatalf("calls %s", got)
 	}
 	x.f.calls = nil

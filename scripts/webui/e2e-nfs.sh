@@ -4,7 +4,7 @@
 # The client needs mount.nfs4 and root or passwordless sudo (the NAS kernel has an NFS server but no
 # client, so it cannot mount itself). Through the root helper socket (as nas-revival, like the web UI)
 # it creates the throw-away share nrt-nfs, exports it to the client's address and checks: only TCP 2049
-# listens (no rpcbind), NFSv4.2 mount, root_squash writes as nobody:nas-users, NFSv3 and v4.0 refused,
+# listens (no rpcbind), NFSv4.2 mount, root_squash writes as nobody:nas-nfs, NFSv3 and v4.0 refused,
 # connected client list, read-only client, a client not in the list is refused, an exported share cannot
 # be deleted. Finally restores the previous NFS settings and removes the share. Exit 0 = all checks passed.
 set -euo pipefail
@@ -44,7 +44,7 @@ export_to() { # export_to <host> <readOnly true|false>
 mnt() { cli "mkdir -p /mnt/nrt-nfs; timeout 20 mount -t nfs4 -o $1 $nasaddr:/srv/data/nrt-nfs /mnt/nrt-nfs 2>&1 && echo MOUNTED" || true; }
 umnt() { cli 'umount /mnt/nrt-nfs 2>/dev/null || true'; }
 
-r="$(call share.create '{"share":{"name":"nrt-nfs","volume":"/srv/data","permissions":[{"kind":"group","name":"nas-users","access":"rw"}]}}')"
+r="$(call share.create '{"share":{"name":"nrt-nfs","volume":"/srv/data","permissions":[{"kind":"group","name":"nas-nfs","access":"rw"}]}}')"
 has "$r" '"ok":true' && ok "share nrt-nfs created" || bad "share.create: $r"
 
 r="$(export_to "$caddr" false)"
@@ -56,7 +56,7 @@ has "$(nas 'exportfs -v')" '/srv/data/nrt-nfs' && ok "exportfs lists the export"
 has "$(mnt vers=4.2)" MOUNTED && ok "NFSv4.2 mount" || bad "NFSv4.2 mount failed"
 cli 'touch /mnt/nrt-nfs/f' || true
 own="$(nas 'stat -c %U:%G /srv/data/nrt-nfs/f 2>&1' || true)"
-[ "$own" = "nobody:nas-users" ] && ok "root_squash: client root writes as $own" || bad "owner of a root write: $own"
+[ "$own" = "nobody:nas-nfs" ] && ok "root_squash: client root writes as $own" || bad "owner of a root write: $own"
 r="$(call nfs.status null)"
 has "$r" "\"address\":\"$caddr\"" && ok "client listed in nfs.status" || bad "nfs.status: $r"
 umnt

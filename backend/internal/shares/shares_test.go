@@ -111,6 +111,26 @@ func TestCheckPrincipals(t *testing.T) {
 	if CheckPrincipals(s, db) == nil {
 		t.Error("unknown group accepted")
 	}
+	// nas-nfs (NFS clients) only once the helper has created it; nas-admin never.
+	s.Permissions = []Permission{{KindGroup, "nas-nfs", AccessRW}}
+	if CheckPrincipals(s, db) == nil {
+		t.Error("missing nas-nfs accepted")
+	}
+	db.Groups = append(db.Groups, accounts.GroupEntry{Name: "nas-nfs", GID: 989}, accounts.GroupEntry{Name: "nas-admin", GID: 986})
+	if err := CheckPrincipals(s, db); err != nil {
+		t.Error(err)
+	}
+	s.Permissions = []Permission{{KindGroup, "nas-admin", AccessRW}}
+	if CheckPrincipals(s, db) == nil {
+		t.Error("nas-admin accepted")
+	}
+	// nas-nfs has no members: granting it gives no NAS user access.
+	s.Permissions = []Permission{{KindGroup, "nas-nfs", AccessRW}}
+	for _, ua := range Effective(s, db) {
+		if ua.Access != AccessNone {
+			t.Errorf("%s gets %s through nas-nfs", ua.User, ua.Access)
+		}
+	}
 }
 
 func TestEffectiveAndConflicts(t *testing.T) {

@@ -54,14 +54,15 @@ W2.6; in slot A since 2026-11-26). Install with `install-nfs.sh` (as root on the
 only port is TCP 2049. The helper owns `/etc/exports.d/nas-revival.exports` (`/etc/exports` stays untouched):
 it renders it from `/etc/nas-revival/nfs.json` (exports by share name, clients as IP or network, read-only per
 client, root or all squash, always `sync,secure,no_subtree_check,sec=sys`, `anonuid=65534`,
-`anongid=<nas-users>`), runs `systemctl enable/disable --now nfs-server` and `exportfs -ra` and puts the old
+`anongid=<nas-nfs>`), runs `systemctl enable/disable --now nfs-server` and `exportfs -ra` and puts the old
 files back when the server refuses them. NFS off renders an empty exports file. A share that is exported
 cannot be deleted; a share change (read-only, rollback) re-renders the exports. Connected NFSv4 clients come
 from `/proc/fs/nfsd/clients` (admins only). The helper unit needs `ReadWritePaths=-/var/lib/nfs` (etab). The helper has to be restarted after the install (the script does it):
 its sandbox only sees `/var/lib/nfs` as writable if the directory existed when it started. Installed on the NAS
 2026-11-26. The NAS kernel has the NFS server but no NFS client, so `scripts/webui/e2e-nfs.sh <client>` mounts
 from another machine (needs `mount.nfs4` and root or sudo there); passed from Proxmox 2026-11-26. With ACLs (new
-kernel) squashed clients can only write where the group `nas-users` has read/write; the NFS tab warns.
+kernel) squashed clients can only write where the member-less group `nas-nfs` (created by install-nfs.sh or the
+first NFS save) has read/write; it gives SMB users no access. The NFS tab warns when it is missing.
 Proxmox: `pvesm add nfs <id> --server <nas> --export /srv/data/<share> --content backup --options vers=4.2`
 (the Proxmox export scan uses NFSv3 and finds nothing; the UI shows the line).
 

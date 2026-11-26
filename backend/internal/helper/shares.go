@@ -195,6 +195,9 @@ func (m *ShareManager) list() (ShareList, error) {
 		out.Principals.Users = append(out.Principals.Users, u.Name)
 	}
 	out.Principals.Groups = append(out.Principals.Groups, accounts.UsersGroup)
+	if _, ok := db.Group(accounts.NfsGroup); ok {
+		out.Principals.Groups = append(out.Principals.Groups, accounts.NfsGroup)
+	}
 	for _, g := range db.Groups {
 		if db.IsEditableGroup(g.Name) {
 			out.Principals.Groups = append(out.Principals.Groups, g.Name)

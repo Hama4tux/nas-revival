@@ -35,6 +35,8 @@ vers4.2=y
 CONF
 chmod 0644 "$conf"
 
+# Squashed NFS clients write with this member-less group (anongid); shares grant it separately from SMB users.
+getent group nas-nfs >/dev/null || groupadd --system nas-nfs
 systemctl disable --now nfs-server.service
 # NFSv4 needs neither rpcbind (port 111) nor statd; masking keeps nfs-server's Wants= from starting them.
 systemctl mask --now rpcbind.service rpcbind.socket rpc-statd.service rpc-statd-notify.service
