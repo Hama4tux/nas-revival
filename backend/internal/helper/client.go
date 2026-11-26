@@ -10,6 +10,7 @@ import (
 	"nas-revival/backend/internal/config"
 	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
 )
@@ -337,5 +338,26 @@ func (c *Client) SmbSet(ctx context.Context, s smb.Settings) (SmbService, error)
 func (c *Client) SmbStatus(ctx context.Context) (smb.Status, error) {
 	var r smb.Status
 	err := c.Call(ctx, "smb.status", nil, &r)
+	return r, err
+}
+
+func (c *Client) NfsGet(ctx context.Context) (NfsService, error) {
+	var r NfsService
+	err := c.Call(ctx, "nfs.get", nil, &r)
+	return r, err
+}
+
+// NfsSet can start nfs-server, which takes a few seconds on the NAS.
+func (c *Client) NfsSet(ctx context.Context, s nfs.Settings) (NfsService, error) {
+	long := *c
+	long.Timeout = 45 * time.Second
+	var r NfsService
+	err := long.Call(ctx, "nfs.set", map[string]any{"settings": s}, &r)
+	return r, err
+}
+
+func (c *Client) NfsStatus(ctx context.Context) (NfsStatus, error) {
+	var r NfsStatus
+	err := c.Call(ctx, "nfs.status", nil, &r)
 	return r, err
 }

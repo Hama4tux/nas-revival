@@ -47,6 +47,20 @@ workstation (needs `smbclient`): it creates throw-away accounts and shares, enab
 guest, wrong password, SMB1/SMB2 refused, hidden and read-only share, recycle bin, session and open-file list
 with a real client, then restores the previous SMB settings and removes everything.
 
+NFS (W2.6): needs a kernel with `CONFIG_NFSD` (module `nfsd`, in `scripts/debian/build-kernel.sh` since
+W2.6; the kernel running on 2026-11-26 has none). Install with `install-nfs.sh` (as root on the NAS;
+`--no-install-recommends`, a temporary `policy-rc.d`): it writes `/etc/nfs.conf.d/nas-revival.conf`
+(NFSv4.1/4.2 only, TCP, 4 threads), leaves `nfs-server` disabled and masks `rpcbind` and `rpc-statd`, so the
+only port is TCP 2049. The helper owns `/etc/exports.d/nas-revival.exports` (`/etc/exports` stays untouched):
+it renders it from `/etc/nas-revival/nfs.json` (exports by share name, clients as IP or network, read-only per
+client, root or all squash, always `sync,secure,no_subtree_check,sec=sys`, `anonuid=65534`,
+`anongid=<nas-users>`), runs `systemctl enable/disable --now nfs-server` and `exportfs -ra` and puts the old
+files back when the server refuses them. NFS off renders an empty exports file. A share that is exported
+cannot be deleted; a share change (read-only, rollback) re-renders the exports. Connected NFSv4 clients come
+from `/proc/fs/nfsd/clients` (admins only). The helper unit needs `ReadWritePaths=-/var/lib/nfs` (etab).
+Proxmox: `pvesm add nfs <id> --server <nas> --export /srv/data/<share> --content backup --options vers=4.2`
+(the Proxmox export scan uses NFSv3 and finds nothing; the UI shows the line).
+
 Disk power settings (W1.5) live in `/etc/nas-revival/disks.json` (root, 0644, written only by the
 helper). The helper applies them to every internal disk at start; a disk without an entry gets the
 balanced profile (APM 254, no standby on the system disk).

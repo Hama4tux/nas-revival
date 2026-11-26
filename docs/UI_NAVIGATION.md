@@ -17,7 +17,7 @@ into **10 apps**; the rest are sections inside them. Each app has *Basic* tabs a
 | 2 | Storage (`storage`) | Storage Manager, SMART, Disk power, Activity diagnostics, USB storage | M1 | disks tab ready (W1.3), SMART detail and self-tests per disk (W1.4), disk power profiles and standby (W1.5) |
 | 3 | Shared folders (`shares`) | Shared Folder Management, recycle bin | M2 | ready (W2.3): list, create/edit, permissions matrix, delete (config vs. data), recycle cleanup |
 | 4 | Users & groups (`users`) | User & Group Management, roles | M2 | users, groups and roles ready (W2.1–W2.2); standard users see only „Můj účet“ |
-| 5 | Services (`services`) | Service Manager + File Services (SMB, NFS, SSH/SFTP, FTP, discovery) as tabs | M2 | Service Manager ready (W2.4, `#/services`): state, PID, RAM, CPU, ports, actions, unit log; SMB tab ready (W2.5); NFS and SSH tabs W2.6–W2.7 |
+| 5 | Services (`services`) | Service Manager + File Services (SMB, NFS, SSH/SFTP, FTP, discovery) as tabs | M2 | Service Manager ready (W2.4, `#/services`): state, PID, RAM, CPU, ports, actions, unit log; SMB tab ready (W2.5); NFS tab (W2.6, exports, Proxmox command, connected clients; needs a kernel with NFSD); SSH tab W2.7 |
 | 6 | Network (`network`) | Network Manager, diagnostics | in development | ready (settings) |
 | 7 | Monitor (`monitor`) | Resource Monitor, process manager | M3 | – |
 | 8 | Files (`files`) | File Station | M4 | – |

@@ -78,7 +78,9 @@ type Server struct {
 	// Services serves /services; nil answers 503.
 	Services ServiceAdmin
 	// Smb serves /services/smb; nil answers 503.
-	Smb         SmbAdmin
+	Smb SmbAdmin
+	// Nfs serves /services/nfs; nil answers 503.
+	Nfs         NfsAdmin
 	powerTokens confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
@@ -101,6 +103,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerShares(api)
 	s.registerServices(api)
 	s.registerSmb(api)
+	s.registerNfs(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

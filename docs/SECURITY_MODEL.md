@@ -85,7 +85,10 @@ files touched, commands run, whether it needs confirmation, whether it takes the
   current admin client's address is always kept allowed.
 - Disable services not needed: LLMNR (resolved, 5355) is open today – Security Advisor finding.
 - SMB: SMB1 off, `min protocol = SMB2_10`, no guest, `restrict anonymous = 2`.
-- NFS: explicit client list only, `root_squash` default, no `insecure`.
+- NFS: explicit client list only (IP addresses or networks no wider than /16, IPv6 /48; no `*`, host names or
+  netgroups), `root_squash` default and `no_root_squash` never offered, no `insecure`, `sync`. Squashed
+  clients write as `nobody` with group `nas-users`. NFSv4.1/4.2 only (TCP 2049, no rpcbind). Exports
+  reference shared folders by name; paths never come from the request. NFS off renders an empty exports file.
 - SSH: keys preferred, `PermitRootLogin prohibit-password` (current setup uses root with key; M2
   moves admin access to a named user in `nas-admin` and offers disabling root login).
 

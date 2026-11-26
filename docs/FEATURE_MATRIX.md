@@ -113,7 +113,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | SMB-01 | SMB | Enable/disable, workgroup, description, SMB2–3 only, SMB1 off | P0 | Tested | — | samba 4.22 (~20–30 MiB RSS est., not measured) | H (daemon when on) | SMB1, guest access | `testparm` before apply; min protocol SMB2_10 | SVC-10, SHARE-01 |
 | SMB-02 | SMB | Active sessions and open files | P1 | Tested | — | smbstatus --json | M | info disclosure | admin only | SMB-01 |
 | SMB-03 | SMB | macOS options (fruit), Time Machine | P2 | Not started | — | vfs_fruit | L | — | Time Machine later | SMB-01 |
-| NFS-01 | NFS | Exports: path, clients (IP/subnet), ro/rw, root_squash | P1 | Not started | — | nfs-kernel-server | M | export to world | no `*` clients; root_squash default; `exportfs -ra` validated | SHARE-01 |
+| NFS-01 | NFS | Exports: shared folder, clients (IP/subnet), ro/rw, root/all squash; NFSv4.1/4.2 only, connected clients | P1 | Blocked | — | nfs-kernel-server, kernel `CONFIG_NFSD` (missing in the running kernel; in build-kernel.sh since W2.6) | M | export to world | no `*`, host names or networks wider than /16 (/48); root_squash default, no `no_root_squash`/`insecure`; `exportfs -ra` validated with rollback; code and unit tests done (W2.6), not verified on the NAS | SHARE-01 |
 | SSH-01 | SSH/SFTP | Enable, port, password auth, root login restriction, allowed groups | P1 | Not started | — | openssh | L | lockout of admin | `sshd -t` before reload; current session kept | CFG-02 |
 | SSH-02 | SSH/SFTP | Public keys per user, SFTP-only, chroot | P2 | Not started | — | openssh | L | chroot escape | chroot dir root-owned | USR-01 |
 | FTP-01 | FTP | Legacy FTP/FTPS (off by default) | P3 | Not started | — | vsftpd | M | cleartext credentials | anonymous off; Security Advisor warns | SVC-10 |
@@ -163,7 +163,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | BKP-01 | Backup | Config backup/export, history, validation, restore | P1 | Planned | — | — | L | secrets in export | restore goes through CFG transaction | CFG-05 |
 | BKP-10 | Backup | rsync jobs: USB, other NAS, SSH server; incremental, excludes, bwlimit, dry run | P1 | Not started | — | rsync, ssh | M | deleting target data | no `--delete` unless mirror mode confirmed separately | TASK-01 |
 | BKP-11 | Backup | Progress, history, success check, restore of selected files | P1 | Not started | — | — | M | — | last result on dashboard | BKP-10 |
-| BKP-12 | Backup | Proxmox vzdump target via NFS | P1 | Not started | — | nfs | M | — | NFS export only to Proxmox host, root_squash | NFS-01 |
+| BKP-12 | Backup | Proxmox vzdump target via NFS | P1 | Blocked | — | nfs | M | — | NFS export only to Proxmox host, root_squash; squashed writes as nobody:nas-users; UI shows the `pvesm add nfs … --options vers=4.2` line (W2.6); blocked by NFS-01 | NFS-01 |
 | DR-01 | Disaster recovery | Export HW profile, package list, system configs; integrity check | P1 | Not started | — | dpkg | L | — | documented in RECOVERY | BKP-01 |
 | NOTIF-01 | Notifications | In-UI notification center, read state, dedup | P1 | Not started | — | — | L | — | same event within 1 h = one entry | LOG-10 |
 | NOTIF-02 | Notifications | SMTP, webhook, Home Assistant channels | P2 | Not started | — | Go net/smtp | L | credential storage | secrets 0600, test button | NOTIF-01 |

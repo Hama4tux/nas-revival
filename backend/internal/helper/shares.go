@@ -84,7 +84,17 @@ type ShareManager struct {
 	Now       func() time.Time
 	// Background runs the slow folder removal; tests run it synchronously.
 	Background func(func())
-	mu         sync.Mutex
+	// NfsExported blocks deleting a share that NFS still exports; NfsRefresh
+	// re-renders the exports after a change. Both are nil without NFS.
+	NfsExported func(name string) bool
+	NfsRefresh  func(ctx context.Context, cfg shares.Config)
+	mu          sync.Mutex
+}
+
+func (m *ShareManager) nfsRefresh(ctx context.Context, cfg shares.Config) {
+	if m.NfsRefresh != nil {
+		m.NfsRefresh(ctx, cfg)
+	}
 }
 
 // ValidateShare checks the shape of a share (the web process runs it too).
@@ -404,6 +414,7 @@ func (m *ShareManager) Update(ctx context.Context, in shares.Share, actor string
 		m.saveCfg(old)
 		return ShareList{}, err
 	}
+	m.nfsRefresh(ctx, cfg)
 	slog.Info("helper: share.update", "share", s.Name, "user", actor)
 	return m.list()
 }
@@ -421,6 +432,9 @@ func (m *ShareManager) Delete(ctx context.Context, d ShareDelete, actor string) 
 	}
 	s := cfg.Shares[idx]
 	res := ShareDeleteResult{DataRemoval: "none"}
+	if m.NfsExported != nil && m.NfsExported(s.Name) {
+		return res, invalid("", "Složka je exportovaná přes NFS; nejdřív ji odeberte ve Službách → NFS.")
+	}
 	var trash string
 	if d.DeleteData {
 		if d.ConfirmName != s.Name {
@@ -557,5 +571,9 @@ func (m *ShareManager) Restore(ctx context.Context, data []byte, present bool) e
 			}
 		}
 	}
-	return m.writeSamba(ctx, cfg)
+	if err := m.writeSamba(ctx, cfg); err != nil {
+		return err
+	}
+	m.nfsRefresh(ctx, cfg)
+	return nil
 }

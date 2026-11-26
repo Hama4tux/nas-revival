@@ -18,6 +18,7 @@ import (
 
 	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
 )
@@ -48,6 +49,8 @@ type Dispatcher struct {
 	Services *ServiceManager
 	// Smb manages the SMB service settings; nil disables it.
 	Smb *SmbManager
+	// Nfs manages the NFS exports; nil disables it.
+	Nfs *NfsManager
 }
 
 type request struct {
@@ -206,6 +209,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	if strings.HasPrefix(req.Op, "smb.") && d.Smb != nil {
 		return d.handleSmb(ctx, req, user)
 	}
+	if strings.HasPrefix(req.Op, "nfs.") && d.Nfs != nil {
+		return d.handleNfs(ctx, req, user)
+	}
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
 	}
@@ -233,6 +239,33 @@ func (d *Dispatcher) handleSmb(ctx context.Context, req request, user string) (a
 		st, err := d.Smb.Set(ctx, *a.Settings, user)
 		if err == nil {
 			d.Config.Changed(user, FileSmb)
+		}
+		return st, err
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleNfs runs the NFS export operations (NFS-01, BKP-12).
+func (d *Dispatcher) handleNfs(ctx context.Context, req request, user string) (any, error) {
+	var a struct {
+		Settings *nfs.Settings `json:"settings"`
+	}
+	if err := decodeArgs(req.Args, &a); err != nil {
+		return nil, err
+	}
+	switch req.Op {
+	case "nfs.get":
+		return d.Nfs.Get(ctx)
+	case "nfs.status":
+		return d.Nfs.Status(ctx)
+	case "nfs.set":
+		if a.Settings == nil {
+			return nil, invalid("settings", "Chybí nastavení NFS.")
+		}
+		d.Config.Prepare()
+		st, err := d.Nfs.Set(ctx, *a.Settings, user)
+		if err == nil {
+			d.Config.Changed(user, FileNfs)
 		}
 		return st, err
 	}

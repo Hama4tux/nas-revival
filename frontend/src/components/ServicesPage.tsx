@@ -11,6 +11,7 @@ import { Button } from './ui/button';
 import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
 import { Skeleton } from './ui/skeleton';
+import { NfsPanel } from './NfsPanel';
 import { SmbPanel } from './SmbPanel';
 
 const t = cs.services;
@@ -249,10 +250,10 @@ function ServiceListPanel({ readOnly }: { readOnly: boolean }) {
   );
 }
 
-type Tab = 'list' | 'smb';
-const TABS: Tab[] = ['list', 'smb'];
+type Tab = 'list' | 'smb' | 'nfs';
+const TABS: Tab[] = ['list', 'smb', 'nfs'];
 
-/** Services app: the unit list and the file service tabs (SMB; NFS and SSH follow in W2.6–W2.7). */
+/** Services app: the unit list and the file service tabs (SMB, NFS; SSH follows in W2.7). */
 export function ServicesPage({ readOnly }: { readOnly: boolean }) {
   const [tab, setTab] = useState<Tab>('list');
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
@@ -276,7 +277,7 @@ export function ServicesPage({ readOnly }: { readOnly: boolean }) {
         ))}
       </div>
       <div role="tabpanel" id={`svc-panel-${tab}`} aria-labelledby={`svc-tab-${tab}`}>
-        {tab === 'list' ? <ServiceListPanel readOnly={readOnly} /> : <SmbPanel readOnly={readOnly} />}
+        {tab === 'list' ? <ServiceListPanel readOnly={readOnly} /> : tab === 'smb' ? <SmbPanel readOnly={readOnly} /> : <NfsPanel readOnly={readOnly} />}
       </div>
     </div>
   );

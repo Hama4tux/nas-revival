@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -592,6 +592,43 @@ const mockSmbStatus = (): SmbStatus => (!mockSmb.running ? { sessions: [], openF
   truncated: false,
 });
 
+// NFS (W2.6): exports reference the mock shares by name; documentation addresses only.
+const mockNfs: NfsService = {
+  installed: true, running: true, managed: true, missing: [], shares: [],
+  settings: { enabled: true, exports: [{ share: 'Fotky', squash: 'root', clients: [{ host: '192.0.2.40', readOnly: false }] }] },
+};
+const nfsShares = () => mockShares.map((s) => ({ name: s.name, path: `${s.volume}/${s.folder}`, readOnly: s.readOnly }));
+const mockNfsStatus = (): NfsStatus => ({
+  clients: mockNfs.running && mockNfs.settings.enabled ? [{ address: '192.0.2.40', name: 'Linux NFSv4.2 pve', version: '4.2', confirmed: true }] : [],
+});
+const nfsState = (): NfsService => {
+  const names = new Set(mockShares.map((s) => s.name));
+  return { ...mockNfs, shares: nfsShares(), missing: mockNfs.settings.exports.map((e) => e.share).filter((n) => !names.has(n)) };
+};
+
+function nfsRoute(path: string, method: string, body: unknown): Response | null {
+  if (path === '/services/nfs' && method === 'GET') return json(200, nfsState());
+  if (path === '/services/nfs/status' && method === 'GET') {
+    if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+    return json(200, mockNfsStatus());
+  }
+  if (path === '/services/nfs' && method === 'PUT') {
+    if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
+    const b = body as NfsSettings;
+    const names = new Set(mockShares.map((s) => s.name));
+    for (const e of b.exports ?? []) {
+      if (!names.has(e.share)) return bad('exports', `Sdílená složka ${e.share} neexistuje.`);
+      if (!e.clients?.length) return bad('exports', `Export ${e.share} nemá žádného klienta.`);
+      if (e.clients.some((c) => c.host.includes('*') || c.host.endsWith('/0'))) return bad('exports', 'Klient musí být IP adresa nebo síť.');
+    }
+    mockNfs.settings = { enabled: !!b.enabled, exports: b.exports ?? [] };
+    mockNfs.running = mockNfs.settings.enabled;
+    mockNfs.managed = true;
+    return json(200, nfsState());
+  }
+  return null;
+}
+
 function smbRoute(path: string, method: string, body: unknown): Response | null {
   if (path === '/services/smb' && method === 'GET') return json(200, mockSmb);
   if (path === '/services/smb/status' && method === 'GET') {
@@ -729,6 +766,12 @@ export function installMock(): void {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = usersRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/services/nfs')) {
+      let body: unknown = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = nfsRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/services/smb')) {

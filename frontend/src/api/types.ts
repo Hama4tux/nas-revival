@@ -273,3 +273,15 @@ export interface SmbSession {
 }
 export interface SmbOpenFile { share: string; path: string; user: string; access: string; since: string }
 export interface SmbStatus { sessions: SmbSession[]; openFiles: SmbOpenFile[]; truncated: boolean }
+
+// NFS service (W2.6, NFS-01, BKP-12).
+export type NfsSquash = 'root' | 'all';
+export interface NfsClient { host: string; readOnly: boolean }
+export interface NfsExport { share: string; clients: NfsClient[]; squash: NfsSquash }
+export interface NfsSettings { enabled: boolean; exports: NfsExport[] }
+export interface NfsShare { name: string; path: string; readOnly: boolean }
+export interface NfsService {
+  installed: boolean; settings: NfsSettings; running: boolean; managed: boolean; missing: string[]; shares: NfsShare[];
+}
+export interface NfsConnected { address: string; name: string; version: string; confirmed: boolean }
+export interface NfsStatus { clients: NfsConnected[] }

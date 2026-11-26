@@ -33,6 +33,7 @@ import (
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
+	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smart"
 	"nas-revival/backend/internal/smb"
@@ -137,6 +138,7 @@ func serve(args []string) error {
 	srv.Shares = hc
 	srv.Services = hc
 	srv.Smb = hc
+	srv.Nfs = hc
 
 	hs := &http.Server{
 		Addr:              *listen,
@@ -274,6 +276,7 @@ func runHelper(args []string) error {
 			{ID: helper.FileDiskPower, Path: diskpower.DefaultConfigPath},
 			{ID: helper.FileShares, Path: shares.DefaultConfigPath},
 			{ID: helper.FileSmb, Path: smb.DefaultConfigPath},
+			{ID: helper.FileNfs, Path: nfs.DefaultConfigPath},
 		},
 		Pending: func(id string) bool { return id == helper.FileNetwork && nm.HasPending() }}
 	acls := shares.NewACLProbe(shares.SysSetxattr)
@@ -282,13 +285,17 @@ func runHelper(args []string) error {
 		Mountinfo: "/proc/self/mountinfo", Statfs: shares.SysStatfs, Probe: acls,
 		SetXattr: shares.SysSetxattr, Chown: shares.SysLchown, Run: helper.ExecRunner, LookPath: exec.LookPath,
 		SambaDir: "/etc/samba", SambaConf: shares.SambaConfPath, SambaMain: "/etc/samba/smb.conf", Now: time.Now}
+	nfsm := &helper.NfsManager{Path: nfs.DefaultConfigPath, Exports: nfs.ExportsPath, Shares: shares.DefaultConfigPath,
+		Accounts: shm.Accounts, ClientsDir: nfs.ClientsDir, Filesystems: "/proc/filesystems",
+		Run: helper.ExecRunner, LookPath: exec.LookPath}
+	shm.NfsExported, shm.NfsRefresh = nfsm.Exported, nfsm.Refresh
 	smbm := &helper.SmbManager{Path: smb.DefaultConfigPath, Conf: smb.ConfPath, Fragment: shares.SambaConfPath,
 		Run: helper.ExecRunner, LookPath: exec.LookPath, SharePaths: sharePaths}
 	var cm *helper.ConfigManager
 	if err := store.Init(); err != nil {
 		slog.Error("helper: config history disabled", "err", err)
 	} else {
-		cm = &helper.ConfigManager{Store: store, Net: nm, Time: tm, Power: dp, Shares: shm, Smb: smbm}
+		cm = &helper.ConfigManager{Store: store, Net: nm, Time: tm, Power: dp, Shares: shm, Smb: smbm, Nfs: nfsm}
 	}
 	// Boot task disk-power: hdparm settings do not survive a power cycle.
 	go dp.ApplyAll(ctx)
@@ -308,6 +315,7 @@ func runHelper(args []string) error {
 		Config:   cm,
 		Shares:   shm,
 		Smb:      smbm,
+		Nfs:      nfsm,
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
 			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},
