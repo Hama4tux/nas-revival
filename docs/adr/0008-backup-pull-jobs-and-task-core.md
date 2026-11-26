@@ -1,6 +1,6 @@
 # ADR 0008: Backup pull jobs and the shared task core
 
-- Status: proposed (2026-11-26), waiting for the owner
+- Status: accepted (2026-11-26; phase 1 built in W4.3)
 - Scope: BKP-10/11 (web roadmap W4.3) as a task type on the scheduler core of TASK-01..03 (W3.3)
 - Context: an interim pull job already runs on the NAS outside NAS Revival: a systemd timer starts a
   script as a dedicated system user, which pulls `/var/backups` of several servers with rsync over SSH

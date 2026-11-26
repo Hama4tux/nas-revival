@@ -59,7 +59,7 @@ W3.5 Power schedule (scheduled shutdown/restart) · W3.6 Standby history and loa
 ## W4 – Data management (M4)
 
 W4.1 File Station (browse, paged list, folder ops, streamed upload/download, progress) ·
-W4.2 USB storage (mount, eject, share, backup target) · W4.3 Backup jobs (ADR 0008: task type `backup-pull` on the W3.3 scheduler core; rsync, dry run, history,
+W4.2 USB storage (mount, eject, share, backup target) · W4.3 Backup jobs (phase 1 ✅ 2026-11-26 on the NAS: pull over SSH, key, host key, test, read-only share; phase 2: browse versions, restore, dashboard; ADR 0008: task type `backup-pull` on the W3.3 scheduler core; rsync, dry run, history,
 restore of files) · W4.4 Config export/import · W4.5 Notification centre.
 
 ## W5 – Hardening (M5)
