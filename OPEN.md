@@ -80,6 +80,7 @@
 - [ ] Změřit rozpočet RAM, velikosti systému a výkonu TLS/SMB/SFTP i možnost bezpečného chlazení; uvedené limity jsou cíle, nikoliv výsledky. (2026-11-16)
 - [ ] Upřesnit podepisování aktualizací, důvěryhodné klíče, migrace konfigurace a recovery při výpadku napájení bez předpokladu dvou NAND slotů; mechanismus dosud není implementovaný. (2026-11-16)
 - [ ] Dialog restartu/vypnutí ověřen jen v ukázkovém režimu na šířce desktopu; zobrazení na telefonu (360 px) neověřeno. (2026-11-25)
+- [ ] BKP-10/11: na NASu dnes běží dočasná úloha mimo NAS Revival (systemd timer, rsync přes SSH s klíčem, cíle jen ke čtení přes rrsync, denní hardlink verze, stav v JSON, zámek /run/lock/nas-heavy.lock). Až budou zálohovací úlohy v NAS Revival, převzít její konfiguraci a adresáře, zobrazit stav na přehledu, hlásit selhání a dočasnou úlohu vypnout; kontrola před restartem a SMART mají brát ohled na její zámek (2026-11-26)
 - [ ] Kontrola před restartem zatím nehlídá budoucí zálohovací úlohy – zámky /run/nas-revival/locks doplnit spolu s úlohami zálohování (TASK-*). (2026-11-25)
 - [ ] Začlenit tools/hamaproject.patch do přehledu a ověřit skutečně vydaný portfolio.json po standardním nasazení; dřívější typecheck a místní sběr prošly, 10 HTTP testů blokoval listen EPERM a HamaProject je mimo povolený zápis relace, body jsou zatím pouze lokální; podklad Stage 1 je aktualizován lokálně, skutečné nasazení a ověření webu zůstává nedokončené. (2026-11-16)
 
