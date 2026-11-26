@@ -427,7 +427,9 @@ func (m *UserManager) setPassword(ctx context.Context, name, pw string) (Passwor
 		return res, err
 	}
 	old := before.Shadow[name]
-	locked := old.Locked(m.today())
+	// A fresh useradd leaves a bare "!" (no password yet): that is not a
+	// disabled account and must not be locked again after chpasswd.
+	locked := old.Locked(m.today()) && (old.HasPassword() || old.Expire != "")
 	if out, err := m.RunStdin(ctx, []byte(name+":"+pw+"\n"), "chpasswd"); err != nil {
 		slog.Error("helper: chpasswd failed", "err", err, "out", strings.TrimSpace(string(out)))
 		return res, internalErr("Heslo se nepodařilo nastavit (systémový účet). Nic se nezměnilo.")

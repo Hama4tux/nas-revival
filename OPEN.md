@@ -1,11 +1,10 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, síť, NTP, certifikát, Systém s historií konfigurace, Úložiště se SMART, napájením a aktivitou disků, restart/vypnutí. Nově je napsaná správa uživatelů a skupin (W2.1) – otestovaná, ale zatím nenasazená na NAS. Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
-- Další krok: se souhlasem vlastníka nasadit W2.1 (binárka + unit helperu s ReadWritePaths=/etc) a vyzkoušet na NASu zkušebním účtem; pak W2.2 přihlášení více účtů a role.
+- Stav: Debian 13 běží sám z NAND slotů; webové GUI má přehled, síť, NTP, certifikát, Systém s historií konfigurace, Úložiště se SMART, napájením a aktivitou disků, restart/vypnutí a nově správu uživatelů a skupin (W2.1, nasazeno a ověřeno přes helper). Plán: docs/ROADMAP.md, kroky webu: docs/WEB_ROADMAP.md.
+- Další krok: W2.2 – přihlášení více účtů a role (převod admin.json na linuxového uživatele v nas-admin).
 
 ## Čeká na rozhodnutí
-- [ ] Nasadit W2.1 (uživatelé a skupiny) na NAS: nová binárka + nová unit helperu, která povoluje helperu zápis do celého /etc (useradd/chpasswd potřebují zámky vedle /etc/passwd), a restart obou služeb. Automatický režim agenta to bez souhlasu zamítl – potvrdit, nebo nasadit ručně podle deploy/debian/README.md. (2026-11-26)
 - [ ] Jádro NASu nemá CONFIG_TASK_IO_ACCOUNTING (chybí /proc/<pid>/io), takže měření aktivity neukazuje bajty po procesech, jen soubory otevřené pro zápis. Zapnout ho při příštím sestavení jádra? Vyžaduje zápis do NAND slotu a restart – jen se souhlasem. (2026-11-26)
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
 - [ ] Vyzkoušet vypnutí z GUI – device tree má gpio-poweroff, ale že NSA310 opravdu odpojí napájení (a jde znovu zapnout tlačítkem), není ověřené. (2026-11-25)
@@ -14,7 +13,7 @@
 
 
 ## Nedodělané
-- [ ] W2.1 po nasazení ověřit na NASu: založit zkušební účet, změnit heslo, zakázat/povolit, přidat do skupiny a smazat; zkontrolovat, že useradd pod sandboxem helperu projde (lastlog/faillog) a že usermod --groups "" a gpasswd --members "" opravdu vyprázdní seznam. Stránku projít v prohlížeči na telefonu i desktopu. (2026-11-26)
+- [ ] Uživatelé a skupiny (W2.1) ověřené na NASu jen přes root helper – po přihlášení projít stránku Uživatelé v prohlížeči na telefonu (360 px) i desktopu (založit, heslo, zakázat, skupina, smazat). (2026-11-26)
 - [ ] Samba není na NASu nainstalovaná – hesla pro SMB se u účtů nastaví až při první změně hesla po jejím zapnutí (W2.5); UI to uživateli říká. (2026-11-26)
 - [ ] Aktivita disků (W1.9) ověřená jen přes root helper na NASu – v prohlížeči po přihlášení zkontrolovat Úložiště → „Aktivita disků“ na telefonu (360 px) i desktopu. (2026-11-26)
 - [ ] Historie konfigurace (W1.8) je nasazená, ale změna a návrat byly ověřené jen testy a v mock režimu: v GUI uložit NTP servery, ověřit novou verzi s uživatelem, zobrazit rozdíly a vrátit se na verzi 1 (návrat sítě musí ukázat pruh s potvrzením). (2026-11-25)

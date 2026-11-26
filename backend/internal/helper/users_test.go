@@ -231,7 +231,8 @@ func TestCreateWritesAllHashesPasswordOnlyOnStdin(t *testing.T) {
 	for _, u := range l.Users {
 		if u.Name == "petr" {
 			found = true
-			if !u.Password.Web || u.Password.ChangedOutside {
+			// useradd leaves "!" in shadow; that is "no password yet", not a disabled account.
+			if !u.Password.Web || u.Password.ChangedOutside || u.Disabled {
 				t.Errorf("petr = %+v", u)
 			}
 		}
