@@ -38,4 +38,7 @@ chmod 0644 "$conf"
 systemctl disable --now nfs-server.service
 # NFSv4 needs neither rpcbind (port 111) nor statd; masking keeps nfs-server's Wants= from starting them.
 systemctl mask --now rpcbind.service rpcbind.socket rpc-statd.service rpc-statd-notify.service
+# The helper's sandbox (ProtectSystem=strict) only sees /var/lib/nfs as writable if it existed when the
+# helper started; without a restart exportfs cannot write etab and every NFS change is refused.
+systemctl try-restart nas-revival-helper.service
 echo "nfs-kernel-server installed; nfs-server stays disabled until NFS is enabled in the web UI"

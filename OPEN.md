@@ -1,18 +1,14 @@
 # Otevřené body
 
 ## Stav (2026-11-26)
-- Stav: Webové GUI má přehled, síť, systém, úložiště, uživatele s rolemi, sdílené složky, Služby s kartou SMB (W2.5) a nově kartu NFS (W2.6) pro zálohy z Proxmoxu. NFS je hotové v kódu a testech, na NASu ale čeká na nové jádro s NFSD a instalaci nfs-kernel-server.
-- Další krok: vlastník schválí nové jádro (zápis do NAND slotu A + restart) a instalaci NFS serveru; pak ověřit NFS skutečným klientem a W2.7 SSH/SFTP.
+- Stav: NAS běží s novým jádrem (NFS server, ACL na ext4) ze slotu A, slot B drží předchozí. NFS server je nainstalovaný (jen NFSv4.1/4.2, port 2049) a karta Služby → NFS funguje; zbývá test připojení skutečným klientem. Jádro nemá klienta NFS.
+- Další krok: test NFS skutečným klientem (Proxmox nebo pracovní stanice), pak W2.7 SSH/SFTP.
 
 ## Čeká na rozhodnutí
-- [ ] NAS nedostupný (2026-11-26): při instalaci modulů nového jádra tar nahradil odkaz /lib → usr/lib adresářem, nejde spustit žádný program ani SSH. Vlastník spustí na notebooku s konzolí `sudo python3 -I uboot-session.py fix-lib-symlink.cmds` (scripts/debian/rescue) a pak NAS vypne a zapne ze zásuvky; agent pak ověří nové jádro a dokončí NFS. (2026-11-26)
-- [ ] NFS (W2.6): schválit nové jádro s NFS serverem (CONFIG_NFSD jako modul, spolu s ACL pro ext4; sestavené a zkontrolované na pracovní stanici, 5,9 MB) – postup: zkopírovat slot A → B, zapsat nové jádro do A s ověřením zpětným čtením, nainstalovat moduly do /lib/modules, restart NASu; bez toho NFS na NASu nepoběží. (2026-11-26)
-- [ ] NFS (W2.6): schválit instalaci nfs-kernel-server skriptem deploy/debian/install-nfs.sh (zamaskuje rpcbind a rpc-statd, nfs-server nechá vypnutý do zapnutí v GUI). (2026-11-26)
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
 - [ ] Reprodukovatelný release: KERNEL_VERSION v jednom souboru, scripts/debian/release.sh (jádro + rootfs + manifest + SHA256SUMS), build v GitHub Actions na tag, skript pro aktualizaci jádra (A→B, zápis A, zpětné čtení) – navrženo, čeká na souhlas. (2026-11-26)
-- [ ] Jádro NASu nemá ACL na ext4 (CONFIG_EXT4_FS_POSIX_ACL), proto oprávnění sdílených složek vynucuje jen Samba a na úrovni souborů mají přístup všichni uživatelé NASu (důležité pro budoucí SFTP). Volba je od W2.3 ve scripts/debian/build-kernel.sh; nové jádro (spolu s TASK_IO_ACCOUNTING, exfat, ntfs3) vyžaduje zápis do NAND slotu a restart – jen se souhlasem. Po nasazení stačí u každé složky uložit oprávnění znovu. (2026-11-26)
 - [ ] Jádro NASu nemá CONFIG_TASK_IO_ACCOUNTING (chybí /proc/<pid>/io), takže měření aktivity neukazuje bajty po procesech, jen soubory otevřené pro zápis. Zapnout ho při příštím sestavení jádra? Vyžaduje zápis do NAND slotu a restart – jen se souhlasem. (2026-11-26)
 - [ ] Vyzkoušet restart NASu z GUI (ikona napájení → Restartovat) – agent ho bez souhlasu nespustil; ověří zároveň návrat NASu, obrazovku „restartuje se“ a znovupoužití disks.json po startu. (2026-11-25)
 - [ ] Vyzkoušet vypnutí z GUI – device tree má gpio-poweroff, ale že NSA310 opravdu odpojí napájení (a jde znovu zapnout tlačítkem), není ověřené. (2026-11-25)
@@ -20,7 +16,8 @@
 
 
 ## Nedodělané
-- [ ] NFS (W2.6): po novém jádru a instalaci ověřit na NASu skutečným klientem (připojení vers=4.2, zápis s root_squash jako nobody:nas-users, jen čtení, odmítnutí cizí adresy a NFSv3, seznam klientů, návrat při odmítnutých exportech), zjistit, zda helper v sandboxu (ProtectKernelTunables) smí spustit exportfs -ra, a napsat e2e skript; kartu NFS projít v prohlížeči na telefonu i desktopu. (2026-11-26)
+- [ ] NFS (W2.6): ověřit připojení skutečným klientem – `scripts/webui/e2e-nfs.sh <klient>` (klient potřebuje mount.nfs4 a sudo; jádro NASu klienta NFS nemá, sám se připojit nemůže). Na NASu už ověřeno: helper exporty použije, poslouchá jen TCP 2049, export s root_squash a anongid nas-users je aktivní. Kartu NFS projít v prohlížeči na telefonu i desktopu. (2026-11-26)
+- [ ] Čeká na vlastníka: kterým klientem NFS otestovat – Proxmox (proxmox.home, má NFS klienta, jen dočasné připojení do /mnt bez přidání úložiště) nebo doinstalovat nfs-common na pracovní stanici. (2026-11-26)
 - [ ] NFS: nabízí se jen NFSv4.1/4.2 (bez rpcbind); NFSv3 pro starší klienty a výběr exportu v Proxmoxu (showmount) nefunguje – doplnit jen když bude potřeba. (2026-11-26)
 - [ ] NFS: přidat port TCP 2049 do inventáře služeb HomeSecurity, až bude NFS zapnuté (viz bod o záznamu NASu v inventáři). (2026-11-26)
 - [ ] Služby (W2.4): stránku Služby projít v prohlížeči po přihlášení skutečným účtem na telefonu (360 px) i desktopu – ověřeno e2e testem helperu na NASu a ukázkovým režimem na desktopu (zmenšení okna v testovacím prohlížeči nešlo). (2026-11-26)

@@ -17,7 +17,7 @@ recorded as ADRs in [adr/](adr/).
 | Board services | `nsa310-leds`, `nsa310-fan` (LM85 automatic mode), `nsa310-button` + `nsa310-copy` (COPY button backup) | in use, [deploy/debian](../deploy/debian/README.md) |
 | System services | ssh, systemd-networkd/resolved/timesyncd, smartmontools, cron, journald (persistent) | in use |
 | File services | samba 4.22 (Debian, GPL-3.0; smbd, nmbd only with NetBIOS), configured only by the helper (`smb.json` → `smb.conf`) | installed 2026-11-26 ([install-samba.sh](../deploy/debian/install-samba.sh)), off until enabled in the UI |
-| NFS (W2.6) | nfs-kernel-server (Debian, GPL-2.0), NFSv4.1/4.2 only over TCP 2049, rpcbind/statd masked; exports rendered by the helper (`nfs.json` → `/etc/exports.d/nas-revival.exports`) | code ready; needs a kernel with `CONFIG_NFSD` and [install-nfs.sh](../deploy/debian/install-nfs.sh) – not installed yet |
+| NFS (W2.6) | nfs-kernel-server (Debian, GPL-2.0), NFSv4.1/4.2 only over TCP 2049, rpcbind/statd masked; exports rendered by the helper (`nfs.json` → `/etc/exports.d/nas-revival.exports`) | installed 2026-11-26 ([install-nfs.sh](../deploy/debian/install-nfs.sh)), kernel with `CONFIG_NFSD=m` in slot A; off until enabled in the UI |
 | Not installed | avahi, acl, quota | – |
 
 Measured baseline is in [PERFORMANCE_BUDGET](PERFORMANCE_BUDGET.md). Short version: 51 MiB used
