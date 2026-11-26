@@ -1,0 +1,15 @@
+[Unit]
+Description=NAS Revival: install the system from this USB stick onto the internal disk
+Documentation=file:///usr/share/doc/nas-revival/disk-swap
+# After the LED service, so its boot pattern does not overwrite the progress LED.
+After=local-fs.target nsa310-leds.service
+ConditionPathExists=/nas-revival-install/install.conf
+ConditionPathExists=!/nas-revival-install/done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/nas-revival-install
+TimeoutStartSec=3h
+
+[Install]
+WantedBy=multi-user.target

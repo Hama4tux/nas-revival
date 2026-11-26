@@ -1,0 +1,135 @@
+#!/bin/sh
+# NAS Revival installer: runs at boot from the USB stick made by prepare-usb.sh and installs the
+# system snapshot (rootfs.tar) and the data (data.tar) onto the internal SATA disk, then reboots
+# into it. The kernel in NAND booted this stick because its partition carries the PARTUUID of the
+# old system partition and the new disk has none.
+#
+# Safety: it only touches the single SATA disk, never one that already holds a NAS Revival system or
+# data partition (label nasroot/nasdata or GPT name nas-root/nas-data), checks the payload checksums
+# before wiping and wipes nothing when a check fails. Everything else on the target (e.g. an old ZFS
+# pool) is erased - the owner agreed to that for the disk swap.
+#
+# COPY LED: green blinking = installing, green = done (reboots), red = error (nothing rebooted;
+# the stick system stays up with SSH). Log: /nas-revival-install/install.log on the stick.
+#
+# Test mode (no real disks, no reboot): NR_TEST_TARGET=/dev/loopN NR_DIR=<payload dir>. The test
+# file systems get the labels nrtroot/nrtswap/nrtdata so the running NAS never sees a second nasdata.
+set -eu
+DIR="${NR_DIR:-/nas-revival-install}"
+TEST="${NR_TEST_TARGET:-}"
+L=nas
+[ -z "$TEST" ] || L=nrt
+LOG="$DIR/install.log"
+MNT_ROOT=/mnt/nr-root
+MNT_DATA=/mnt/nr-data
+exec >>"$LOG" 2>&1
+echo "== $(date -Is) nas-revival-install start${TEST:+ (test, target $TEST)}"
+
+LED_G=/sys/class/leds/nsa310:green:copy
+LED_R=/sys/class/leds/nsa310:red:copy
+led_off() {
+	for l in "$LED_G" "$LED_R"; do
+		echo none >"$l/trigger" 2>/dev/null || true
+		echo 0 >"$l/brightness" 2>/dev/null || true
+	done
+}
+led_on() { led_off; echo 1 >"$1/brightness" 2>/dev/null || true; }
+led_blink() {
+	led_off
+	echo timer >"$LED_G/trigger" 2>/dev/null || true
+	echo 250 >"$LED_G/delay_on" 2>/dev/null || true
+	echo 250 >"$LED_G/delay_off" 2>/dev/null || true
+}
+fail() {
+	echo "FAIL: $*"
+	umount "$MNT_DATA" 2>/dev/null || true
+	umount "$MNT_ROOT" 2>/dev/null || true
+	led_on "$LED_R"
+	exit 1
+}
+# part <disk> <n>: partition device (sda -> sda1, loop0 -> loop0p1).
+part() { case "$1" in *[0-9]) echo "${1}p$2" ;; *) echo "$1$2" ;; esac; }
+
+[ -f "$DIR/install.conf" ] || fail "no install.conf"
+# shellcheck disable=SC1091
+. "$DIR/install.conf"
+: "${ROOT_PARTUUID:?}" "${ROOT_MIB:?}" "${SWAP_MIB:?}"
+[ ! -e "$DIR/done" ] || { echo "already done"; exit 0; }
+
+if [ -n "$TEST" ]; then
+	target="$TEST"
+	stick=""
+else
+	rootsrc="$(findmnt -no SOURCE /)"
+	stick="/dev/$(lsblk -no PKNAME "$rootsrc")"
+	[ "$(lsblk -dno TRAN "$stick")" = usb ] || fail "/ ($rootsrc) is not on a USB stick"
+	targets="$(lsblk -dnpo NAME,TRAN | awk '$2 == "sata" { print $1 }')"
+	[ "$(echo "$targets" | grep -c .)" -eq 1 ] || fail "need exactly one SATA disk, found: $(echo $targets)"
+	target="$targets"
+fi
+echo "target $target: $(lsblk -dno SIZE,MODEL,SERIAL "$target" | tr -s ' ')"
+
+if lsblk -nro LABEL,PARTLABEL "$target" | tr ' ' '\n' | grep -Eqx 'nasroot|nasdata|nas-root|nas-data'; then
+	fail "$target already holds a NAS Revival system or data partition - refusing to wipe it"
+fi
+size="$(blockdev --getsize64 "$target")"
+[ "$size" -ge $((64 * 1024 * 1024 * 1024)) ] || fail "$target is smaller than 64 GiB"
+echo "old signatures on $target:"; wipefs "$target" || true; lsblk -no NAME,FSTYPE,LABEL "$target" || true
+
+echo "checking payload"
+(cd "$DIR" && sha256sum -c --quiet SHA256SUMS) || fail "payload checksum mismatch - nothing was changed"
+
+led_blink
+echo "wiping $target"
+for p in $(lsblk -nrpo NAME,TYPE "$target" | awk '$2 == "part" { print $1 }'); do
+	wipefs -a "$p"
+done
+wipefs -a "$target"
+sgdisk --zap-all "$target"
+# Leftover ZFS labels sit at both ends of the old partitions; clear both ends of the disk too.
+dd if=/dev/zero of="$target" bs=1M count=16 conv=fsync status=none
+dd if=/dev/zero of="$target" bs=1M count=16 seek=$((size / 1048576 - 16)) conv=fsync status=none
+blockdev --rereadpt "$target" || true
+
+echo "partitioning (root ${ROOT_MIB} MiB, swap ${SWAP_MIB} MiB, data the rest)"
+sgdisk -n "1:2048:+${ROOT_MIB}M" -t 1:8300 -c 1:nas-root -u "1:$ROOT_PARTUUID" \
+	-n "2:0:+${SWAP_MIB}M" -t 2:8200 -c 2:nas-swap \
+	-n 3:0:0 -t 3:8300 -c 3:nas-data "$target"
+blockdev --rereadpt "$target" || partprobe "$target" || true
+udevadm settle || true
+p1="$(part "$target" 1)"; p2="$(part "$target" 2)"; p3="$(part "$target" 3)"
+for p in "$p1" "$p2" "$p3"; do [ -b "$p" ] || fail "partition $p missing"; done
+
+mkfs.ext4 -F -q -L "${L}root" "$p1"
+mkswap -L "${L}swap" "$p2" >/dev/null
+mkfs.ext4 -F -q -m 0 -L "${L}data" "$p3"
+
+echo "restoring the system"
+mkdir -p "$MNT_ROOT" "$MNT_DATA"
+mount "$p1" "$MNT_ROOT"
+tar -xpf "$DIR/rootfs.tar" -C "$MNT_ROOT" --numeric-owner --acls --xattrs --xattrs-include='*'
+[ -L "$MNT_ROOT/lib" ] && [ -e "$MNT_ROOT/usr/lib/ld-linux.so.3" ] || fail "restored root has no /lib symlink or loader"
+grep -q '^LABEL=nasroot' "$MNT_ROOT/etc/fstab" || fail "restored fstab does not mount LABEL=nasroot"
+echo "restoring the data"
+mkdir -p "$MNT_ROOT/srv/data"
+mount "$p3" "$MNT_DATA"
+tar -xpf "$DIR/data.tar" -C "$MNT_DATA" --numeric-owner --acls --xattrs --xattrs-include='*'
+sync
+umount "$MNT_DATA" "$MNT_ROOT"
+got="$(blkid -s PARTUUID -o value "$p1")"
+[ "$got" = "$ROOT_PARTUUID" ] || fail "system partition PARTUUID is $got, expected $ROOT_PARTUUID"
+
+if [ -n "$TEST" ]; then
+	echo "== test done, no reboot"
+	exit 0
+fi
+# The stick must stop answering to the system PARTUUID, or the next boot could pick it again.
+sgdisk -u 1:R "$stick"
+blockdev --rereadpt "$stick" 2>/dev/null || true
+touch "$DIR/done"
+systemctl disable nas-revival-install.service || true
+sync
+echo "== $(date -Is) done, rebooting into $target"
+led_on "$LED_G"
+sleep 10
+systemctl reboot

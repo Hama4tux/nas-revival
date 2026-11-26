@@ -5,6 +5,7 @@
 - Další krok: vlastník zapne SMB/NFS podle potřeby a vyzkouší zálohu z Proxmoxu; pak W2.7 SSH/SFTP.
 
 ## Čeká na rozhodnutí
+- [ ] Výměna disku 2,5" → 3,5" WD Red 2 TB (docs/debian/disk-swap.md): schválit smazání USB flashky v NASu (záchranná kopie z 25. 11. a stará jádra; předchozí jádro zůstává ve slotu B), krátké zastavení webového GUI při snímku a vypnutí NASu; pak vlastník vymění disk a zapne NAS s flashkou. (2026-11-26)
 - [ ] Zapnout SMB: Služby → SMB → Zapnout SMB (nejnižší verze podle nejstaršího klienta; SMB 3.0 stačí pro Windows 8+ a macOS) a účtům NASu, které ho mají používat, nastavit heslo znovu (heslo pro SMB vznikne až změnou hesla). Agent SMB po testu nechal vypnuté. (2026-11-26)
 - [ ] Smazat AGENTS.md i ze staré historie veřejného repa (přepis historie + git push --force) – soubor je od commitu c63906d mimo git, ve starších commitech na GitHubu ale zůstal; čeká na výslovný souhlas. (2026-11-26)
 - [ ] Instalační USB image (jádro + instalační Debian + průvodce nas-revival-install: disk, rootfs, sloty A/B s ověřením, MAC jen čtením z U-Bootu) a vydání na GitHub Releases s podpisem – vlastník rozhodne, zda pokračovat. (2026-11-26)
@@ -16,6 +17,7 @@
 
 
 ## Nedodělané
+- [ ] Trvalá automatická obnova z USB (jádro s ramdiskem: disk bez systému → instalace z flashky se značkou NAS Revival) – výměna disku ji nepotřebuje (stačí PARTUUID na flashce), zůstává jako návrh. (2026-11-26)
 - [ ] NFS (W2.6): kartu Služby → NFS projít v prohlížeči na telefonu i desktopu a vyzkoušet skutečnou zálohu vzdump z Proxmoxu (pvesm add nfs … --options vers=4.2) – test připojení a zápisu z Proxmoxu prošel (scripts/webui/e2e-nfs.sh proxmox.home). (2026-11-26)
 - [ ] NFS: nabízí se jen NFSv4.1/4.2 (bez rpcbind); NFSv3 pro starší klienty a výběr exportu v Proxmoxu (showmount) nefunguje – doplnit jen když bude potřeba. (2026-11-26)
 - [ ] NFS: přidat port TCP 2049 do inventáře služeb HomeSecurity, až bude NFS zapnuté (viz bod o záznamu NASu v inventáři). (2026-11-26)
