@@ -214,3 +214,6 @@ Network page (W2.8): nothing to install (ping, ss, hostnamectl and resolvectl ar
 run `scripts/webui/e2e-network.sh` from the workstation: it reads the network overview as `nas-revival`, sets the current
 host name again (no change) and runs every diagnostic once (pings of the gateway and of a TEST-NET address, a DNS lookup,
 one HTTPS connect to deb.debian.org, the listening ports and connections).
+
+Resource Monitor (W3.1): nothing to install. After deploying, run `scripts/webui/e2e-monitor.sh` from the
+workstation: it takes two readings of `/proc` and `/sys` 10 s apart as `nas-revival` and checks the sample.

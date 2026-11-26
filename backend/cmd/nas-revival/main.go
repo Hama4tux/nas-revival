@@ -34,6 +34,7 @@ import (
 	"nas-revival/backend/internal/diskpower"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/helper"
+	"nas-revival/backend/internal/monitor"
 	"nas-revival/backend/internal/netinfo"
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
@@ -120,6 +121,8 @@ func serve(args []string) error {
 	collector.PowerTTL = time.Minute
 	snapshots := system.NewSnapshots(collector.Collect)
 	go snapshots.Run(ctx)
+	resources := monitor.New(*root)
+	go resources.Run(ctx)
 
 	srv := &api.Server{
 		Verifier: verifier,
@@ -153,6 +156,7 @@ func serve(args []string) error {
 	srv.Backup = hc
 	srv.NetInfo = netinfo.Reader{Root: "/", Run: netinfo.Runner(helper.ExecRunner), Now: time.Now}
 	srv.NetAdmin = hc
+	srv.Monitor = resources
 	srv.TaskStatus = api.TaskStatus{Run: helper.ExecRunner, HistoryPath: filepath.Join(*stateDir, "task-history.json"),
 		BackupHistoryPath: tasks.DefaultBackupHistoryPath}
 

@@ -132,10 +132,10 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | ID | Module | Feature | P | State | HW | SW deps | Res | Security risk | Acceptance criteria | Deps |
 |---|---|---|---|---|---|---|---|---|---|---|
 | MON-01 | Monitoring | Shared collector snapshot for all clients | P0 | Implemented | — | `internal/system/snapshot.go` | L | — | 5 clients = same CPU as 1 (unit test: 3 clients → 1 collection; CPU not measured) | — |
-| MON-02 | Monitoring | RAM ring buffer 1 h, 5-min aggregates 7 days, hourly flush | P1 | Planned | — | — | L | — | RSS growth < 1 MiB over 7 days | MON-01 |
-| MON-03 | Monitoring | CPU user/system/idle/iowait, swap in/out, memory pressure (PSI) | P1 | Planned | — | /proc/stat, /proc/vmstat, /proc/pressure | L | — | PSI shown if kernel exposes it | MON-01 |
-| MON-04 | Monitoring | Disk throughput, IOPS, busy %, latency | P1 | Planned | — | /proc/diskstats | L | — | does not wake disk (diskstats only) | MON-01 |
-| MON-05 | Monitoring | Network errors, totals, history | P1 | Planned | — | /sys/class/net stats | L | — | — | MON-01 |
+| MON-02 | Monitoring | RAM ring buffer 1 h, 5-min aggregates 7 days, hourly flush | P1 | In development (1 h ring W3.1; aggregates and flush open) | — | `internal/monitor` | L | — | RSS growth < 1 MiB over 7 days | MON-01 |
+| MON-03 | Monitoring | CPU user/system/idle/iowait, swap in/out, memory pressure (PSI) | P1 | Implemented (W3.1, e2e on NAS; NSA310 kernel has no PSI) | — | `internal/monitor`: /proc/stat, /proc/vmstat, /proc/pressure | L | — | PSI shown if kernel exposes it | MON-01 |
+| MON-04 | Monitoring | Disk throughput, IOPS, busy %, latency | P1 | Implemented (W3.1, e2e on NAS) | — | `internal/monitor`: /proc/diskstats | L | — | does not wake disk (diskstats only) | MON-01 |
+| MON-05 | Monitoring | Network errors, totals, history | P1 | Implemented (W3.1, e2e on NAS) | — | `internal/monitor`: /sys/class/net stats | L | — | — | MON-01 |
 | MON-06 | Monitoring | Process list, sort by CPU/RSS, kill (admin, protected PIDs) | P1 | Planned | — | /proc | M (while open) | killing critical process | PID 1, sshd, helper, journald protected | PRIV-01 |
 | TASK-01 | Scheduler | Task list (name, type, enabled, interval, last/next run, result, duration, history) | P1 | Implemented (W3.3; NAS 2026-11-26) | — | systemd timers | L | — | matches `systemctl list-timers` | PRIV-01 |
 | TASK-02 | Scheduler | Built-in task types (SMART, backup, cleanup, restart, power) | P1 | Partial (W3.3: SMART, recycle cleanup; backup with W4.3) | — | — | L | arbitrary commands | no free-form command type | TASK-01 |

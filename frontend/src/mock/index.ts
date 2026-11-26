@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult } from '../api/types';
+import type { Role, DiskPower, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample } from '../api/types';
 
 const start = Date.now();
 let loggedIn = false;
@@ -926,6 +926,30 @@ function sharesRoute(path: string, method: string, body: Record<string, unknown>
   return null;
 }
 
+/** Resource Monitor: a deterministic hour of 10 s samples ending now, shaped like the NSA310 (no PSI). */
+function monitorSample(t: number): MonitorSample {
+  const k = t / 10_000, w = (p: number, a = 1) => (Math.sin(k / p) + 1) / 2 * a;
+  const backup = k % 360 > 300 && k % 360 < 330; // a burst of disk and network traffic
+  const MiB = 1048576;
+  return {
+    t, psi: null,
+    cpu: { user: Math.round((8 + w(7, 20) + (backup ? 35 : 0)) * 10) / 10, system: Math.round((4 + w(11, 6)) * 10) / 10,
+      iowait: backup ? 12 : Math.round(w(5, 2) * 10) / 10, irq: 1.2, steal: 0 },
+    memory: { usedBytes: 92 * MiB + w(13, 20 * MiB), cacheBytes: 110 * MiB + w(40, 10 * MiB), availableBytes: 140 * MiB,
+      swapUsedBytes: 9 * MiB, swapInBps: 0, swapOutBps: 0 },
+    disks: [{ name: 'sda', readBps: backup ? 600_000 : w(9, 20_000), writeBps: backup ? 18 * MiB : 7_000 + w(3, 9_000),
+      readIops: backup ? 12 : 0.4, writeIops: backup ? 60 : 1.3, busyPercent: backup ? 71 : 1.8, awaitMs: backup ? 9.4 : 3.1 }],
+    net: [{ name: 'enp1s0', rxBps: backup ? 19 * MiB : 2_000 + w(6, 30_000), txBps: 1_500 + w(8, 12_000), errors: 0, drops: k % 97 === 0 ? 1 : 0 }],
+  };
+}
+function monitorHistory(since: number): MonitorHistory {
+  const now = Math.floor(Date.now() / 10_000) * 10_000;
+  const samples: MonitorSample[] = [];
+  for (let t = now - 359 * 10_000; t <= now; t += 10_000) if (t > since) samples.push(monitorSample(t));
+  return { intervalSeconds: 10, psiAvailable: false, memTotalBytes: 252043264, swapTotalBytes: 1073737728,
+    netTotals: [{ name: 'enp1s0', rxBytes: 48e9, txBytes: 3.1e9, rxErrors: 0, txErrors: 0, drops: 14 }], samples };
+}
+
 export function installMock(): void {
   const real = window.fetch.bind(window);
   window.fetch = async (input, init) => {
@@ -967,6 +991,7 @@ export function installMock(): void {
       return err(403, 'forbidden', sessionRole() === 'viewer' ? 'Účet jen pro čtení nemůže nic měnit.' : 'K této části nemáte přístup.');
     }
     if (path === '/overview') return json(200, overview());
+    if (path === '/monitor') return json(200, monitorHistory(Number(url.searchParams.get('since') ?? 0)));
     if (path === '/smart') return json(200, smart());
     if (path === '/storage') return json(200, storage());
     if (path === '/storage/activity') {

@@ -41,12 +41,12 @@ export const cs = {
   },
   nav: {
     overview: 'Přehled', storage: 'Úložiště', shares: 'Sdílení', users: 'Uživatelé',
-    services: 'Služby', network: 'Síť', tasks: 'Úlohy', logs: 'Logy', system: 'Systém', account: 'Můj účet',
+    services: 'Služby', network: 'Síť', monitor: 'Monitor', tasks: 'Úlohy', logs: 'Logy', system: 'Systém', account: 'Můj účet',
   },
   /** Longer labels for the desktop sidebar. */
   navLong: {
     overview: 'Přehled', storage: 'Úložiště', services: 'Služby', shares: 'Sdílení (SMB/NFS)',
-    users: 'Uživatelé a oprávnění', network: 'Síť', tasks: 'Plánované úlohy', system: 'Systém', logs: 'Logy a události', account: 'Můj účet',
+    users: 'Uživatelé a oprávnění', network: 'Síť', monitor: 'Monitor prostředků', tasks: 'Plánované úlohy', system: 'Systém', logs: 'Logy a události', account: 'Můj účet',
   } as Record<string, string>,
   overview: {
     title: 'Přehled',
@@ -122,8 +122,28 @@ export const cs = {
     shares: { title: 'Sdílené složky', subtitle: 'Složky na datových discích, jejich oprávnění a koš' },
     services: { title: 'Služby', subtitle: 'Stav, prostředky a ovládání služeb NASu' },
     users: { title: 'Uživatelé a skupiny', subtitle: 'Účty pro sdílené složky a jejich skupiny' },
+    monitor: { title: 'Monitor prostředků', subtitle: 'Procesor, paměť, disky a síť za poslední hodinu' },
     tasks: { title: 'Plánované úlohy', subtitle: 'Úklid košů a testy disků, které se spouštějí samy v daný čas' },
     account: { title: 'Můj účet', subtitle: 'Vaše přihlášení a heslo' },
+  },
+  monitor: {
+    loadError: 'Data monitoru nelze načíst.', unavailable: 'Monitor prostředků není dostupný.',
+    collecting: 'Sbírám první měření, graf se objeví do 20 s.',
+    span: (min: number) => (min < 1 ? 'méně než minuta' : `posledních ${min} min`), now: 'teď',
+    peak: 'Maximum', current: 'Teď',
+    cpu: 'Procesor', cpuBusy: 'Vytížení', cpuChart: 'Vytížení procesoru a čekání na disk',
+    user: 'Programy', system: 'Jádro', iowait: 'Čekání na disk', irq: 'Přerušení', steal: 'Odebráno hypervisorem',
+    iowaitHint: 'Čekání na disk = procesor nemá co dělat, protože čeká na data z disku.',
+    memory: 'Paměť', memChart: 'Využití paměti a mezipaměti', used: 'Programy', cache: 'Mezipaměť', available: 'Dostupná',
+    swap: 'Odkládací prostor', swapIo: 'Odkládání (čtení / zápis)', swapActive: 'Paměť dochází, NAS odkládá na disk.',
+    psi: 'Tlak na prostředky (PSI)', psiCpu: 'Procesor', psiMem: 'Paměť', psiIo: 'Disk', psiSome: 'někdo čeká', psiFull: 'všichni čekají',
+    psiUnavailable: 'Jádro NASu tlak na prostředky (PSI) neposkytuje.',
+    disks: 'Disky', noDisks: 'Žádné disky.', diskChart: (n: string) => `Čtení a zápis disku ${n}`,
+    read: 'Čtení', write: 'Zápis', iops: 'Operace za sekundu (č / z)', busy: 'Vytížení disku', await: 'Průměrná odezva',
+    diskHint: 'Měří se z čítačů jádra, disk se kvůli tomu neprobouzí.',
+    network: 'Síť', noNet: 'Žádná síťová rozhraní.', netChart: (n: string) => `Příjem a odesílání rozhraní ${n}`,
+    rx: 'Příjem', tx: 'Odesílání', errorsHour: 'Chyby / zahozené za hodinu', sinceBoot: 'Od startu: přijato', sent: 'odesláno',
+    errorsBoot: (e: number, d: number) => `chyb ${e}, zahozených ${d}`,
   },
   services: {
     listTitle: 'Služby', refresh: 'Načíst znovu', loadError: 'Stav služeb nelze načíst.',

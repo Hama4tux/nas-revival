@@ -361,3 +361,22 @@ export interface BackupVersion { date: string; files: number; bytes: number; add
 export interface BackupVersionList { versions: BackupVersion[]; complete: boolean }
 export interface BackupEntry { name: string; type: 'dir' | 'file' | 'link' | 'other'; size: number; modified: string; badName?: boolean }
 export interface BackupBrowse { path: string; entries: BackupEntry[]; offset: number; total: number; truncated: boolean }
+
+/** GET /monitor (W3.1): samples every intervalSeconds, the last hour, oldest first. */
+export interface MonitorCpu { user: number; system: number; iowait: number; irq: number; steal: number }
+export interface MonitorMemory {
+  usedBytes: number; cacheBytes: number; availableBytes: number; swapUsedBytes: number; swapInBps: number; swapOutBps: number;
+}
+export interface MonitorPsi { cpuSome: number; memorySome: number; memoryFull: number; ioSome: number; ioFull: number }
+export interface MonitorDisk {
+  name: string; readBps: number; writeBps: number; readIops: number; writeIops: number; busyPercent: number; awaitMs: number;
+}
+export interface MonitorNet { name: string; rxBps: number; txBps: number; errors: number; drops: number }
+export interface MonitorSample {
+  t: number; cpu: MonitorCpu; memory: MonitorMemory; psi: MonitorPsi | null; disks: MonitorDisk[]; net: MonitorNet[];
+}
+export interface MonitorNetTotal { name: string; rxBytes: number; txBytes: number; rxErrors: number; txErrors: number; drops: number }
+export interface MonitorHistory {
+  intervalSeconds: number; psiAvailable: boolean; memTotalBytes: number; swapTotalBytes: number;
+  netTotals: MonitorNetTotal[]; samples: MonitorSample[];
+}

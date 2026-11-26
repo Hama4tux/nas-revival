@@ -125,7 +125,8 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
 - One **collector goroutine** in the web process produces a snapshot; all clients read the same
   snapshot (no per-request `/proc` parsing). It runs at 5 s while at least one session polled within
   the last 30 s, and drops to 60 s (only health-relevant metrics) when nobody is watching.
-- **Ring buffer in RAM**: 1 h at 10 s (360 samples × ~16 metrics, < 100 KiB). Long-term history:
+- **Ring buffer in RAM** (implemented W3.1, `internal/monitor`): 1 h at 10 s (360 samples), sampled always –
+  not only while watched – so the last hour is there when the page opens; one reading costs ~8 ms on the NSA310. Long-term history:
   5-min aggregates for 7 days in RAM (~2 000 samples), flushed to `/var/lib/nas-revival/history.bin`
   at most once per hour and on shutdown (one small sequential write; skipped while the data disk sleeps
   if the state dir lives on it).

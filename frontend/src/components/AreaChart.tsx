@@ -1,6 +1,8 @@
+export type ChartTone = 'primary' | 'accent' | 'warning';
+
 /** Smooth area chart for one or two series sharing a y-axis starting at 0. */
 export function AreaChart({ series, label, className }: {
-  series: { values: number[]; tone: 'primary' | 'accent' }[]; label: string; className?: string;
+  series: { values: number[]; tone: ChartTone }[]; label: string; className?: string;
 }) {
   const W = 300, H = 80, P = 2;
   const n = Math.max(...series.map((s) => s.values.length), 0);
@@ -22,7 +24,7 @@ export function AreaChart({ series, label, className }: {
   return (
     <svg role="img" aria-label={label} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className={`h-24 w-full ${className ?? ''}`}>
       <defs>
-        {(['primary', 'accent'] as const).map((t) => (
+        {(['primary', 'accent', 'warning'] as const).map((t) => (
           <linearGradient key={t} id={`ac-${t}`} x1="0" y1="0" x2="0" y2="1">
             <stop offset="0" stopColor={`hsl(var(--${t}))`} stopOpacity=".35" />
             <stop offset="1" stopColor={`hsl(var(--${t}))`} stopOpacity="0" />

@@ -5,6 +5,7 @@ import { AccountPage } from './components/AccountPage';
 import { GoingDown } from './components/GoingDown';
 import { Login } from './components/Login';
 import { Overview } from './components/Overview';
+import { MonitorPage } from './components/MonitorPage';
 import { NetworkPage } from './components/NetworkPage';
 import { PendingBanner } from './components/PendingBanner';
 import { Shell, type HostSummary } from './components/Shell';
@@ -76,6 +77,7 @@ export function App() {
       {route === 'overview' && <Overview onHost={setHost} />}
       {route === 'storage' && <StoragePage />}
       {route === 'network' && <NetworkPage net={net} readOnly={role !== 'admin'} />}
+      {route === 'monitor' && <MonitorPage />}
       {route === 'system' && <SystemPage />}
       {route === 'tasks' && <TasksPage readOnly={role !== 'admin'} />}
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}
