@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"nas-revival/backend/internal/accounts"
@@ -65,7 +64,7 @@ func (s *Server) smbSet(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("smb settings changed", "enabled", body.Enabled, "by", sessionUser(r))
+	auditOK(r, "smb.settings", "", "Změněno nastavení SMB ("+onOff(body.Enabled)+")")
 	writeJSON(w, http.StatusOK, st)
 }
 

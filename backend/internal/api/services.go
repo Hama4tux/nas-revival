@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -75,7 +74,7 @@ func (s *Server) serviceAction(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("service "+action, "unit", d.Name, "by", sessionUser(r))
+	auditOK(r, "service."+action, d.Name, "Služba "+d.Name+": "+action)
 	writeJSON(w, http.StatusOK, svc)
 }
 

@@ -5,7 +5,7 @@ import { canRead } from '../lib/roles';
 
 export interface NavApp { key: keyof typeof cs.nav; icon: LucideIcon; ready: boolean; tone: string; href?: string }
 
-/** Sections of the admin UI; all but logs are ready. Order follows the sidebar. */
+/** Sections of the admin UI; all are ready. Order follows the sidebar. */
 export const apps: NavApp[] = [
   { key: 'overview', icon: LayoutDashboard, ready: true, href: '#/', tone: 'from-sky-400 to-blue-600' },
   { key: 'storage', icon: HardDrive, ready: true, href: '#/storage', tone: 'from-emerald-400 to-teal-600' },
@@ -17,7 +17,7 @@ export const apps: NavApp[] = [
   { key: 'monitor', icon: Gauge, ready: true, href: '#/monitor', tone: 'from-lime-400 to-green-600' },
   { key: 'tasks', icon: CalendarClock, ready: true, href: '#/tasks', tone: 'from-fuchsia-400 to-pink-600' },
   { key: 'system', icon: Settings, ready: true, href: '#/system', tone: 'from-indigo-400 to-blue-700' },
-  { key: 'logs', icon: ScrollText, ready: false, tone: 'from-slate-400 to-slate-600' },
+  { key: 'logs', icon: ScrollText, ready: true, href: '#/logs', tone: 'from-slate-400 to-slate-600' },
 ];
 
 const accountApp: NavApp = { key: 'account', icon: UserRound, ready: true, href: '#/account', tone: 'from-violet-400 to-purple-600' };

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"nas-revival/backend/internal/accounts"
@@ -64,7 +63,7 @@ func (s *Server) nfsSet(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("nfs settings changed", "enabled", body.Enabled, "by", sessionUser(r))
+	auditOK(r, "nfs.settings", "", "Změněno nastavení NFS ("+onOff(body.Enabled)+")")
 	writeJSON(w, http.StatusOK, st)
 }
 

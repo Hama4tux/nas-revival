@@ -2,8 +2,8 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"nas-revival/backend/internal/helper"
@@ -70,7 +70,7 @@ func (s *Server) sshSet(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("ssh settings changed", "port", body.Port, "by", sessionUser(r))
+	auditOK(r, "ssh.settings", "", "Změněno nastavení SSH (port "+strconv.Itoa(body.Port)+")")
 	writeJSON(w, http.StatusOK, st)
 }
 
@@ -111,7 +111,7 @@ func (s *Server) sshKeyAdd(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("ssh key added", "account", name, "fingerprint", k.Fingerprint, "by", sessionUser(r))
+	auditOK(r, "ssh.key.add", name, "Přidán SSH klíč účtu "+name+" ("+k.Fingerprint+")")
 	writeJSON(w, http.StatusOK, l)
 }
 
@@ -138,6 +138,6 @@ func (s *Server) sshKeyRemove(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("ssh key removed", "account", name, "fingerprint", body.Fingerprint, "by", sessionUser(r))
+	auditOK(r, "ssh.key.remove", name, "Odebrán SSH klíč účtu "+name+" ("+body.Fingerprint+")")
 	writeJSON(w, http.StatusOK, l)
 }

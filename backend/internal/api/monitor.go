@@ -75,7 +75,7 @@ func (s *Server) processKill(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("process signalled", "pid", pid, "name", res.Name, "signal", res.Signal, "by", sessionUser(r))
+	auditOK(r, "process.signal", res.Name, "Procesu "+res.Name+" (PID "+strconv.Itoa(pid)+") poslán signál "+res.Signal)
 	writeJSON(w, http.StatusOK, res)
 }
 

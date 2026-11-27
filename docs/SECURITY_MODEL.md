@@ -30,7 +30,7 @@ LAN client ──HTTPS──▶ nas-revival (uid nas-revival, sandbox) ──Uni
 | No sudo | the helper is the only privileged entry point; `nas-revival` has no sudoers entry |
 | No shell strings | `exec.Command(abs, args...)`; arguments validated by regex/enum; `--` before positional args |
 | Bounded requests | ≤ 16 KiB JSON, 5 s read deadline, per-op timeout, one config transaction at a time |
-| Audit | every op → journald record (`SYSLOG_IDENTIFIER=nas-revival-audit`, fields `NR_USER`, `NR_OP`, `NR_OBJECT`, `NR_RESULT`); no secrets |
+| Audit | every administrative action → structured journald record (`NAS_REVIVAL_AUDIT=1`, `SYSLOG_IDENTIFIER=nas-revival`, fields `AUDIT_ACTION`, `AUDIT_USER`, `AUDIT_CLIENT`, `AUDIT_TARGET`, `AUDIT_RESULT`); no secrets |
 | Helper sandbox | `ProtectSystem=strict` + `ReadWritePaths` (`/etc` since W2.1: the shadow tools need lock/temp files next to `/etc/passwd`; `/srv` since W2.3 for share folders, which are only created under a mounted data volume, never from a request path), `RestrictSUIDSGID` (share folders therefore use no setgid bit), `ProtectHome`, `PrivateTmp` |
 
 Helper op naming: `<module>.<verb>` (`network.apply`, `smart.test`, `disk.setPower`, `share.create`,
@@ -84,6 +84,12 @@ files touched, commands run, whether it needs confirmation, whether it takes the
   `/etc/nftables.d/nas-revival.nft`; allowed sources per service (web/SSH/SMB/NFS); apply with
   confirm-or-rollback (180 s) like network changes; web and SSH must allow the admin client's
   address, otherwise the change is refused.
+- Audit trail and journal access (W5.3, ADR 0015): administrative actions are written to the journal with
+  structured `AUDIT_*` fields (`internal/audit`); the Log Center reads the journal only through the helper
+  (`journal.query`, read-only, fixed arguments, text search escaped to a literal), for administrators and
+  read-only administrators. The audit view trusts `NAS_REVIVAL_AUDIT=1` only together with the journald-set unit
+  field of the NAS Revival services, so other local processes cannot forge entries. The trail is bounded by the
+  journal retention and is not tamper-proof (remote syslog is M6).
 - Disable services not needed: LLMNR (resolved, 5355) is open today – Security Advisor finding.
 - SMB: SMB1 off, `min protocol = SMB2_10`, no guest, `restrict anonymous = 2`.
 - NFS: explicit client list only (IP addresses or networks no wider than /16, IPv6 /48; no `*`, host names or

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -144,7 +143,7 @@ func (s *Server) backupTrust(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("backup host trusted", "host", b.Host, "port", port, "by", sessionUser(r))
+	auditOK(r, "backup.trust", b.Host, "Důvěryhodný klíč zálohovaného serveru "+b.Host)
 	writeJSON(w, http.StatusOK, struct{}{})
 }
 
@@ -257,7 +256,7 @@ func (s *Server) backupFile(w http.ResponseWriter, r *http.Request) {
 	defer f.Close()
 	// Big dumps take longer than the server's write timeout.
 	http.NewResponseController(w).SetWriteDeadline(time.Time{})
-	slog.Info("backup file downloaded", "job", id, "date", r.PathValue("date"), "bytes", meta.Size, "by", sessionUser(r))
+	auditOK(r, "backup.download", id, "Stažen soubor ze zálohy "+id+" ("+r.PathValue("date")+")")
 	w.Header().Set("Content-Disposition", attachment(meta.Name))
 	w.Header().Set("Content-Type", "application/octet-stream")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
@@ -285,7 +284,7 @@ func (s *Server) backupRestoreStart(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("backup restore started", "job", id, "date", r.PathValue("date"), "share", b.Share, "by", sessionUser(r))
+	auditOK(r, "backup.restore", id, "Spuštěno obnovení zálohy "+id+" ("+r.PathValue("date")+") do složky "+b.Share)
 	writeJSON(w, http.StatusAccepted, st)
 }
 
@@ -310,6 +309,6 @@ func (s *Server) backupRestoreCancel(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("backup restore cancel", "by", sessionUser(r))
+	auditOK(r, "backup.restore.cancel", "", "Zrušeno obnovení zálohy")
 	writeJSON(w, http.StatusOK, st)
 }

@@ -190,6 +190,7 @@ func serve(args []string) error {
 	srv.Nfs = hc
 	srv.Ssh = hc
 	srv.Firewall = hc
+	srv.Logs = hc
 	srv.Tasks = hc
 	srv.Backup = hc
 	srv.Files = hc
@@ -426,6 +427,7 @@ func runHelper(args []string) error {
 		Procs:    &helper.ProcessManager{Root: "/"},
 		Hardware: helper.NewHardwareManager(helper.ExecRunner),
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
+		Logs:     &helper.LogManager{Run: helper.ExecRunner},
 		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
 			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},
 		Users: &helper.UserManager{Paths: accounts.SystemPaths,

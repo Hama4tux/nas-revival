@@ -1,11 +1,11 @@
 package api
 
 import (
-	"log/slog"
 	"net/http"
 	"strconv"
 
 	"nas-revival/backend/internal/accounts"
+	"nas-revival/backend/internal/audit"
 	"nas-revival/backend/internal/helper"
 )
 
@@ -46,7 +46,8 @@ func (s *Server) ownPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(body.Current) > 1024 || s.Verifier.Verify(user, body.Current) != nil {
 		s.Limiter.Fail(ip)
-		slog.Warn("own password change: wrong current password", "user", user, "client", ip)
+		audit.Log(audit.Entry{Action: "password.own.fail", User: user, Client: ip, Result: audit.Fail, Priority: 4,
+			Message: "Změna vlastního hesla: špatné současné heslo (" + user + ")"})
 		writeInvalid(w, "current", "Současné heslo nesouhlasí.")
 		return
 	}
@@ -58,6 +59,7 @@ func (s *Server) ownPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Sessions.DeleteUser(user)
 	clearCookie(w)
-	slog.Info("own password changed", "user", user)
+	audit.Log(audit.Entry{Action: "password.own", User: user, Client: ip, Result: audit.OK,
+		Message: "Změněno vlastní heslo uživatele " + user})
 	writeJSON(w, http.StatusOK, res)
 }

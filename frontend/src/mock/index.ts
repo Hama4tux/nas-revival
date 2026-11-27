@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem, FirewallSettings, FirewallState, ListeningPort } from '../api/types';
+import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem, LogEntry, LogRetention, FirewallSettings, FirewallState, ListeningPort } from '../api/types';
 import { ApiError } from '../api/client';
 import { setUploadImpl } from '../lib/upload';
 import { lockoutDetail, parseCidr, ruleMatches } from '../lib/firewall';
@@ -1290,6 +1290,71 @@ const mockSessions = [
   { id: 'm2', username: 'jana', client: '192.168.1.35', agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Safari/605.1' },
 ];
 
+// Log Center (W5.3): fictional journal built relative to the page load.
+const LOG_BASE = Date.now();
+const mockLogs: (LogEntry & { cat: string })[] = (() => {
+  const out: (LogEntry & { cat: string })[] = [];
+  const src: { cat: string; ident: string; unit?: string; pid?: number; pri: number; msg: string }[] = [
+    { cat: 'kernel', ident: 'kernel', pri: 6, msg: 'sd 0:0:0:0: [sda] Spinning up disk' },
+    { cat: 'kernel', ident: 'kernel', pri: 4, msg: 'ata1: link is slow to respond, please be patient (ready=0)' },
+    { cat: 'kernel', ident: 'kernel', pri: 3, msg: 'EXT4-fs error (device sdb1): ext4_find_entry:1455: inode #2: comm smbd: reading directory lblock 0' },
+    { cat: 'auth', ident: 'sshd', unit: 'ssh.service', pid: 612, pri: 6, msg: 'Accepted publickey for alice from 192.0.2.10 port 51122 ssh2' },
+    { cat: 'auth', ident: 'sshd', unit: 'ssh.service', pid: 640, pri: 5, msg: 'Failed password for invalid user bob from 192.0.2.77 port 40022 ssh2' },
+    { cat: 'auth', ident: 'sudo', pid: 655, pri: 6, msg: 'alice : TTY=pts/0 ; PWD=/home/alice ; USER=root ; COMMAND=/usr/bin/journalctl' },
+    { cat: 'nas', ident: 'nas-revival', unit: 'nas-revival.service', pid: 301, pri: 6, msg: 'level=INFO msg="request" method=GET path=/api/v1/overview status=200' },
+    { cat: 'nas', ident: 'nas-revival-helper', unit: 'nas-revival-helper.service', pid: 288, pri: 4, msg: 'level=WARN msg="smart read slow" disk=sda took=4.2s' },
+    { cat: 'services', ident: 'smbd', unit: 'smbd.service', pid: 402, pri: 6, msg: 'Connection from 192.0.2.21 accepted\nshare=media' },
+    { cat: 'services', ident: 'systemd', unit: 'nfs-server.service', pid: 1, pri: 6, msg: 'Started NFS server and services.' },
+    { cat: 'services', ident: 'systemd', unit: 'avahi-daemon.service', pid: 1, pri: 3, msg: 'avahi-daemon.service: Main process exited, code=exited, status=1/FAILURE' },
+    { cat: 'services', ident: 'systemd', unit: 'smbd.service', pri: 7, msg: 'smbd.service: Got notification message from PID 402' },
+  ];
+  for (let i = 0; i < 480; i++) {
+    const s = src[(i * 7 + (i >> 2)) % src.length]!;
+    const us = String(i * 7 % 1000).padStart(3, '0');
+    const iso = new Date(LOG_BASE - i * 2_900_000 - 1000).toISOString().replace('Z', `${us}Z`);
+    out.push({ time: iso, priority: s.pri, ident: s.ident, unit: s.unit, pid: s.pid, message: s.msg, cat: s.cat });
+  }
+  const aud: [string, string, string, string, string][] = [
+    ['login', 'alice', '', '192.0.2.10', 'ok'], ['user.create', 'alice', 'bob', '192.0.2.10', 'ok'], ['login.fail', 'bob', '', '192.0.2.77', 'fail'],
+    ['service.restart', 'alice', 'smbd.service', '192.0.2.10', 'ok'], ['firewall.apply', 'alice', '', '192.0.2.10', 'ok'], ['logs.retention', 'alice', '', '192.0.2.10', 'ok'],
+    ['password.own.fail', 'bob', '', '192.0.2.21', 'fail'], ['custom.action', 'alice', 'x', '192.0.2.10', 'ok'],
+  ];
+  aud.forEach((a, i) => {
+    out.push({ time: new Date(LOG_BASE - i * 5_400_000 - 500).toISOString().replace('Z', '123Z'), priority: a[4] === 'fail' ? 4 : 6, ident: 'nas-revival', unit: 'nas-revival.service', pid: 301,
+      message: `${a[0]} by ${a[1]}`, audit: { action: a[0], user: a[1], ...(a[2] ? { target: a[2] } : {}), client: a[3], result: a[4] }, cat: 'audit' });
+  });
+  return out.sort((x, y) => (x.time < y.time ? 1 : x.time > y.time ? -1 : 0));
+})();
+let logRetention: LogRetention = { maxUse: '64M', maxRetention: 'none', usageBytes: 61_966_336 };
+
+function logsRoute(path: string, method: string, search: string, body: unknown): Response | null {
+  if (path === '/logs/retention') {
+    if (method === 'GET') return json(200, logRetention);
+    if (method === 'PUT') {
+      if (sessionRole() !== 'admin') return err(403, 'forbidden', 'Forbidden');
+      const b = body as Partial<LogRetention>;
+      if (!['32M', '64M', '128M', '256M'].includes(String(b.maxUse)) || !['none', '1week', '1month', '3month', '1year'].includes(String(b.maxRetention))) return bad('maxUse', 'Neplatné nastavení.');
+      logRetention = { ...logRetention, maxUse: b.maxUse!, maxRetention: b.maxRetention! };
+      return json(200, logRetention);
+    }
+    return null;
+  }
+  if (path !== '/logs' || method !== 'GET') return null;
+  const q = new URLSearchParams(search);
+  const cat = q.get('category') ?? 'all';
+  const unit = q.get('unit');
+  const pri = q.get('priority');
+  const since = q.get('since') ? Date.parse(q.get('since')!) : null;
+  const until = q.get('until') ? Date.parse(q.get('until')!) : null;
+  const text = (q.get('text') ?? '').toLowerCase();
+  const limit = Math.min(1000, Math.max(1, Number(q.get('limit') ?? 200) || 200));
+  const hits = mockLogs.filter((e) => (cat === 'all' || e.cat === cat) && (!unit || e.unit === unit) && (pri == null || cat === 'audit' || e.priority <= Number(pri))
+    && (since == null || Date.parse(e.time) >= since) && (until == null || Date.parse(e.time) < until)
+    && (!text || e.message.toLowerCase().includes(text) || e.ident.toLowerCase().includes(text)));
+  const entries = hits.slice(0, limit).map(({ cat: _c, ...e }) => e);
+  return json(200, { entries, more: hits.length > limit });
+}
+
 export function installMock(): void {
   setUploadImpl(mockUpload);
   const real = window.fetch.bind(window);
@@ -1341,6 +1406,12 @@ export function installMock(): void {
       for (const n of mockNotices) if (b.all || b.ids?.includes(n.id)) read.add(n.id);
       noticesRead.set(sessionUser, read);
       return new Response(null, { status: 204 });
+    }
+    if (path.startsWith('/logs') && sessionRole() !== 'user') {
+      let body: unknown = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = logsRoute(path, method, url.search, body);
+      if (r) return r;
     }
     // Firewall (W5.2): readers GET, administrators PUT and confirm within 180 s.
     if (path.startsWith('/security/firewall') && sessionRole() !== 'user') {

@@ -3,6 +3,7 @@ package api
 import (
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"nas-revival/backend/internal/accounts"
@@ -47,7 +48,7 @@ func (s *Server) securityRevoke(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Relace už neexistuje.")
 		return
 	}
-	slog.Info("session revoked", "by", sc.username, "user", user, "own", own)
+	auditOK(r, "session.revoke", user, "Ukončena relace uživatele "+user)
 	if own {
 		clearCookie(w)
 	}
@@ -57,7 +58,7 @@ func (s *Server) securityRevoke(w http.ResponseWriter, r *http.Request) {
 func (s *Server) securityRevokeOthers(w http.ResponseWriter, r *http.Request) {
 	sc := r.Context().Value(ctxKey{}).(sessionCtx)
 	n := s.Sessions.RevokeOthers(sc.token)
-	slog.Info("other sessions revoked", "by", sc.username, "count", n)
+	auditOK(r, "session.revoke_others", sc.username, "Ukončeny ostatní relace ("+strconv.Itoa(n)+")")
 	writeJSON(w, http.StatusOK, map[string]int{"revoked": n})
 }
 

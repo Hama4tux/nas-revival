@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/netip"
 
@@ -115,8 +114,7 @@ func (s *Server) firewallPut(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	sc := r.Context().Value(ctxKey{}).(sessionCtx)
-	slog.Info("firewall change applied, waiting for confirmation", "enabled", set.Enabled, "user", sc.username)
+	auditOK(r, "firewall.apply", "", "Použito nastavení firewallu ("+onOff(set.Enabled)+"), čeká na potvrzení")
 	writeJSON(w, http.StatusOK, s.firewallView(r.Context(), r, st))
 }
 
@@ -130,7 +128,6 @@ func (s *Server) firewallConfirm(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	sc := r.Context().Value(ctxKey{}).(sessionCtx)
-	slog.Info("firewall change confirmed", "enabled", st.Settings.Enabled, "user", sc.username)
+	auditOK(r, "firewall.confirm", "", "Potvrzeno nastavení firewallu ("+onOff(st.Settings.Enabled)+")")
 	writeJSON(w, http.StatusOK, s.firewallView(r.Context(), r, st))
 }

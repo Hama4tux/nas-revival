@@ -4,6 +4,7 @@ import type { NetworkSettings, Role, SessionInfo, SystemPowerAction } from './ap
 import { AccountPage } from './components/AccountPage';
 import { FilesPage } from './components/FilesPage';
 import { GoingDown } from './components/GoingDown';
+import { LogsPage } from './components/LogsPage';
 import { Login } from './components/Login';
 import { Overview } from './components/Overview';
 import { MonitorPage } from './components/MonitorPage';
@@ -84,6 +85,7 @@ export function App() {
       {route === 'users' && <UsersPage readOnly={role !== 'admin'} self={username} />}
       {route === 'services' && <ServicesPage readOnly={role !== 'admin'} />}
       {route === 'shares' && <SharesPage readOnly={role !== 'admin'} />}
+      {route === 'logs' && <LogsPage readOnly={role !== 'admin'} />}
       {route === 'files' && <FilesPage />}
       {route === 'account' && <AccountPage username={username ?? ''} role={role} />}
     </Shell>

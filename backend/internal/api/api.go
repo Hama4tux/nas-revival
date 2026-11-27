@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/accounts"
+	"nas-revival/backend/internal/audit"
 	"nas-revival/backend/internal/auth"
 	"nas-revival/backend/internal/helper"
 	"nas-revival/backend/internal/smart"
@@ -94,6 +95,8 @@ type Server struct {
 	// NetInfo serves /network, NetAdmin the changes under /network; nil answers 503.
 	NetInfo  NetworkInfo
 	NetAdmin NetworkAdmin
+	// Logs serves /logs (Log Center, W5.3); nil answers 503.
+	Logs LogAdmin
 	// Firewall serves /security/firewall (W5.2); nil answers 503.
 	Firewall FirewallAdmin
 	// Monitor serves /monitor; nil answers 503.
@@ -134,6 +137,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerUsers(api)
 	s.registerShares(api)
 	s.registerServices(api)
+	s.registerLogs(api)
 	s.registerSmb(api)
 	s.registerNfs(api)
 	s.registerSsh(api)
@@ -298,7 +302,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.Verifier.Verify(body.Username, body.Password); err != nil {
 		s.Limiter.Fail(ip)
-		slog.Warn("login failed", "client", ip)
+		audit.Log(audit.Entry{Action: "login.fail", User: body.Username, Client: ip, Result: audit.Fail, Priority: 4,
+			Message: "Neúspěšné přihlášení uživatele " + body.Username})
 		writeError(w, http.StatusUnauthorized, "invalid_credentials", "Nesprávné jméno nebo heslo.")
 		return
 	}
@@ -310,7 +315,8 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	role, _ := s.roleOf(body.Username)
-	slog.Info("login", "user", body.Username, "role", role, "client", ip)
+	audit.Log(audit.Entry{Action: "login", User: body.Username, Client: ip, Result: audit.OK,
+		Message: "Přihlášen uživatel " + body.Username + " (" + string(role) + ")"})
 	http.SetCookie(w, &http.Cookie{
 		Name: cookieName, Value: token, Path: "/",
 		HttpOnly: true, Secure: true, SameSite: http.SameSiteStrictMode,

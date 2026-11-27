@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"nas-revival/backend/internal/accounts"
@@ -98,7 +97,7 @@ func (s *Server) userCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	l, err := s.Users.UserCreate(r.Context(), body)
 	if err == nil {
-		slog.Info("user created", "account", body.Name, "by", sessionUser(r))
+		auditOK(r, "user.create", body.Name, "Vytvořen účet "+body.Name)
 	}
 	s.listResult(w, http.StatusCreated, l, err)
 }
@@ -128,7 +127,7 @@ func (s *Server) userUpdate(w http.ResponseWriter, r *http.Request) {
 	// ADR 0004: a role change ends every session of that user.
 	if err == nil && body.Role != "" && body.Role != before {
 		s.Sessions.DeleteUser(name)
-		slog.Info("user role changed", "account", name, "role", body.Role, "by", sessionUser(r))
+		auditOK(r, "user.role", name, "Změněna role účtu "+name+" na "+string(body.Role))
 	}
 	s.listResult(w, http.StatusOK, l, err)
 }
@@ -158,7 +157,7 @@ func (s *Server) userPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	// ADR 0004: a password change ends every session of that user.
 	s.Sessions.DeleteUser(name)
-	slog.Info("user password changed", "account", name, "by", sessionUser(r))
+	auditOK(r, "user.password", name, "Změněno heslo účtu "+name)
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -202,7 +201,7 @@ func (s *Server) userDelete(w http.ResponseWriter, r *http.Request) {
 	l, err := s.Users.UserDelete(r.Context(), name)
 	if err == nil {
 		s.Sessions.DeleteUser(name)
-		slog.Info("user deleted", "account", name, "by", sessionUser(r))
+		auditOK(r, "user.delete", name, "Smazán účet "+name)
 	}
 	s.listResult(w, http.StatusOK, l, err)
 }

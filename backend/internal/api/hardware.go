@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -70,7 +69,7 @@ func (s *Server) hardwareWrite(w http.ResponseWriter, r *http.Request, what stri
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("hardware settings changed", "what", what, "by", sessionUser(r))
+	auditOK(r, "hardware.settings", what, "Změněno nastavení hardwaru ("+what+")")
 	writeJSON(w, http.StatusOK, st)
 }
 

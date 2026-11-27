@@ -167,6 +167,6 @@ func (s *Server) powerAction(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("power action", "action", action, "user", sc.username, "client", clientIP(r), "forced", res.Forced)
+	auditOK(r, "power."+action, "", "Požadováno: "+action+forcedNote(res.Forced))
 	writeJSON(w, http.StatusAccepted, res)
 }

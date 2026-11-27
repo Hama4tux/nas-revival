@@ -22,6 +22,7 @@ import (
 	"nas-revival/backend/internal/firewall"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/nfs"
+	"nas-revival/backend/internal/services"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
 	"nas-revival/backend/internal/sshd"
@@ -57,6 +58,8 @@ type Dispatcher struct {
 	Shares *ShareManager
 	// Services lists and controls the allowlisted units; nil disables it.
 	Services *ServiceManager
+	// Logs queries the journal and sets its retention (Log Center); nil disables it.
+	Logs *LogManager
 	// Smb manages the SMB service settings; nil disables it.
 	Smb *SmbManager
 	// Nfs manages the NFS exports; nil disables it.
@@ -358,6 +361,30 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
+	}
+	if strings.HasPrefix(req.Op, "journal.") && req.Op != "journal.unit" && d.Logs != nil {
+		return d.handleLogs(ctx, req)
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleLogs runs the Log Center operations (ADR 0015).
+func (d *Dispatcher) handleLogs(ctx context.Context, req request) (any, error) {
+	switch req.Op {
+	case "journal.query":
+		var q services.Query
+		if err := decodeArgs(req.Args, &q); err != nil {
+			return nil, err
+		}
+		return d.Logs.Query(ctx, q)
+	case "journal.retention.get":
+		return d.Logs.RetentionGet(ctx)
+	case "journal.retention.set":
+		var r JournalRetention
+		if err := decodeArgs(req.Args, &r); err != nil {
+			return nil, err
+		}
+		return d.Logs.RetentionSet(ctx, r)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

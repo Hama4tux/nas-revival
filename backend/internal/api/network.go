@@ -88,6 +88,6 @@ func (s *Server) hostnameSet(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("hostname changed", "hostname", name, "by", sessionUser(r))
+	auditOK(r, "hostname", name, "Změněn název NAS na "+name)
 	s.networkInfo(w, r)
 }

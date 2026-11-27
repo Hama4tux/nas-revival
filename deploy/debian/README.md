@@ -217,6 +217,8 @@ install -m 0644 50-nas-revival-journald.conf /etc/systemd/journald.conf.d/50-nas
 systemctl restart systemd-resolved systemd-journald
 ```
 
+Since W5.3 (Log Center, ADR 0015) the helper rewrites `50-nas-revival.conf` itself when the administrator changes the journal size or age limit (same header and `SyncIntervalSec=15min`, `/etc` is already in the helper's `ReadWritePaths`) and restarts `systemd-journald`. The web service writes audit entries to `/run/systemd/journal/socket` (allowed by `RestrictAddressFamilies=AF_UNIX`); no unit file changes are needed. After deploying, run `scripts/webui/e2e-logs.sh` from the workstation: it queries every category, checks that invalid queries are refused and that an audit entry written by another process stays out of the audit view, and changes the retention once and puts it back (journald restarts twice).
+
 Network page (W2.8): nothing to install (ping, ss, hostnamectl and resolvectl are in the base system). After deploying,
 run `scripts/webui/e2e-network.sh` from the workstation: it reads the network overview as `nas-revival`, sets the current
 host name again (no change) and runs every diagnostic once (pings of the gateway and of a TEST-NET address, a DNS lookup,

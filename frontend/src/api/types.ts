@@ -484,3 +484,12 @@ export interface FirewallState {
   clientAddress: string; lanNetwork: string | null; listening: ListeningPort[];
   services: { key: 'web' | 'ssh' | 'smb' | 'nfs'; ports: { proto: string; port: number }[] }[];
 }
+
+/** Log Center (W5.3, GET /logs, /logs/retention). */
+export type LogCategory = 'all' | 'kernel' | 'auth' | 'nas' | 'services' | 'audit';
+export interface LogAudit { action: string; user?: string; client?: string; target?: string; result?: string }
+export interface LogEntry { time: string; priority: number; ident: string; unit?: string; pid?: number; message: string; audit?: LogAudit }
+export interface LogList { entries: LogEntry[]; more: boolean }
+export type LogMaxUse = '32M' | '64M' | '128M' | '256M';
+export type LogMaxRetention = 'none' | '1week' | '1month' | '3month' | '1year';
+export interface LogRetention { maxUse: LogMaxUse; maxRetention: LogMaxRetention; usageBytes?: number }

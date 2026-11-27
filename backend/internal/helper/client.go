@@ -17,6 +17,7 @@ import (
 	"nas-revival/backend/internal/firewall"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/nfs"
+	"nas-revival/backend/internal/services"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
 	"nas-revival/backend/internal/sshd"
@@ -351,6 +352,29 @@ func (c *Client) ServiceAction(ctx context.Context, name, action string) (Servic
 func (c *Client) ServiceLog(ctx context.Context, name string, lines int) (ServiceLog, error) {
 	var r ServiceLog
 	err := c.Call(ctx, "journal.unit", map[string]any{"name": name, "lines": lines}, &r)
+	return r, err
+}
+
+// LogQuery runs a Log Center journal query (journal.query).
+func (c *Client) LogQuery(ctx context.Context, q services.Query) (JournalResult, error) {
+	long := *c
+	long.Timeout = 30 * time.Second
+	var r JournalResult
+	err := long.Call(ctx, "journal.query", q, &r)
+	return r, err
+}
+
+func (c *Client) LogRetentionGet(ctx context.Context) (JournalRetention, error) {
+	var r JournalRetention
+	err := c.Call(ctx, "journal.retention.get", nil, &r)
+	return r, err
+}
+
+func (c *Client) LogRetentionSet(ctx context.Context, s JournalRetention) (JournalRetention, error) {
+	long := *c
+	long.Timeout = 30 * time.Second
+	var r JournalRetention
+	err := long.Call(ctx, "journal.retention.set", map[string]any{"maxUse": s.MaxUse, "maxRetention": s.MaxRetention}, &r)
 	return r, err
 }
 

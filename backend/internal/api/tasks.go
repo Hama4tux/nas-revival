@@ -93,7 +93,7 @@ func (s *Server) tasksPut(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("tasks changed", "count", len(res.Tasks), "by", sessionUser(r))
+	auditOK(r, "tasks.settings", "", "Změněn seznam naplánovaných úloh")
 	writeJSON(w, http.StatusOK, s.taskViews(r.Context(), res.Tasks))
 }
 
@@ -118,7 +118,7 @@ func (s *Server) tasksControl(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("task "+verb, "id", id, "by", sessionUser(r))
+	auditOK(r, "task."+verb, id, "Úloha "+id+": "+verb)
 	writeJSON(w, http.StatusAccepted, struct{}{})
 }
 

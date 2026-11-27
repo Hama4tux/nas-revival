@@ -165,7 +165,7 @@ func (s *Server) networkPut(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("network settings changed", "mode", cfg.Mode)
+	auditOK(r, "network.settings", "", "Změněno nastavení sítě (režim "+string(cfg.Mode)+")")
 	writeJSON(w, http.StatusAccepted, st)
 }
 
@@ -270,7 +270,7 @@ func (s *Server) tlsPut(w http.ResponseWriter, r *http.Request) {
 		s.writeTLSError(w, err)
 		return
 	}
-	slog.Info("tls certificate installed")
+	auditOK(r, "tls.install", "", "Nainstalován vlastní certifikát webové správy")
 	writeJSON(w, http.StatusOK, s.TLS.Info())
 }
 
@@ -283,6 +283,6 @@ func (s *Server) tlsGenerate(w http.ResponseWriter, r *http.Request) {
 		s.writeTLSError(w, err)
 		return
 	}
-	slog.Info("tls certificate regenerated")
+	auditOK(r, "tls.regenerate", "", "Vygenerován nový certifikát webové správy")
 	writeJSON(w, http.StatusOK, s.TLS.Info())
 }

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"log/slog"
 	"net/http"
 
 	"nas-revival/backend/internal/helper"
@@ -75,7 +74,7 @@ func (s *Server) shareCreate(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("share created", "share", body.Name, "by", sessionUser(r))
+	auditOK(r, "share.create", body.Name, "Vytvořena sdílená složka "+body.Name)
 	writeJSON(w, http.StatusCreated, l)
 }
 
@@ -102,7 +101,7 @@ func (s *Server) shareUpdate(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("share updated", "share", name, "by", sessionUser(r))
+	auditOK(r, "share.update", name, "Upravena sdílená složka "+name)
 	writeJSON(w, http.StatusOK, l)
 }
 
@@ -130,7 +129,7 @@ func (s *Server) shareDelete(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("share deleted", "share", name, "deleteData", body.DeleteData, "by", sessionUser(r))
+	auditOK(r, "share.delete", name, "Smazána sdílená složka "+name+deleteNote(body.DeleteData))
 	writeJSON(w, http.StatusOK, res)
 }
 
@@ -143,6 +142,6 @@ func (s *Server) sharesRecycle(w http.ResponseWriter, r *http.Request) {
 		writeHelperError(w, err)
 		return
 	}
-	slog.Info("share recycle bins emptied", "files", res.RemovedFiles, "by", sessionUser(r))
+	auditOK(r, "share.recycle", "", "Vyprázdněny koše sdílených složek")
 	writeJSON(w, http.StatusOK, res)
 }
