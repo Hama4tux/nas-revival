@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { FirewallSettings } from '../api/types';
-import { allowsClient, cidrContains, cleanList, invalidEntries, isAnywhere, lockoutServices, parseCidr, parseIPv4, sameFirewall } from './firewall';
+import type { FirewallRule, FirewallSettings } from '../api/types';
+import { allowsClient, cidrContains, cleanList, firstMatch, invalidEntries, isAnywhere, lockoutDetail, lockoutServices, parseCidr, parseIPv4, parsePorts, ruleErrors, sameFirewall } from './firewall';
 
 const settings = (enabled: boolean, p: Partial<FirewallSettings['allow']> = {}): FirewallSettings =>
-  ({ enabled, allow: { web: [], ssh: [], smb: [], nfs: [], ...p } });
+  ({ enabled, allow: { web: [], ssh: [], smb: [], nfs: [], ...p }, rules: [] });
 
 describe('parseIPv4', () => {
   it('accepts valid and rejects invalid addresses', () => {
@@ -76,5 +76,63 @@ describe('helpers', () => {
   it('compares settings ignoring blank rows', () => {
     expect(sameFirewall(settings(true, { web: ['1.2.3.4', ''] }), settings(true, { web: ['1.2.3.4'] }))).toBe(true);
     expect(sameFirewall(settings(true), settings(false))).toBe(false);
+  });
+});
+
+describe('parsePorts', () => {
+  it('accepts a port or a range', () => {
+    expect(parsePorts('8080')).toEqual({ lo: 8080, hi: 8080 });
+    expect(parsePorts(' 6000-6010 ')).toEqual({ lo: 6000, hi: 6010 });
+    expect(parsePorts('1')).toEqual({ lo: 1, hi: 1 });
+    expect(parsePorts('1-65535')).toEqual({ lo: 1, hi: 65535 });
+  });
+  it('rejects invalid input', () => {
+    for (const s of ['', '0', '65536', '70000', '6010-6000', '80-80', 'a', '80-', '-80', '80,81', '1-2-3', '100000']) expect(parsePorts(s)).toBeNull();
+  });
+});
+
+describe('ruleErrors', () => {
+  const rule = { source: '10.0.0.0/8', ports: '8080', proto: 'tcp' as const, action: 'accept' as const, note: 'x' };
+  it('accepts valid rules, empty ports and empty note', () => {
+    expect(ruleErrors(rule)).toEqual({});
+    expect(ruleErrors({ ...rule, ports: '', note: '' })).toEqual({});
+    expect(ruleErrors({ ...rule, source: '0.0.0.0/0', ports: '6000-6010' })).toEqual({});
+  });
+  it('flags source, ports and note', () => {
+    expect(ruleErrors({ ...rule, source: '' }).source).toBe(true);
+    expect(ruleErrors({ ...rule, source: '1.2.3.4/33' }).source).toBe(true);
+    expect(ruleErrors({ ...rule, ports: '9-1' }).ports).toBe(true);
+    expect(ruleErrors({ ...rule, note: 'x'.repeat(41) }).note).toBe(true);
+    expect(ruleErrors({ ...rule, note: 'x'.repeat(40) }).note).toBeUndefined();
+  });
+  it('compares rules (order matters) in sameFirewall', () => {
+    const a = { ...settings(true), rules: [rule] };
+    expect(sameFirewall(a, { ...settings(true), rules: [{ ...rule, note: ' x ' }] })).toBe(true);
+    expect(sameFirewall(a, { ...settings(true), rules: [{ ...rule, action: 'drop' as const }] })).toBe(false);
+    expect(sameFirewall(a, settings(true))).toBe(false);
+  });
+});
+
+describe('rule matching and lockout', () => {
+  const client = '192.168.1.5';
+  const ok = { web: [client], ssh: [client] };
+  const r = (o: Partial<FirewallRule>): FirewallRule => ({ source: '0.0.0.0/0', ports: '', proto: 'both', action: 'drop', note: '', ...o });
+  const ip = parseIPv4(client)!;
+  it('first match wins and respects proto and ports', () => {
+    expect(firstMatch([r({ proto: 'udp' }), r({ ports: '20-30', action: 'accept' })], ip, 22, 'tcp')).toEqual({ index: 1, action: 'accept' });
+    expect(firstMatch([r({ proto: 'udp' })], ip, 22, 'tcp')).toBeNull();
+    expect(firstMatch([r({ source: '10.0.0.0/8' })], ip, 22, 'tcp')).toBeNull();
+  });
+  it('a drop rule matching the client on web or ssh is a lockout with its index', () => {
+    const s = { ...settings(true, ok), rules: [r({ source: '192.168.1.5', ports: '22' })] };
+    expect(lockoutDetail(s, client)).toEqual([{ service: 'ssh', rule: 0 }]);
+  });
+  it('an earlier accept rule beats a later drop and fills in for an empty service list', () => {
+    const s = { ...settings(true), rules: [r({ source: '192.168.1.0/24', action: 'accept' }), r({})] };
+    expect(lockoutServices(s, client)).toEqual([]);
+  });
+  it('without a matching rule the service list decides; disabled never locks out', () => {
+    expect(lockoutDetail({ ...settings(true), rules: [r({ source: '10.0.0.0/8' })] }, client).map((d) => d.rule)).toEqual([null, null]);
+    expect(lockoutServices({ ...settings(false), rules: [r({})] }, client)).toEqual([]);
   });
 });

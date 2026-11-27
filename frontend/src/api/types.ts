@@ -475,10 +475,12 @@ export interface WebSession {
 export interface WebSessions { sessions: WebSession[]; idleTimeoutSeconds: number; absoluteTimeoutSeconds: number }
 
 /* Firewall (W5.2) */
-export interface FirewallSettings { enabled: boolean; allow: { web: string[]; ssh: string[]; smb: string[]; nfs: string[] } }
+export interface FirewallRule { source: string; ports: string; proto: 'tcp' | 'udp' | 'both'; action: 'accept' | 'drop'; note: string }
+export interface FirewallSettings { enabled: boolean; allow: { web: string[]; ssh: string[]; smb: string[]; nfs: string[] }; rules: FirewallRule[] }
+export interface ListeningPort { proto: 'tcp' | 'udp'; port: number; process: string; allowed: boolean }
 export interface FirewallState {
   supported: boolean; active: boolean; settings: FirewallSettings;
   pending: null | { deadline: string; next: FirewallSettings };
-  clientAddress: string; lanNetwork: string | null;
+  clientAddress: string; lanNetwork: string | null; listening: ListeningPort[];
   services: { key: 'web' | 'ssh' | 'smb' | 'nfs'; ports: { proto: string; port: number }[] }[];
 }

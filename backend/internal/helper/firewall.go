@@ -14,6 +14,7 @@ import (
 
 	"nas-revival/backend/internal/atomicfile"
 	"nas-revival/backend/internal/firewall"
+	"nas-revival/backend/internal/services"
 )
 
 // FirewallPending is a rule set that is loaded into the kernel but not saved
@@ -31,6 +32,9 @@ type FirewallState struct {
 	Active   bool              `json:"active"`
 	Settings firewall.Settings `json:"settings"`
 	Pending  *FirewallPending  `json:"pending"`
+	// Listening are the ports reachable from the network with the verdict of
+	// the pending (else saved) settings, also while the firewall is off.
+	Listening []firewall.Listen `json:"listening"`
 }
 
 // FirewallPaths are the files the firewall manager touches.
@@ -104,7 +108,27 @@ func (m *FirewallManager) stateLocked(ctx context.Context) (FirewallState, error
 		cp := *m.pending
 		st.Pending = &cp
 	}
+	verdict := s
+	if m.pending != nil {
+		verdict = m.pending.Next
+	}
+	st.Listening = m.listening(ctx, verdict)
 	return st, nil
+}
+
+// listening reads the listening sockets with ss (same parser as the Services
+// app); a failing ss gives an empty list.
+func (m *FirewallManager) listening(ctx context.Context, s firewall.Settings) []firewall.Listen {
+	raw, err := m.Run(ctx, "ss", "-H", "-l", "-t", "-u", "-n", "-p")
+	if err != nil {
+		slog.Warn("helper: ss failed", "err", err)
+		return []firewall.Listen{}
+	}
+	var socks []firewall.Socket
+	for _, l := range services.ParseSS(raw) {
+		socks = append(socks, firewall.Socket{Proto: l.Proto, Address: l.Address, Port: l.Port.Port, Process: l.Process})
+	}
+	return firewall.Listening(s, socks)
 }
 
 // Get returns the saved settings, kernel state and pending change.

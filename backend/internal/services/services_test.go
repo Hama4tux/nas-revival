@@ -105,6 +105,9 @@ garbage
 	if l[3].Address != "127.0.0.53" {
 		t.Errorf("scope id kept: %q", l[3].Address)
 	}
+	if l[2].Process != "sshd" || l[0].Process != "systemd-resolve" || l[4].Process != "" {
+		t.Errorf("process names: %q %q %q", l[2].Process, l[0].Process, l[4].Process)
+	}
 	if l[4].Address != "::" || l[4].Port.Port != 445 || len(l[4].PIDs) != 0 {
 		t.Errorf("ipv6 = %+v", l[4])
 	}

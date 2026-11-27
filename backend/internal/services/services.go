@@ -199,7 +199,8 @@ func unitFrom(m map[string]string) Unit {
 // Listener is one line of `ss -H -l -t -u -n -p`.
 type Listener struct {
 	Port
-	PIDs []int
+	PIDs    []int
+	Process string // name of the first process in the users:(...) column, "" when unknown
 }
 
 // ParseSS parses `ss -H -l -t -u -n -p` output. Lines it does not
@@ -218,11 +219,27 @@ func ParseSS(raw []byte) []Listener {
 		}
 		l := Listener{Port: Port{Proto: f[0], Address: addr, Port: port}}
 		for _, x := range f[6:] {
+			if l.Process == "" {
+				l.Process = firstProcName(x)
+			}
 			l.PIDs = append(l.PIDs, parsePIDs(x)...)
 		}
 		out = append(out, l)
 	}
 	return out
+}
+
+// firstProcName extracts "sshd" from `users:(("sshd",pid=1,fd=3))`.
+func firstProcName(s string) string {
+	i := strings.Index(s, `(("`)
+	if i < 0 {
+		return ""
+	}
+	s = s[i+3:]
+	if j := strings.IndexByte(s, '"'); j >= 0 {
+		return s[:j]
+	}
+	return ""
 }
 
 // splitHostPort handles "0.0.0.0:22", "[::]:22", "*:22" and "127.0.0.53%lo:53".

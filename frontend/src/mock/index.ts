@@ -1,9 +1,9 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem, FirewallSettings, FirewallState } from '../api/types';
+import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem, FirewallSettings, FirewallState, ListeningPort } from '../api/types';
 import { ApiError } from '../api/client';
 import { setUploadImpl } from '../lib/upload';
-import { cidrContains, parseCidr, parseIPv4 } from '../lib/firewall';
+import { lockoutDetail, parseCidr, ruleMatches } from '../lib/firewall';
 
 const start = Date.now();
 let loggedIn = false;
@@ -60,13 +60,31 @@ const HOST_ADDR = '192.0.2.10';
 let netConfig: NetConfig = { mode: 'dhcp', address: null, prefixLength: null, gateway: null, dns: [], useDhcpDns: true };
 let netCurrent = { addresses: [`${HOST_ADDR}/24`], gateway: '192.0.2.1' as string | null, dns: ['192.0.2.1'] };
 const MOCK_CLIENT = '192.168.1.20';
-let fwSettings: FirewallSettings = { enabled: false, allow: { web: [], ssh: [], smb: [], nfs: [] } };
+let fwSettings: FirewallSettings = { enabled: false, allow: { web: [], ssh: [], smb: [], nfs: [] }, rules: [] };
 let fwPending: { deadline: number; next: FirewallSettings } | null = null;
 let fwActive = false;
+const FW_SVC_PORTS: Record<string, { proto: string; port: number }[]> = {
+  web: [{ proto: 'tcp', port: 8443 }], ssh: [{ proto: 'tcp', port: 22 }], smb: [{ proto: 'tcp', port: 445 }],
+  nfs: [{ proto: 'tcp', port: 2049 }, { proto: 'tcp', port: 111 }],
+};
+const FW_LISTEN: Omit<ListeningPort, 'allowed'>[] = [
+  { proto: 'tcp', port: 8443, process: 'nas-revival' }, { proto: 'tcp', port: 22, process: 'sshd' },
+  { proto: 'tcp', port: 445, process: 'smbd' }, { proto: 'tcp', port: 2049, process: 'nfsd' },
+  { proto: 'tcp', port: 111, process: 'rpcbind' }, { proto: 'tcp', port: 47409, process: 'rpc.mountd' },
+  { proto: 'udp', port: 5355, process: 'systemd-resolve' },
+];
+/** Rules first (first match wins; accept allows, drop blocks), then services; also computed while the firewall is off. */
+const fwListening = (s: FirewallSettings): ListeningPort[] => FW_LISTEN.map((l) => {
+  const r = s.rules.find((x) => (x.action === 'accept' || x.source === '0.0.0.0/0') && ruleMatches({ ...x, source: '0.0.0.0/0' }, 0, l.port, l.proto));
+  if (r) return { ...l, allowed: r.action === 'accept' };
+  return {
+    ...l, allowed: Object.entries(FW_SVC_PORTS).some(([k, ps]) => (s.allow[k as 'web'] ?? []).length > 0 && ps.some((p) => p.proto === l.proto && p.port === l.port)),
+  };
+});
 const fwState = (): FirewallState => ({
   supported: true, active: fwActive, settings: fwSettings,
   pending: fwPending && { deadline: new Date(fwPending.deadline).toISOString(), next: fwPending.next },
-  clientAddress: MOCK_CLIENT, lanNetwork: '192.168.1.0/24',
+  clientAddress: MOCK_CLIENT, lanNetwork: '192.168.1.0/24', listening: fwListening((fwPending?.next ?? fwSettings)),
   services: [
     { key: 'web', ports: [{ proto: 'tcp', port: 8443 }] }, { key: 'ssh', ports: [{ proto: 'tcp', port: 22 }] },
     { key: 'smb', ports: [{ proto: 'tcp', port: 445 }] }, { key: 'nfs', ports: [{ proto: 'tcp', port: 2049 }, { proto: 'tcp', port: 111 }] },
@@ -1337,12 +1355,14 @@ export function installMock(): void {
       if (path === '/security/firewall' && method === 'PUT') {
         if (fwPending) return err(409, 'change_pending', 'Jiná změna čeká na potvrzení.');
         const b = JSON.parse(String(init?.body ?? '{}')) as FirewallSettings;
-        if (b.enabled) {
-          for (const k of ['web', 'ssh'] as const) {
-            if (!(b.allow[k] ?? []).some((e) => { const c = parseCidr(e); return c != null && cidrContains(c, parseIPv4(MOCK_CLIENT)!); })) {
-              return bad(`allow.${k}`, `Změna by odpojila váš počítač (${MOCK_CLIENT}).`);
-            }
-          }
+        b.rules ??= [];
+        for (const [i, r] of b.rules.entries()) {
+          if (!parseCidr(r.source)) return bad(`rules.${i}.source`, 'Neplatná IP adresa nebo síť.');
+          if (r.ports !== '' && !/^\d{1,5}(-\d{1,5})?$/.test(r.ports)) return bad(`rules.${i}.ports`, 'Neplatný port nebo rozsah.');
+          if ((r.note ?? '').length > 40) return bad(`rules.${i}.note`, 'Poznámka může mít nejvýše 40 znaků.');
+        }
+        for (const d of lockoutDetail(b, MOCK_CLIENT)) {
+          return bad(d.rule == null ? `allow.${d.service}` : `rules.${d.rule}.action`, `Změna by odpojila váš počítač (${MOCK_CLIENT}).`);
         }
         fwPending = { deadline: Date.now() + 180e3, next: b };
         fwActive = b.enabled;

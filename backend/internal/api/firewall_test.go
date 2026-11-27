@@ -42,7 +42,8 @@ func (fakeLanInfo) Read(context.Context) (netinfo.Info, error) {
 func newFirewallServer(t *testing.T) (http.Handler, *fakeFirewall) {
 	t.Helper()
 	s, h, _, _ := newRoleServer(t)
-	f := &fakeFirewall{state: helper.FirewallState{Supported: true, Active: false, Settings: firewall.Default()}}
+	f := &fakeFirewall{state: helper.FirewallState{Supported: true, Active: false, Settings: firewall.Default(),
+		Listening: []firewall.Listen{{Proto: "tcp", Port: 8443, Process: "nas-revival"}}}}
 	s.Firewall = f
 	s.NetInfo = fakeLanInfo{}
 	return h, f
@@ -62,7 +63,8 @@ func TestFirewallGet(t *testing.T) {
 	}
 	for k, want := range map[string]string{"supported": "true", "active": "false", "pending": "null",
 		"clientAddress": `"192.0.2.5"`, "lanNetwork": `"192.0.2.0/24"`,
-		"settings": `{"enabled":false,"allow":{"nfs":[],"smb":[],"ssh":[],"web":[]}}`} {
+		"settings":  `{"enabled":false,"allow":{"nfs":[],"smb":[],"ssh":[],"web":[]},"rules":[]}`,
+		"listening": `[{"proto":"tcp","port":8443,"process":"nas-revival","allowed":false}]`} {
 		if string(v[k]) != want {
 			t.Errorf("%s = %s, want %s", k, v[k], want)
 		}
@@ -172,4 +174,29 @@ func TestAdvisorFirewallOff(t *testing.T) {
 		}
 	}
 	t.Fatal("no firewall.off finding")
+}
+
+func TestFirewallPutRules(t *testing.T) {
+	h, f := newFirewallServer(t)
+	jana := loginAs(t, h, "jana")
+	body := `{"enabled":true,"allow":{"web":["192.0.2.0/24"],"ssh":["192.0.2.5"]},"rules":[{"source":"192.0.2.7/24","ports":"06000-6010","proto":"both","action":"drop","note":" Dev "}]}`
+	rec := do(h, "PUT", "/api/v1/security/firewall", body, xrw, jana)
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"pending":{"deadline":"2026-11-27T12:03:00Z"`) ||
+		!strings.Contains(rec.Body.String(), `"rules":[{"source":"192.0.2.0/24","ports":"6000-6010","proto":"both","action":"drop","note":"Dev"}]`) {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	if f.applied == nil || len(f.applied.Rules) != 1 {
+		t.Fatalf("%+v", f.applied)
+	}
+	f.applied = nil
+	lock := strings.Replace(body, `"6000-6010"`, `"8443"`, 1)
+	lock = strings.Replace(lock, `06000-6010`, `8443`, 1)
+	rec = do(h, "PUT", "/api/v1/security/firewall", lock, xrw, jana)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"field":"rules.0.action"`) || f.applied != nil {
+		t.Fatalf("lockout: %d %s", rec.Code, rec.Body)
+	}
+	rec = do(h, "PUT", "/api/v1/security/firewall", strings.Replace(body, `"both"`, `"icmp"`, 1), xrw, jana)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"field":"rules.0.proto"`) || f.applied != nil {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
 }

@@ -20,6 +20,8 @@ type fwFixture struct {
 	fire    func()
 	fail    string // command prefix that fails
 	noNft   bool
+	ss      string
+	ssErr   error
 }
 
 func newFwFixture(t *testing.T) *fwFixture {
@@ -40,6 +42,9 @@ func newFwFixture(t *testing.T) *fwFixture {
 			if len(args) > 1 && args[len(args)-2] == "-f" && args[len(args)-1] == f.m.scriptPath() {
 				b, _ := os.ReadFile(f.m.scriptPath())
 				f.scripts = append(f.scripts, string(b))
+			}
+			if strings.HasPrefix(line, "ss ") {
+				return []byte(f.ss), f.ssErr
 			}
 			if line == "nft list tables" {
 				return []byte("table ip nas_revival\n"), nil
@@ -286,5 +291,32 @@ func TestFirewallDispatch(t *testing.T) {
 	}
 	if _, err := d.Handle(context.Background(), request{Op: "firewall.apply", Args: json.RawMessage(`{"bogus":1}`)}); err == nil {
 		t.Fatal("unknown arg accepted")
+	}
+}
+
+func TestFirewallListening(t *testing.T) {
+	f := newFwFixture(t)
+	f.ss = `tcp LISTEN 0 128 0.0.0.0:22 0.0.0.0:* users:(("sshd",pid=220,fd=6))
+tcp LISTEN 0 128 [::]:22 [::]:*
+tcp LISTEN 0 50 *:445 *:* users:(("smbd",pid=5,fd=3))
+tcp LISTEN 0 50 127.0.0.1:631 0.0.0.0:*
+`
+	ctx := context.Background()
+	st, err := f.m.Get(ctx)
+	if err != nil || len(st.Listening) != 2 || st.Listening[0].Process != "sshd" || st.Listening[0].Allowed || st.Listening[1].Port != 445 {
+		t.Fatalf("%+v %v", st.Listening, err)
+	}
+	// A pending change decides the verdict.
+	in := fwSettings()
+	in.Rules = []firewall.Rule{{Source: "192.0.2.0/24", Ports: "445", Proto: "tcp", Action: "accept"}}
+	st, err = f.m.Apply(ctx, in, fwClient)
+	if err != nil || st.Pending == nil || !st.Listening[0].Allowed || !st.Listening[1].Allowed {
+		t.Fatalf("%+v %v", st.Listening, err)
+	}
+	// A failing ss never fails the whole get.
+	f.ssErr = os.ErrInvalid
+	st, err = f.m.Get(ctx)
+	if err != nil || st.Listening == nil || len(st.Listening) != 0 {
+		t.Fatalf("%#v %v", st.Listening, err)
 	}
 }

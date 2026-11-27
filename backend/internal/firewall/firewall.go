@@ -15,6 +15,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"nas-revival/backend/internal/atomicfile"
 )
@@ -57,6 +59,34 @@ type Settings struct {
 	// Allow maps a service key to the IPv4 addresses or networks that may
 	// reach it; an empty list blocks the service.
 	Allow map[string][]string `json:"allow"`
+	// Rules is an ordered rule table evaluated before the services; the
+	// first matching rule wins.
+	Rules []Rule `json:"rules"`
+}
+
+// MaxRules is the most rules.
+const MaxRules = 64
+
+// Rule accepts or drops traffic from one source.
+type Rule struct {
+	Source string `json:"source"` // one IPv4 address or network
+	Ports  string `json:"ports"`  // "" = all, "8080" or "6000-6010"
+	Proto  string `json:"proto"`  // tcp, udp or both
+	Action string `json:"action"` // accept or drop
+	Note   string `json:"note"`   // label only, never rendered into the script
+}
+
+// matches reports whether r applies to traffic of proto to port
+// (the source is checked by the caller).
+func (r Rule) matches(proto string, port int) bool {
+	if r.Proto != "both" && r.Proto != proto {
+		return false
+	}
+	if r.Ports == "" {
+		return true
+	}
+	lo, hi, ok := portRange(r.Ports)
+	return ok && port >= lo && port <= hi
 }
 
 // FieldError names the invalid field.
@@ -70,7 +100,7 @@ func Default() Settings {
 	for _, s := range Catalogue {
 		a[s.Key] = []string{}
 	}
-	return Settings{Allow: a}
+	return Settings{Allow: a, Rules: []Rule{}}
 }
 
 func parseSource(v string) (netip.Prefix, error) {
@@ -94,6 +124,80 @@ func formatSource(p netip.Prefix) string {
 		return p.Addr().String()
 	}
 	return p.String()
+}
+
+// normSources parses, sorts and de-duplicates sources and drops those a wider
+// one covers; field names the error.
+func normSources(field string, in []string) ([]netip.Prefix, []string, error) {
+	if len(in) > MaxSources {
+		return nil, nil, &FieldError{field, "Nejvýše " + strconv.Itoa(MaxSources) + " adres nebo sítí."}
+	}
+	seen := map[netip.Prefix]bool{}
+	var list []netip.Prefix
+	for _, v := range in {
+		p, err := parseSource(v)
+		if err != nil {
+			return nil, nil, &FieldError{field, "Neplatná adresa nebo síť " + strconv.Quote(v) + " (jen IPv4, např. 192.168.1.0/24)."}
+		}
+		if !seen[p] {
+			seen[p] = true
+			list = append(list, p)
+		}
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if c := list[i].Addr().Compare(list[j].Addr()); c != 0 {
+			return c < 0
+		}
+		return list[i].Bits() < list[j].Bits()
+	})
+	// nft refuses overlapping elements in one set: drop sources a wider one already covers.
+	list = slices.DeleteFunc(list, func(p netip.Prefix) bool {
+		for _, q := range list {
+			if q != p && q.Bits() <= p.Bits() && q.Contains(p.Addr()) {
+				return true
+			}
+		}
+		return false
+	})
+	strs := make([]string, len(list))
+	for i, p := range list {
+		strs[i] = formatSource(p)
+	}
+	return list, strs, nil
+}
+
+// portRange parses "8080" or "6000-6010" (digits only, 1..65535, lo<hi).
+func portRange(v string) (lo, hi int, ok bool) {
+	v = strings.TrimSpace(v)
+	a, b, isRange := strings.Cut(v, "-")
+	num := func(x string) (int, bool) {
+		x = strings.TrimSpace(x)
+		if x == "" || strings.Trim(x, "0123456789") != "" || len(x) > 6 {
+			return 0, false
+		}
+		n, _ := strconv.Atoi(x)
+		return n, n >= 1 && n <= 65535
+	}
+	lo, ok = num(a)
+	if !ok {
+		return 0, 0, false
+	}
+	if !isRange {
+		return lo, lo, true
+	}
+	hi, ok = num(b)
+	return lo, hi, ok && lo < hi
+}
+
+func normPorts(v string) (string, bool) {
+	lo, hi, ok := portRange(v)
+	if !ok {
+		return "", false
+	}
+	if lo == hi {
+		return strconv.Itoa(lo), true
+	}
+	return strconv.Itoa(lo) + "-" + strconv.Itoa(hi), true
 }
 
 // Validate normalises s (all four keys present, sources sorted, duplicates
@@ -125,39 +229,43 @@ func Validate(s Settings, clientAddr string) (Settings, error) {
 		if len(in) > MaxSources {
 			return s, &FieldError{field, "Nejvýše " + strconv.Itoa(MaxSources) + " adres nebo sítí."}
 		}
-		seen := map[netip.Prefix]bool{}
-		var list []netip.Prefix
-		for _, v := range in {
-			p, err := parseSource(v)
-			if err != nil {
-				return s, &FieldError{field, "Neplatná adresa nebo síť " + strconv.Quote(v) + " (jen IPv4, např. 192.168.1.0/24)."}
-			}
-			if !seen[p] {
-				seen[p] = true
-				list = append(list, p)
-			}
+		list, strs, err := normSources(field, in)
+		if err != nil {
+			return s, err
 		}
-		sort.Slice(list, func(i, j int) bool {
-			if c := list[i].Addr().Compare(list[j].Addr()); c != 0 {
-				return c < 0
-			}
-			return list[i].Bits() < list[j].Bits()
-		})
-		// nft refuses overlapping elements in one set: drop sources a wider one already covers.
-		list = slices.DeleteFunc(list, func(p netip.Prefix) bool {
-			for _, q := range list {
-				if q != p && q.Bits() <= p.Bits() && q.Contains(p.Addr()) {
-					return true
-				}
-			}
-			return false
-		})
 		prefixes[svc.Key] = list
-		strs := make([]string, len(list))
-		for i, p := range list {
-			strs[i] = formatSource(p)
-		}
 		out.Allow[svc.Key] = strs
+	}
+	if len(s.Rules) > MaxRules {
+		return s, &FieldError{"rules", "Nejvýše " + strconv.Itoa(MaxRules) + " pravidel."}
+	}
+	for i, r := range s.Rules {
+		f := "rules." + strconv.Itoa(i) + "."
+		p, err := parseSource(r.Source)
+		if err != nil {
+			return s, &FieldError{f + "source", "Neplatná adresa nebo síť " + strconv.Quote(r.Source) + " (jen IPv4, např. 192.168.1.0/24)."}
+		}
+		ports := ""
+		if strings.TrimSpace(r.Ports) != "" {
+			var ok bool
+			if ports, ok = normPorts(r.Ports); !ok {
+				return s, &FieldError{f + "ports", "Neplatný port nebo rozsah (např. 8080 nebo 6000-6010, 1 až 65535, prázdné = všechny)."}
+			}
+		}
+		if r.Proto != "tcp" && r.Proto != "udp" && r.Proto != "both" {
+			return s, &FieldError{f + "proto", "Protokol musí být tcp, udp nebo both."}
+		}
+		if r.Action != "accept" && r.Action != "drop" {
+			return s, &FieldError{f + "action", "Akce musí být accept nebo drop."}
+		}
+		note := strings.TrimSpace(r.Note)
+		if utf8.RuneCountInString(note) > 40 {
+			return s, &FieldError{f + "note", "Poznámka může mít nejvýše 40 znaků."}
+		}
+		if strings.ContainsFunc(note, unicode.IsControl) {
+			return s, &FieldError{f + "note", "Poznámka nesmí obsahovat řídicí znaky."}
+		}
+		out.Rules = append(out.Rules, Rule{Source: formatSource(p), Ports: ports, Proto: r.Proto, Action: r.Action, Note: note})
 	}
 	if out.Enabled && clientAddr != "" {
 		c, err := netip.ParseAddr(clientAddr)
@@ -165,16 +273,34 @@ func Validate(s Settings, clientAddr string) (Settings, error) {
 		if err != nil || !c.Is4() {
 			return s, &FieldError{"allow.web", "Adresu vašeho počítače (" + clientAddr + ") nelze ověřit, firewall nelze zapnout."}
 		}
-		for _, k := range []string{"web", "ssh"} {
+		for _, k := range []struct {
+			key, what string
+			port      int
+		}{{"web", "webové správy", 8443}, {"ssh", "SSH", 22}} {
+			decided := false
+			for i, r := range out.Rules {
+				rp, _ := parseSource(r.Source)
+				if !rp.Contains(c) || !r.matches("tcp", k.port) {
+					continue
+				}
+				if r.Action == "drop" {
+					return s, &FieldError{"rules." + strconv.Itoa(i) + ".action", "Toto pravidlo by odpojilo váš počítač (adresa " + clientAddr + ") od " + k.what + "."}
+				}
+				decided = true
+				break
+			}
+			if decided {
+				continue
+			}
 			ok := false
-			for _, p := range prefixes[k] {
+			for _, p := range prefixes[k.key] {
 				if p.Contains(c) {
 					ok = true
 					break
 				}
 			}
 			if !ok {
-				return s, &FieldError{"allow." + k, "Toto nastavení by odpojilo váš počítač (adresa " + clientAddr + ")."}
+				return s, &FieldError{"allow." + k.key, "Toto nastavení by odpojilo váš počítač (adresa " + clientAddr + ")."}
 			}
 		}
 	}
@@ -196,6 +322,20 @@ func Render(s Settings) string {
 	b.WriteString("\t\tct state invalid drop\n")
 	b.WriteString("\t\ticmp type echo-request limit rate 10/second accept\n")
 	b.WriteString("\t\tudp sport 67 udp dport 68 accept\n")
+	for _, r := range s.Rules {
+		var m string
+		switch {
+		case r.Ports != "" && r.Proto == "both":
+			m = "meta l4proto { tcp, udp } th dport " + r.Ports
+		case r.Ports != "":
+			m = r.Proto + " dport " + r.Ports
+		case r.Proto == "both":
+			m = "ip protocol { tcp, udp }"
+		default:
+			m = "ip protocol " + r.Proto
+		}
+		fmt.Fprintf(&b, "\t\tip saddr %s %s %s\n", r.Source, m, r.Action)
+	}
 	for _, svc := range Catalogue {
 		src := s.Allow[svc.Key]
 		if len(src) == 0 {

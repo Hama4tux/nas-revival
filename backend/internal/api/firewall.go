@@ -70,6 +70,9 @@ func (s *Server) lanNetwork(ctx context.Context, client string) *string {
 
 func (s *Server) firewallView(ctx context.Context, r *http.Request, st helper.FirewallState) firewallView {
 	client := clientIP(r)
+	if st.Listening == nil {
+		st.Listening = []firewall.Listen{}
+	}
 	return firewallView{FirewallState: st, ClientAddress: client, LanNetwork: s.lanNetwork(ctx, client),
 		Services: firewall.Catalogue}
 }

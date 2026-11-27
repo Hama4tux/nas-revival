@@ -42,6 +42,15 @@
   `POST /security/firewall/confirm` (admin). Each apply and confirm is logged with the user.
 - **Advisor:** `firewall.off` (warn) when supported but disabled, fix link to the firewall.
 
+- **Rule table and listening ports (2026-11-27 amendment):** the fixed catalogue alone blocked services it did
+  not know with no way to allow them. `firewall.json` gains `rules` (up to 64, "expert mode"): an ordered table
+  of source, ports (empty = all), tcp/udp/both and accept/drop, rendered before the catalogue services so the
+  first match wins; there is no raw nft, every field is validated and the note never reaches the script. The
+  anti-lockout check walks the rules for the client and tcp 8443/22 and refuses a matching drop, naming the
+  rule. The state also lists the non-loopback listening sockets (`ss`, the parser of the Services app) with
+  `allowed`, computed by a pure function from the pending (else saved) settings, so the UI can show what a
+  firewall that is still off would block. A failing `ss` gives an empty list, never a failed get.
+
 ## Consequences
 
 - Recovery when locked out anyway: wait 180 s (rollback), reboot (the boot file was not changed yet), or on the
