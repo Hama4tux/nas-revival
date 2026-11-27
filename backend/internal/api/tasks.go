@@ -2,9 +2,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -159,7 +159,8 @@ func (s *Server) taskViews(ctx context.Context, l []tasks.Task) map[string]any {
 	}
 	next, running := map[string]time.Time{}, map[string]bool{}
 	if len(l) > 0 {
-		timers := []string{"show", "--timestamp=unix", "--property=Id,NextElapseUSecRealtime", "--"}
+		// "show --timestamp=unix" leaves NextElapseUSecRealtime as local text on systemd 257; list-timers' JSON has µs.
+		timers := []string{"list-timers", "--all", "--output=json", "--"}
 		services := []string{"show", "--property=Id,ActiveState", "--"}
 		for _, t := range l {
 			timers = append(timers, tasks.TimerName(t.ID))
@@ -168,10 +169,15 @@ func (s *Server) taskViews(ctx context.Context, l []tasks.Task) map[string]any {
 		cctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()
 		if out, err := run(cctx, "systemctl", timers...); err == nil {
-			for _, b := range parseShowBlocks(string(out)) {
-				id := unitTaskID(b["Id"], "nas-revival-task-", ".timer")
-				if sec, err := strconv.ParseInt(strings.TrimPrefix(b["NextElapseUSecRealtime"], "@"), 10, 64); err == nil && sec > 0 && id != "" {
-					next[id] = time.Unix(sec, 0).UTC()
+			var rows []struct {
+				Unit string `json:"unit"`
+				Next int64  `json:"next"`
+			}
+			if err := json.Unmarshal(out, &rows); err == nil {
+				for _, r := range rows {
+					if id := unitTaskID(r.Unit, "nas-revival-task-", ".timer"); id != "" && r.Next > 0 {
+						next[id] = time.UnixMicro(r.Next).UTC().Truncate(time.Second)
+					}
 				}
 			}
 		}

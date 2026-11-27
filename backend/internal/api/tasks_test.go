@@ -55,8 +55,8 @@ func newTaskServer(t *testing.T) (http.Handler, *fakeTasks, map[string]*http.Coo
 	s.Tasks = f
 	s.TaskStatus = TaskStatus{HistoryPath: hist, Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
 		argv = append(argv, name+" "+strings.Join(args, " "))
-		if args[1] == "--timestamp=unix" {
-			return []byte("Id=nas-revival-task-recycle.timer\nNextElapseUSecRealtime=@1780000000\n"), nil
+		if args[0] == "list-timers" {
+			return []byte(`[{"next":1780000000000000,"left":1780000000000000,"last":0,"passed":0,"unit":"nas-revival-task-recycle.timer","activates":"nas-revival-task@recycle.service"}]`), nil
 		}
 		return []byte("Id=nas-revival-task@recycle.service\nActiveState=active\n"), nil
 	}}
@@ -130,7 +130,7 @@ func TestTasksGetShape(t *testing.T) {
 		t.Fatalf("%+v %s", x, rec.Body)
 	}
 	want := []string{
-		"systemctl show --timestamp=unix --property=Id,NextElapseUSecRealtime -- nas-revival-task-recycle.timer",
+		"systemctl list-timers --all --output=json -- nas-revival-task-recycle.timer",
 		"systemctl show --property=Id,ActiveState -- nas-revival-task@recycle.service",
 	}
 	if strings.Join(*argv, "|") != strings.Join(want, "|") {
@@ -312,8 +312,8 @@ func TestBackupTaskViewUsesBackupHistoryAndService(t *testing.T) {
 	s.TaskStatus = TaskStatus{HistoryPath: filepath.Join(dir, "missing.json"), BackupHistoryPath: bh,
 		Run: func(_ context.Context, name string, args ...string) ([]byte, error) {
 			argv = append(argv, strings.Join(args, " "))
-			if args[1] == "--timestamp=unix" {
-				return nil, nil
+			if args[0] == "list-timers" {
+				return []byte("[]"), nil
 			}
 			return []byte("Id=nas-revival-backup@pull.service\nActiveState=active\n"), nil
 		}}
