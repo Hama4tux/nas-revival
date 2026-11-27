@@ -24,6 +24,13 @@ export const cs = {
     account: 'Můj účet',
     readOnly: 'Jste přihlášeni účtem jen pro čtení: vidíte stav a nastavení, ale nic nezměníte.',
   },
+  notify: {
+    title: 'Upozornění', open: (n: number) => (n ? `Upozornění, nepřečtených: ${n}` : 'Upozornění'),
+    empty: 'Zatím žádná upozornění.', markAll: 'Označit vše jako přečtené', markRead: 'Označit jako přečtené',
+    active: 'Trvá', resolved: (at: string) => `Vyřešeno ${at}`, since: (at: string) => `od ${at}`,
+    repeated: (n: number) => `objevilo se ${n}×`, unread: 'nepřečtené',
+    error: 'Upozornění se nepodařilo načíst.',
+  },
   roles: { admin: 'Administrátor', viewer: 'Jen pro čtení', user: 'Uživatel' } as Record<string, string>,
   roleHints: {
     admin: 'Spravuje celý NAS včetně uživatelů, sítě a restartu.',

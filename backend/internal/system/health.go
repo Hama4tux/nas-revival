@@ -59,6 +59,9 @@ type Health struct {
 	// (cached for minutes); null when there is no SMART report.
 	SmartCheckedAt *time.Time `json:"smartCheckedAt"`
 	Problems       []Problem  `json:"problems"`
+	// StandbyDisks had no fresh SMART data (drive asleep); their SMART
+	// problems are unknown rather than gone (notification centre).
+	StandbyDisks []string `json:"-"`
 }
 
 // Evaluate derives health from a snapshot, the SMART summary (may be nil) and
@@ -101,6 +104,7 @@ func Evaluate(o Overview, rep *smart.Report, th hardware.Thresholds, at time.Tim
 		h.SmartCheckedAt = &t
 		for _, d := range rep.Disks {
 			if d.Standby {
+				h.StandbyDisks = append(h.StandbyDisks, d.Name)
 				continue
 			}
 			if d.Health == "failed" {

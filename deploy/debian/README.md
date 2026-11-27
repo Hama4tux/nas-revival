@@ -271,3 +271,7 @@ stick) are never mounted. exFAT and NTFS need the kernel options `CONFIG_EXFAT_F
 Config export/import (W4.4, ADR 0011) needs nothing extra. After deploying, run `scripts/webui/e2e-config.sh`: it
 exports, previews and imports the own export (no change), checks that foreign files are refused, imports an extra NTP
 server and then the original export again (two `import` versions stay in the config history).
+
+Notification centre (W4.5, ADR 0012) needs nothing extra: the web service creates
+`/var/lib/nas-revival/notifications.json` (0600) when the first health problem appears. Check after deploying with
+`journalctl -u nas-revival | grep notification` and the bell in the header.

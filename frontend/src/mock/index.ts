@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings } from '../api/types';
+import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem } from '../api/types';
 import { ApiError } from '../api/client';
 import { setUploadImpl } from '../lib/upload';
 
@@ -332,6 +332,21 @@ const wave = (period: number, amp: number, base: number) =>
   base + amp * Math.sin((Date.now() - start) / 1000 / period);
 
 const ago = (s: number) => new Date(start - s * 1000).toISOString();
+
+// W4.5: same problems as the mock health panel, plus two resolved ones.
+const mockNotices: Omit<NotificationItem, 'read'>[] = [
+  { id: 'n1', severity: 'crit', code: 'backupFailed', subject: 'Fotky z notebooku', firstAt: ago(900), updatedAt: ago(900), resolvedAt: null, count: 1 },
+  { id: 'n2', severity: 'crit', code: 'serviceFailed', subject: 'Tlačítko COPY', firstAt: ago(3600), updatedAt: ago(3600), resolvedAt: null, count: 2 },
+  { id: 'n3', severity: 'warn', code: 'fsWarn', subject: '/media/usb', firstAt: ago(7200), updatedAt: ago(7200), resolvedAt: null, count: 1 },
+  { id: 'n4', severity: 'warn', code: 'diskTempWarn', subject: 'sda', firstAt: ago(90000), updatedAt: ago(90000), resolvedAt: ago(88000), count: 1 },
+  { id: 'n5', severity: 'crit', code: 'backupFailed', subject: 'Web server', firstAt: ago(200000), updatedAt: ago(200000), resolvedAt: ago(110000), count: 1 },
+];
+const noticesRead = new Map<string, Set<string>>();
+function notices() {
+  const read = noticesRead.get(sessionUser) ?? new Set(['n4', 'n5']);
+  const items = mockNotices.map((n) => ({ ...n, read: read.has(n.id) }));
+  return { items, unread: items.filter((i) => !i.read).length, active: items.filter((i) => !i.resolvedAt).length };
+}
 
 function overview(): Overview {
   const t = (Date.now() - start) / 1000;
@@ -1266,6 +1281,14 @@ export function installMock(): void {
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = filesRoute(path, method, url.search, body);
       if (r) return r;
+    }
+    if (path.startsWith('/notifications') && sessionRole() !== 'user') {
+      if (method === 'GET') return json(200, notices());
+      const b = JSON.parse(String(init?.body ?? '{}')) as { ids?: string[]; all?: boolean };
+      const read = new Set(notices().items.filter((i) => i.read).map((i) => i.id));
+      for (const n of mockNotices) if (b.all || b.ids?.includes(n.id)) read.add(n.id);
+      noticesRead.set(sessionUser, read);
+      return new Response(null, { status: 204 });
     }
     // Same policy as the backend: viewers read, standard users only their session and files.
     if (sessionRole() === 'user' || (sessionRole() === 'viewer' && method !== 'GET')) {

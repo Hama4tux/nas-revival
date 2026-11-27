@@ -38,6 +38,7 @@ import (
 	"nas-revival/backend/internal/monitor"
 	"nas-revival/backend/internal/netinfo"
 	"nas-revival/backend/internal/nfs"
+	"nas-revival/backend/internal/notify"
 	"nas-revival/backend/internal/procs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smart"
@@ -130,10 +131,13 @@ func serve(args []string) error {
 	hc := &helper.Client{Socket: *helperSock}
 	// HW-01/HW-04: journal events on threshold changes, red LED blinks while critical.
 	watcher := &hardware.Watcher{SetFault: hc.LEDFault, Settings: hwSettings.Get}
+	// W4.5: health problems become lasting notifications.
+	notices := notify.Open(filepath.Join(*stateDir, "notifications.json"), time.Now)
 	snapshots := system.NewSnapshots(func(ctx context.Context) (system.Overview, error) {
 		o, err := collector.Collect(ctx)
 		if err == nil {
 			watcher.Update(ctx, o.Health.Status == system.HealthCrit, temperatureProblems(o.Health))
+			notices.Update(notifyProblems(o.Health))
 		}
 		return o, err
 	})
@@ -177,6 +181,7 @@ func serve(args []string) error {
 	srv.Tasks = hc
 	srv.Backup = hc
 	srv.Files = hc
+	srv.Notifications = notices
 	srv.Usb = hc
 	srv.NetInfo = netinfo.Reader{Root: "/", Run: netinfo.Runner(helper.ExecRunner), Now: time.Now}
 	srv.NetAdmin = hc

@@ -105,9 +105,11 @@ type Server struct {
 	// Usb serves /storage/usb (W4.2); nil answers 503.
 	Usb UsbAdmin
 	// Files serves /files (File Station); nil answers 503.
-	Files       FileStation
-	uploads     atomic.Int32
-	powerTokens confirmTokens
+	Files FileStation
+	// Notifications serves /notifications (W4.5); nil answers 503.
+	Notifications NotificationCenter
+	uploads       atomic.Int32
+	powerTokens   confirmTokens
 	// UI serves the static frontend for every non-API path.
 	UI http.Handler
 }
@@ -138,6 +140,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerNetwork(api)
 	s.registerMonitor(api)
 	s.registerHardware(api)
+	s.registerNotifications(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})

@@ -49,6 +49,12 @@ export type ProblemCode =
   | 'backupFailed' | 'backupStale' | 'tempWarn' | 'tempCrit' | 'diskTempWarn' | 'diskTempCrit'
   | 'diskLoadCycles' | 'diskStartStop';
 export interface HealthProblem { severity: 'warn' | 'crit'; code: ProblemCode; subject?: string }
+/** One entry of the notification centre (W4.5): a health problem that appeared. */
+export interface NotificationItem {
+  id: string; severity: 'warn' | 'crit'; code: ProblemCode; subject?: string;
+  firstAt: string; updatedAt: string; resolvedAt: string | null; count: number; read: boolean;
+}
+export interface NotificationList { items: NotificationItem[]; unread: number; active: number }
 /** Evaluated on the NAS by the shared collector (MON-01). */
 export interface SystemHealth {
   status: HealthStatus; checkedAt: string; smartCheckedAt: string | null; problems: HealthProblem[];

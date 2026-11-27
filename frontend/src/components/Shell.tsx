@@ -4,12 +4,13 @@ import { cs } from '../i18n/cs';
 import { useTheme } from '../hooks/useTheme';
 import { cn } from '../lib/utils';
 import { Launcher } from './Launcher';
+import { NotificationBell, useNotifications } from './NotificationBell';
 import { NasArt } from './NasArt';
 import { PowerMenu } from './SystemPower';
 import { appsFor } from './nav';
 import type { Route } from '../hooks/useRoute';
 import type { Role, SystemPowerAction } from '../api/types';
-import { canWrite } from '../lib/roles';
+import { canRead, canWrite } from '../lib/roles';
 
 export interface HostSummary { hostname: string; boardModel: string; os: string }
 
@@ -125,6 +126,8 @@ export function Shell({ host, username, role, onLogout, loggingOut, onPowerStart
   const close = () => { setMenu(false); menuBtn.current?.focus(); };
   const main = useRef<HTMLElement>(null);
   const first = useRef(true);
+  // One poll for both header copies (phone bar and desktop title row).
+  const notices = useNotifications(canRead(role));
 
   // Move focus to the content after navigating (not on first load); close the launcher.
   useEffect(() => {
@@ -139,6 +142,7 @@ export function Shell({ host, username, role, onLogout, loggingOut, onPowerStart
       <button type="button" className={iconBtn} onClick={toggle} aria-label={theme === 'dark' ? cs.theme.toLight : cs.theme.toDark}>
         {theme === 'dark' ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
       </button>
+      {canRead(role) && <NotificationBell n={notices} />}
       {canWrite(role) && <PowerMenu onStarted={onPowerStarted} />}
       <UserMenu username={username} role={role} onLogout={onLogout} loggingOut={loggingOut} />
     </>
