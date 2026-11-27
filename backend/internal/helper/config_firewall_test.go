@@ -143,6 +143,11 @@ func TestRollbackFirewallLockoutWritesNothing(t *testing.T) {
 
 func TestArchiveFirewallPartIsStrict(t *testing.T) {
 	good, _ := firewall.Encode(fwSettings())
+	arc, _ := json.Marshal(ConfigArchive{Format: ArchiveFormat, Schema: ArchiveSchema,
+		Files: []ArchiveFile{{ID: FileFirewall, Present: true, Content: string(good)}}})
+	if _, in, err := parseArchive(arc); err != nil || len(in) != 1 || in[0].ID != FileFirewall {
+		t.Fatalf("archive with a firewall part: %+v %v", in, err)
+	}
 	out, present, err := canonical(FileFirewall, good)
 	again, _, err2 := canonical(FileFirewall, out)
 	if err != nil || err2 != nil || !present || !strings.Contains(string(out), `"192.0.2.0/24"`) || string(again) != string(out) {

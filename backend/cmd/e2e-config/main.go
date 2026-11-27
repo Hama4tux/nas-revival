@@ -54,7 +54,7 @@ func main() {
 	ctx := helper.WithUser(context.Background(), "w44-e2e")
 	hc := &helper.Client{Socket: "/run/nas-revival-helper/helper.sock"}
 	a, err := hc.ConfigExport(ctx)
-	check(err == nil && a.Format == helper.ArchiveFormat && a.Schema == helper.ArchiveSchema && len(a.Files) == 7,
+	check(err == nil && a.Format == helper.ArchiveFormat && a.Schema == helper.ArchiveSchema && len(a.Files) == 8,
 		"export: %d files, host %q, err %v", len(a.Files), a.Hostname, err)
 	if err != nil {
 		os.Exit(1)

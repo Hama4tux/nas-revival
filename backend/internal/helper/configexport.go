@@ -162,7 +162,7 @@ func parseArchive(raw []byte) (ConfigArchive, []config.Incoming, error) {
 // archiveLabels names the managed files in import errors.
 var archiveLabels = map[string]string{
 	FileNetwork: "Síť", FileTime: "Čas (NTP)", FileDiskPower: "Napájení disků", FileShares: "Sdílené složky",
-	FileSmb: "SMB", FileNfs: "NFS", FileSsh: "SSH",
+	FileSmb: "SMB", FileNfs: "NFS", FileSsh: "SSH", FileFirewall: "Firewall",
 }
 
 // canonical validates one incoming file and renders it again, so an import
