@@ -64,7 +64,7 @@ restore of files) · W4.4 Config export/import ✅ 2026-11-27 (deployed, e2e on 
 
 ## W5 – Hardening (M5)
 
-W5.1 Security Center (sessions, forced logout, advisor findings) · W5.2 Firewall with rollback ·
+W5.1 Security Center (phase 1 ✅ 2026-11-27, ADR 0013: session list with forced logout, sessions survive restarts, advisor with SSH/SMB/NFS/certificate/account/login checks and fix links; open: security updates and unexpected ports in the advisor) · W5.2 Firewall with rollback ·
 W5.3 Log Center (journal query, categories, audit view, retention) · W5.4 Update Manager (Debian,
 NAS Revival self-update, kernel slot update) · W5.5 English translation.
 

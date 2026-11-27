@@ -1252,6 +1252,11 @@ function mockUpload(url: string, file: Blob, onProgress: (n: number) => void, si
   });
 }
 
+const mockSessions = [
+  { id: 'm1', username: 'admin', client: '192.168.1.20', agent: 'Mozilla/5.0 (X11; Linux x86_64) Firefox/140.0' },
+  { id: 'm2', username: 'jana', client: '192.168.1.35', agent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Safari/605.1' },
+];
+
 export function installMock(): void {
   setUploadImpl(mockUpload);
   const real = window.fetch.bind(window);
@@ -1302,6 +1307,35 @@ export function installMock(): void {
       const read = new Set(notices().items.filter((i) => i.read).map((i) => i.id));
       for (const n of mockNotices) if (b.all || b.ids?.includes(n.id)) read.add(n.id);
       noticesRead.set(sessionUser, read);
+      return new Response(null, { status: 204 });
+    }
+    // Security Center (W5.1): advisor for readers, sessions for administrators.
+    if (path === '/security/advisor' && sessionRole() !== 'user') {
+      return json(200, { checkedAt: new Date().toISOString(), findings: [
+        { id: 'accounts.recoveryOnly', status: 'info', params: { admins: '1' }, fix: '#/users' },
+        { id: 'smb.protocol', status: 'info', params: { min: 'SMB2_10' }, fix: '#/services' },
+        { id: 'tls.selfSigned', status: 'info', fix: '#/system' },
+        { id: 'login.blocked', status: 'ok' },
+        { id: 'nfs.publicClient', status: 'ok', fix: '#/services' },
+        { id: 'ssh.passwordAuth', status: 'ok', fix: '#/services' },
+        { id: 'ssh.rootPassword', status: 'ok', fix: '#/services' },
+        { id: 'tls.expiry', status: 'ok', params: { notAfter: '2028-11-25T00:00:00Z' }, fix: '#/system' },
+      ] });
+    }
+    if (path.startsWith('/security/sessions') && sessionRole() === 'admin') {
+      if (method === 'GET') {
+        return json(200, { idleTimeoutSeconds: 1800, absoluteTimeoutSeconds: 43200, sessions: mockSessions.map((s, i) => ({
+          ...s, current: i === 0, createdAt: new Date(Date.now() - (i + 1) * 3600e3).toISOString(),
+          lastSeenAt: new Date(Date.now() - i * 300e3).toISOString(), expiresAt: new Date(Date.now() + 1800e3).toISOString() })) });
+      }
+      if (path === '/security/sessions/revoke-others') {
+        const n = mockSessions.length - 1;
+        mockSessions.splice(1);
+        return json(200, { revoked: n });
+      }
+      const i = mockSessions.findIndex((s) => path === `/security/sessions/${s.id}`);
+      if (i < 0) return err(404, 'not_found', 'Relace už neexistuje.');
+      mockSessions.splice(i, 1);
       return new Response(null, { status: 204 });
     }
     // Same policy as the backend: viewers read, standard users only their session and files.

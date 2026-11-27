@@ -172,10 +172,10 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 
 | ID | Module | Feature | P | State | HW | SW deps | Res | Security risk | Acceptance criteria | Deps |
 |---|---|---|---|---|---|---|---|---|---|---|
-| SEC-10 | Security | Session list, forced logout | P1 | Not started | — | — | L | — | revoked session gets 401 immediately | SEC-02 |
+| SEC-10 | Security | Session list, forced logout | P1 | Implemented 2026-11-27 (W5.1, ADR 0013; sessions persist across restarts) | — | — | L | — | revoked session gets 401 immediately | SEC-02 |
 | SEC-11 | Security | TOTP | P3 | Not started | — | — | L | — | RFC 6238 | SEC-02 |
 | SEC-12 | Firewall | nftables rules: allowed networks per service, anti-lockout, confirm-or-rollback | P1 | Not started | — | nftables (installed) | L | admin lockout | current client net always allowed; rollback after 180 s | PRIV-01 |
-| SEC-13 | Security Advisor | Checks: SMB1, FTP, root SSH, open shares, cert expiry, security updates, unusual ports | P1 | Not started | — | — | L | — | each finding has fix link | SMB-01, UPD-01 |
+| SEC-13 | Security Advisor | Checks: SMB1, FTP, root SSH, open shares, cert expiry, security updates, unusual ports | P1 | Phase 1 2026-11-27 (W5.1: SSH, SMB, NFS, cert, accounts, blocked logins; updates and ports open) | — | — | L | — | each finding has fix link | SMB-01, UPD-01 |
 | LOG-01 | Log center | journald query by category/severity/time/text, export | P1 | Not started | — | journalctl -o json (fixed args) | M | log injection, secrets | max 1 000 lines per request | — |
 | LOG-02 | Log center | Retention and size limits (journald SystemMaxUse) | P1 | Not started | — | journald | L | disk fill | journal ≤ 64 MiB | CFG-02 |
 | LOG-10 | Audit | Audit log: who, when, object, change, result | P0 | Planned | — | journald structured fields | L | tampering | every helper op produces one audit record | PRIV-01 |

@@ -463,3 +463,13 @@ export interface UsbDisk { id: string; name: string; model: string; vendor: stri
 export interface UsbList { disks: UsbDisk[] }
 /** GET/PUT /storage/usb/copy: destination of the COPY button (share = "" means not set). */
 export interface UsbCopy { share: string; folder: string; dest: string }
+
+/* Security Center (W5.1) */
+export type FindingStatus = 'crit' | 'warn' | 'info' | 'ok' | 'unknown';
+export interface SecurityFinding { id: string; status: FindingStatus; params?: Record<string, string>; fix?: string }
+export interface SecurityAdvisor { checkedAt: string; findings: SecurityFinding[] }
+export interface WebSession {
+  id: string; username: string; client: string; agent: string;
+  createdAt: string; lastSeenAt: string; expiresAt: string; current: boolean;
+}
+export interface WebSessions { sessions: WebSession[]; idleTimeoutSeconds: number; absoluteTimeoutSeconds: number }

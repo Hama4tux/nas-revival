@@ -6,6 +6,7 @@ import { formatBytes, formatUptime } from '../lib/format';
 import { cs } from '../i18n/cs';
 import { ConfigHistoryWidget } from './ConfigHistory';
 import { HardwarePanel } from './HardwarePanel';
+import { SecurityPanel } from './SecurityPanel';
 import { validateNtp } from '../lib/netvalidate';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -319,16 +320,17 @@ function CertWidget() {
   );
 }
 
-type Tab = 'system' | 'hardware';
-const TABS: Tab[] = ['system', 'hardware'];
+type Tab = 'system' | 'hardware' | 'security';
+const TABS: Tab[] = ['system', 'hardware', 'security'];
 
-/** Control panel: system settings and the hardware tab (W3.4); only the shown tab polls. */
+/** Control panel: system settings, the hardware tab (W3.4) and the Security Center (W5.1); only the shown tab polls. */
 export function SystemPage({ readOnly }: { readOnly: boolean }) {
   const [tab, setTab] = useState<Tab>('system');
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   function onKey(e: React.KeyboardEvent) {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    const n = tab === 'system' ? 'hardware' : 'system';
+    const i = TABS.indexOf(tab) + (e.key === 'ArrowRight' ? 1 : TABS.length - 1);
+    const n = TABS[i % TABS.length] ?? tab;
     setTab(n);
     refs.current[n]?.focus();
   }
@@ -352,7 +354,7 @@ export function SystemPage({ readOnly }: { readOnly: boolean }) {
             <CertWidget />
             <ConfigHistoryWidget className="lg:col-span-5" readOnly={readOnly} />
           </div>
-        ) : <HardwarePanel readOnly={readOnly} />}
+        ) : tab === 'hardware' ? <HardwarePanel readOnly={readOnly} /> : <SecurityPanel readOnly={readOnly} />}
       </div>
     </div>
   );

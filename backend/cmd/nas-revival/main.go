@@ -152,10 +152,18 @@ func serve(args []string) error {
 	trackerDone := make(chan struct{})
 	go func() { dhs.tracker.Run(ctx); close(trackerDone) }()
 
+	// Sessions survive a restart of the service (each deployment); the file
+	// holds only token hashes.
+	sessions, err := auth.OpenSessions(filepath.Join(*stateDir, "sessions.json"), time.Now)
+	if err != nil {
+		slog.Warn("saved sessions not loaded; everybody logs in again", "err", err)
+	}
+	sessions.OnSaveError = func(err error) { slog.Warn("sessions not saved", "err", err) }
+
 	srv := &api.Server{
 		Verifier: verifier,
 		Roles:    dir,
-		Sessions: auth.NewSessions(),
+		Sessions: sessions,
 		Limiter:  auth.NewLimiter(),
 		Overview: snapshots,
 		Smart:    smartSvc,
@@ -184,6 +192,7 @@ func serve(args []string) error {
 	srv.Backup = hc
 	srv.Files = hc
 	srv.Notifications = notices
+	srv.RecoveryAdmin = func() bool { return dir.Admin != nil }
 	srv.Usb = hc
 	srv.NetInfo = netinfo.Reader{Root: "/", Run: netinfo.Runner(helper.ExecRunner), Now: time.Now}
 	srv.NetAdmin = hc
@@ -218,6 +227,9 @@ func serve(args []string) error {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	err = hs.Shutdown(shutdownCtx)
+	if serr := sessions.Save(); serr != nil {
+		slog.Warn("sessions not saved on exit", "err", serr)
+	}
 	<-trackerDone // the history saves what is pending on exit
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return err

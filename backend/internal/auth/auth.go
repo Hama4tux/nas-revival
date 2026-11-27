@@ -5,7 +5,6 @@ package auth
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"encoding/json"
@@ -193,120 +192,6 @@ func (v *Verifier) Verify(username, password string) error {
 	return ErrInvalidCredentials
 }
 
-// Session lifetimes.
-const (
-	IdleTimeout     = 30 * time.Minute
-	AbsoluteTimeout = 12 * time.Hour
-	maxSessions     = 32
-)
-
-type session struct {
-	username string
-	created  time.Time
-	lastSeen time.Time
-}
-
-// Sessions stores only a SHA-256 of each token, so a memory dump of the map
-// does not yield usable cookies.
-type Sessions struct {
-	Now func() time.Time
-	mu  sync.Mutex
-	m   map[[32]byte]*session
-}
-
-func NewSessions() *Sessions {
-	return &Sessions{Now: time.Now, m: map[[32]byte]*session{}}
-}
-
-func (s *Sessions) Create(username string) (string, error) {
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
-		return "", err
-	}
-	token := base64.RawURLEncoding.EncodeToString(raw)
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	now := s.Now()
-	s.expireLocked(now)
-	if len(s.m) >= maxSessions {
-		s.evictOldestLocked()
-	}
-	s.m[sha256.Sum256([]byte(token))] = &session{username: username, created: now, lastSeen: now}
-	return token, nil
-}
-
-// Lookup validates a token, refreshes its idle timer and returns the user and
-// the time the session will expire if left idle.
-func (s *Sessions) Lookup(token string) (string, time.Time, bool) {
-	if token == "" {
-		return "", time.Time{}, false
-	}
-	key := sha256.Sum256([]byte(token))
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	now := s.Now()
-	sess, ok := s.m[key]
-	if !ok {
-		return "", time.Time{}, false
-	}
-	if s.expired(sess, now) {
-		delete(s.m, key)
-		return "", time.Time{}, false
-	}
-	sess.lastSeen = now
-	return sess.username, s.expiry(sess), true
-}
-
-func (s *Sessions) Delete(token string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.m, sha256.Sum256([]byte(token)))
-}
-
-// DeleteUser ends every session of username (password change, disable,
-// delete – ADR 0004).
-func (s *Sessions) DeleteUser(username string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for k, v := range s.m {
-		if v.username == username {
-			delete(s.m, k)
-		}
-	}
-}
-
-func (s *Sessions) expired(sess *session, now time.Time) bool {
-	return now.Sub(sess.lastSeen) >= IdleTimeout || now.Sub(sess.created) >= AbsoluteTimeout
-}
-
-func (s *Sessions) expiry(sess *session) time.Time {
-	idle := sess.lastSeen.Add(IdleTimeout)
-	abs := sess.created.Add(AbsoluteTimeout)
-	if abs.Before(idle) {
-		return abs
-	}
-	return idle
-}
-
-func (s *Sessions) expireLocked(now time.Time) {
-	for k, v := range s.m {
-		if s.expired(v, now) {
-			delete(s.m, k)
-		}
-	}
-}
-
-func (s *Sessions) evictOldestLocked() {
-	var oldestKey [32]byte
-	var oldest *session
-	for k, v := range s.m {
-		if oldest == nil || v.lastSeen.Before(oldest.lastSeen) {
-			oldestKey, oldest = k, v
-		}
-	}
-	delete(s.m, oldestKey)
-}
-
 // Limiter blocks a client after too many failed logins within a window.
 type Limiter struct {
 	Max    int
@@ -330,6 +215,20 @@ func (l *Limiter) Blocked(client string) (time.Duration, bool) {
 		return 0, false
 	}
 	return f[0].Add(l.Window).Sub(now), true
+}
+
+// BlockedCount is the number of clients blocked right now.
+func (l *Limiter) BlockedCount() int {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	now := l.Now()
+	n := 0
+	for k := range l.fails {
+		if len(l.pruneLocked(k, now)) >= l.Max {
+			n++
+		}
+	}
+	return n
 }
 
 func (l *Limiter) Fail(client string) {

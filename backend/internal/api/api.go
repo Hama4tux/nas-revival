@@ -108,6 +108,8 @@ type Server struct {
 	Files FileStation
 	// Notifications serves /notifications (W4.5); nil answers 503.
 	Notifications NotificationCenter
+	// RecoveryAdmin reports whether admin.json exists (Security Advisor).
+	RecoveryAdmin func() bool
 	uploads       atomic.Int32
 	powerTokens   confirmTokens
 	// UI serves the static frontend for every non-API path.
@@ -141,6 +143,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerMonitor(api)
 	s.registerHardware(api)
 	s.registerNotifications(api)
+	s.registerSecurity(api)
 	api.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "Neznámý požadavek.")
 	})
@@ -298,7 +301,7 @@ func (s *Server) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.Limiter.Reset(ip)
-	token, err := s.Sessions.Create(body.Username)
+	token, err := s.Sessions.Create(body.Username, auth.Meta{Client: ip, Agent: r.UserAgent()})
 	if err != nil {
 		slog.Error("session create failed", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal", "Interní chyba.")

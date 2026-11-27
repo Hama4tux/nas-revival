@@ -102,7 +102,7 @@ func TestUserCreateValidatesBeforeHelper(t *testing.T) {
 func TestPasswordChangeEndsSessionsOfThatUser(t *testing.T) {
 	f := &fakeUsers{}
 	s, h, c := newUsersServer(t, f)
-	jana, _ := s.Sessions.Create("jana")
+	jana, _ := s.Sessions.Create("jana", auth.Meta{})
 	if rec := do(h, "PUT", "/api/v1/users/jana/password", `{`+goodPassword+`}`, xrw, c); rec.Code != 200 {
 		t.Fatalf("password = %d %s", rec.Code, rec.Body)
 	}
@@ -112,7 +112,7 @@ func TestPasswordChangeEndsSessionsOfThatUser(t *testing.T) {
 	if _, _, ok := s.Sessions.Lookup(c.Value); !ok {
 		t.Error("admin session ended")
 	}
-	jana, _ = s.Sessions.Create("jana")
+	jana, _ = s.Sessions.Create("jana", auth.Meta{})
 	if rec := do(h, "PUT", "/api/v1/users/jana/disabled", `{"disabled":true}`, xrw, c); rec.Code != 200 {
 		t.Fatalf("disable = %d", rec.Code)
 	}
