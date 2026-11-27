@@ -184,6 +184,29 @@ export function nextRunLabel(iso: string | null, now = Date.now()): string {
   return formatWhen(iso);
 }
 
+const dayStart = (ms: number) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+/** Compact time for list columns: "dnes 05:00", "zítra 05:00", "včera 05:00", otherwise "24. 11. 05:00". */
+export function shortWhen(iso: string | null | undefined, now = Date.now()): string {
+  const d = iso ? new Date(iso) : null;
+  if (!d || Number.isNaN(d.getTime())) return cs.tasks.fmt.dash;
+  const time = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  const days = Math.round((dayStart(d.getTime()) - dayStart(now)) / 86_400_000);
+  const rel = cs.tasks.fmt.relDay[String(days)];
+  return rel ? `${rel} ${time}` : `${d.getDate()}. ${d.getMonth() + 1}. ${time}`;
+}
+
+/** Compact next run: "za 5 min", "za 7 h", otherwise shortWhen. */
+export function nextRunShort(iso: string | null, now = Date.now()): string {
+  if (!iso) return cs.tasks.fmt.dash;
+  const min = Math.round((new Date(iso).getTime() - now) / 60000);
+  if (!Number.isFinite(min)) return cs.tasks.fmt.dash;
+  if (min < 1) return cs.tasks.fmt.soon;
+  if (min < 60) return cs.tasks.fmt.inMinShort(min);
+  if (min < 12 * 60) return cs.tasks.fmt.inHoursShort(Math.round(min / 60));
+  return shortWhen(iso, now);
+}
+
 export const resultVariant = { ok: 'success', failed: 'danger', skipped: 'warning', stopped: 'neutral' } as const;
 
 /** Polling interval: fast while any task runs. */
@@ -202,8 +225,13 @@ export function taskTone(t: Pick<Task, 'enabled' | 'running' | 'lastRun'>): 'suc
 export const isTaskProblem = (t: Pick<Task, 'enabled' | 'running' | 'lastRun'>) =>
   t.enabled && !t.running && t.lastRun?.result === 'failed';
 
-/** What the task does, one line: "Test disku (SMART), dlouhý test", "Stažení zálohy ze serveru: backup@pve → zalohy/daily-backup". */
+/** What the task does, one line (empty when it only repeats the name): "Test disku (SMART), dlouhý test", "Stažení zálohy ze serveru: backup@pve → zalohy/daily-backup". */
 export function taskSummary(t: TaskDef): string {
+  const own = taskSummaryRaw(t);
+  return own === t.name.trim() ? '' : own;
+}
+
+function taskSummaryRaw(t: TaskDef): string {
   const type = cs.tasks.types[t.type] ?? t.type;
   if (t.type === 'smart' && t.smart) return `${type}, ${cs.tasks.testShort[t.smart.test]} test`;
   if (t.type === 'backup-pull' && t.backup) {

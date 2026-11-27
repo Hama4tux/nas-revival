@@ -811,6 +811,8 @@ export const cs = {
       hourMin: (h: number, m: number) => (m ? `${h} h ${m} min` : `${h} h`),
       inMin: (n: number, when: string) => `za ${n} min · ${when}`,
       inHours: (n: number, when: string) => `za ${n} h · ${when}`,
+      inMinShort: (n: number) => `za ${n} min`, inHoursShort: (n: number) => `za ${n} h`,
+      relDay: { '-1': 'včera', 0: 'dnes', 1: 'zítra' } as Record<string, string>,
     },
     v: {
       name: 'Zadejte název úlohy.', nameLong: (n: number) => `Název může mít nejvýše ${n} znaků.`,
@@ -849,7 +851,7 @@ export const cs = {
     tests: { short: 'Krátký test (do několika minut)', long: 'Dlouhý test (až několik hodin)' } as Record<string, string>,
     testShort: { short: 'krátký', long: 'dlouhý' } as Record<string, string>,
     kinds: { daily: 'Každý den', weekly: 'Vybrané dny v týdnu', monthly: 'Jednou za měsíc' } as Record<string, string>,
-    enabled: 'Zapnuto', disabledBadge: 'Vypnuto', enable: 'Zapnout', disable: 'Vypnout', schedule: 'Kdy',
+    enabled: 'Zapnuto', disabledBadge: 'Vypnuto', enable: 'Zapnout', disable: 'Vypnout', schedule: 'Kdy', colTask: 'Úloha', colSchedule: 'Rozvrh', colLast: 'Poslední běh', nextShort: (s: string) => `další ${s}`,
     actionsOf: (n: string) => `Akce úlohy ${n}`, detailsOf: (n: string) => `Podrobnosti úlohy ${n}`,
     next: 'Další spuštění', never: 'nikdy', last: 'Naposledy', noRun: 'Zatím neběžela', noRunBadge: 'Neběžela', off: 'vypnuto',
     running: 'Běží', result: { ok: 'Hotovo', failed: 'Selhalo', skipped: 'Přeskočeno', stopped: 'Zastaveno' } as Record<string, string>,

@@ -6,7 +6,7 @@ import { formatBytes } from '../lib/format';
 import { useVisiblePoll } from '../hooks/useVisiblePoll';
 import { cs } from '../i18n/cs';
 import {
-  MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, isPowerTask, isTaskProblem, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
+  MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, isPowerTask, isTaskProblem, listError, newTask, nextRunLabel, nextRunShort, shortWhen, normalizeTask, pollInterval,
   resultVariant, scheduleLabel, sortDays, taskSummary, taskTone, validateTask, weekdayShort,
 } from '../lib/tasks';
 import { BackupTaskFields } from './BackupTaskFields';
@@ -202,13 +202,23 @@ function HistoryDialog({ task, onClose }: { task: Task; onClose: () => void }) {
 }
 
 const DOT = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-muted-foreground/50' } as const;
+const TEXT = { success: 'text-success', warning: 'text-warning', danger: 'text-danger', neutral: 'text-muted-foreground' } as const;
+/** Columns shared by the header and every row, so schedule and status line up. */
+const COLS = 'grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 md:grid-cols-[minmax(0,1fr)_11rem_9rem]';
 
-function StatusBadge({ task }: { task: Task }) {
-  if (task.running) {
-    return <Badge variant="warning" className="shrink-0"><Loader2 className="h-3 w-3 animate-spin" aria-hidden />{t.running}</Badge>;
-  }
-  if (!task.enabled) return <Badge className="shrink-0">{t.disabledBadge}</Badge>;
-  return task.lastRun ? <RunBadge run={task.lastRun} /> : <Badge className="shrink-0">{t.noRunBadge}</Badge>;
+/** Last-run column: coloured dot and word, the time below. */
+function LastRun({ task }: { task: Task }) {
+  const tone = taskTone(task);
+  const word = task.running ? t.running : !task.enabled ? t.disabledBadge : task.lastRun ? t.result[task.lastRun.result] : t.noRunBadge;
+  return (
+    <span className="flex min-w-0 flex-col items-end md:items-start" aria-live="polite">
+      <span className={`flex items-center gap-1.5 text-sm font-medium ${TEXT[tone]}`}>
+        {task.running ? <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden /> : <span className={`h-2 w-2 rounded-full ${DOT[tone]}`} aria-hidden />}
+        {word}
+      </span>
+      {task.lastRun && !task.running && <span className="text-xs tabular-nums text-muted-foreground">{shortWhen(task.lastRun.start)}</span>}
+    </span>
+  );
 }
 
 function TaskRow({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHistory, onVersions, onRemove }: {
@@ -219,7 +229,8 @@ function TaskRow({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHist
   const n = task.name;
   const detailId = `task-detail-${task.id}`;
   const problem = isTaskProblem(task);
-  const when = task.enabled ? `${scheduleLabel(task.schedule)} · ${nextRunLabel(task.nextRun)}` : scheduleLabel(task.schedule);
+  const summary = taskSummary(task);
+  const next = task.enabled ? t.nextShort(nextRunShort(task.nextRun)) : t.off;
   const canRun = task.running || !isPowerTask(task.type);
   const items: RowMenuItem[] = readOnly
     ? [{ key: 'history', label: t.history, icon: <History className="h-4 w-4" aria-hidden />, onSelect: onHistory }]
@@ -235,23 +246,29 @@ function TaskRow({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHist
     ];
   return (
     <li className={problem ? 'bg-danger/5' : undefined}>
-      <div className="flex items-center gap-2 py-1.5 pr-1">
+      <div className="flex items-center gap-1 py-1 pr-1">
         <button type="button" aria-expanded={open} aria-controls={detailId} aria-label={t.detailsOf(n)}
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/60"
-          onClick={() => setOpen((v) => !v)}>
-          <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} aria-hidden />
-          <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[taskTone(task)]}`} aria-hidden />
-          <span className={`truncate font-medium ${task.enabled ? '' : 'text-muted-foreground'}`}>{n}</span>
-          <span className="hidden truncate text-xs text-muted-foreground sm:inline">{taskSummary(task)}</span>
-          <span className="ml-auto hidden shrink-0 pl-2 text-xs tabular-nums text-muted-foreground md:inline">{when}</span>
+          className={`${COLS} min-w-0 flex-1 rounded-md px-1 py-1.5 text-left hover:bg-muted/60`} onClick={() => setOpen((v) => !v)}>
+          <span className="flex min-w-0 items-start gap-2">
+            <ChevronRight className={`mt-0.5 h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} aria-hidden />
+            <span className="min-w-0">
+              <span className={`block truncate font-medium ${task.enabled ? '' : 'text-muted-foreground'}`}>{n}</span>
+              {summary && <span className="hidden truncate text-xs text-muted-foreground md:block">{summary}</span>}
+              <span className="block truncate text-xs text-muted-foreground md:hidden">{scheduleLabel(task.schedule)} · {next}</span>
+            </span>
+          </span>
+          <span className="hidden min-w-0 md:block">
+            <span className="block truncate text-sm">{scheduleLabel(task.schedule)}</span>
+            <span className="block truncate text-xs tabular-nums text-muted-foreground">{next}</span>
+          </span>
+          <LastRun task={task} />
         </button>
-        <span aria-live="polite" className="shrink-0"><StatusBadge task={task} /></span>
         <RowMenu label={t.actionsOf(n)} items={items} />
       </div>
-      {problem && !open && task.lastRun?.message && <p role="note" className="truncate pb-2 pl-12 text-sm text-danger">{task.lastRun.message}</p>}
+      {problem && !open && task.lastRun?.message && <p role="note" className="truncate pb-2 pl-8 text-sm text-danger">{task.lastRun.message}</p>}
       {open && (
-        <div id={detailId} className="space-y-2 pb-3 pl-12 pr-2 text-sm">
-          <p className="break-all text-muted-foreground">{taskSummary(task)}</p>
+        <div id={detailId} className="space-y-2 pb-3 pl-8 pr-2 text-sm">
+          {summary && <p className="break-all text-muted-foreground md:hidden">{summary}</p>}
           <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-3">
             <div className="min-w-0">
               <dt className="text-xs text-muted-foreground">{t.schedule}</dt>
@@ -353,13 +370,18 @@ export function TasksPage({ readOnly }: { readOnly: boolean }) {
         {failed && <p role="alert" className="mt-2 text-sm text-danger">{t.loadError}</p>}
         {msg && <p role={msg.ok ? 'status' : 'alert'} className={`mt-2 text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
         {tasks.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">{t.empty}</p> : (
-          <ul className="-mx-2 mt-3 divide-y divide-border">
+          <>
+          <div aria-hidden className={`${COLS} -mx-2 mt-3 border-b border-border py-1.5 pl-7 pr-11 text-xs font-medium text-muted-foreground`}>
+            <span>{t.colTask}</span><span className="hidden md:block">{t.colSchedule}</span><span className="text-right md:text-left">{t.colLast}</span>
+          </div>
+          <ul className="-mx-2 divide-y divide-border">
             {tasks.map((task) => (
               <TaskRow key={task.id} task={task} readOnly={readOnly} busy={busy}
                 onToggle={() => toggle(task)} onRun={() => action(task, 'run')} onStop={() => action(task, 'stop')}
                 onEdit={() => setEditing(normalizeTask(task))} onHistory={() => setHistory(task)} onVersions={() => setVersions(task)} onRemove={() => setRemoving(task)} />
             ))}
           </ul>
+          </>
         )}
         {readOnly ? <p role="note" className="mt-3 text-sm text-muted-foreground">{t.readOnly}</p>
           : tasks.length < MAX_TASKS && (

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { BackupParams, Task, TaskDef, TaskRun } from '../api/types';
-import { MAX_POWER_TASKS, authorizedLine, formatDuration, isPowerTask, isTaskProblem, taskSummary, taskTone, newBackup, listError, newTask, nextRunLabel, normalizeTask, pollInterval, scheduleLabel, taskOk, validateTask } from './tasks';
+import { MAX_POWER_TASKS, authorizedLine, formatDuration, isPowerTask, isTaskProblem, nextRunShort, shortWhen, taskSummary, taskTone, newBackup, listError, newTask, nextRunLabel, normalizeTask, pollInterval, scheduleLabel, taskOk, validateTask } from './tasks';
 
 const smart = (p: Partial<TaskDef> = {}): TaskDef => ({
   id: '', name: 'Test', type: 'smart', enabled: true, schedule: { kind: 'daily', time: '03:30' },
@@ -229,5 +229,24 @@ describe('compact row helpers', () => {
     expect(taskSummary({ ...smart(), type: 'backup-pull', smart: undefined, backup: b })).toBe('Stažení zálohy ze serveru: backup@pve → zalohy/daily-backup');
     expect(taskSummary({ ...smart(), type: 'backup-pull', smart: undefined, backup: { ...b, dest: { share: '', folder: '' } } })).toBe('Stažení zálohy ze serveru: backup@pve');
     expect(taskSummary({ ...smart(), type: 'reboot', smart: undefined })).toBe('Restart NASu');
+    expect(taskSummary({ ...smart(), name: 'Restart NASu', type: 'reboot', smart: undefined })).toBe('');
+  });
+});
+
+describe('compact times', () => {
+  const now = new Date(2026, 10, 27, 21, 0).getTime();
+  const at = (d: number, h: number, m = 0) => new Date(2026, 10, d, h, m).toISOString();
+  it('names yesterday, today and tomorrow, else the date', () => {
+    expect(shortWhen(at(27, 5), now)).toBe('dnes 05:00');
+    expect(shortWhen(at(28, 3, 30), now)).toBe('zítra 03:30');
+    expect(shortWhen(at(26, 5), now)).toBe('včera 05:00');
+    expect(shortWhen(at(24, 5), now)).toBe('24. 11. 05:00');
+    expect(shortWhen(null, now)).toBe('–');
+  });
+  it('gives the next run relative when close', () => {
+    expect(nextRunShort(at(27, 21, 5), now)).toBe('za 5 min');
+    expect(nextRunShort(at(28, 5), now)).toBe('za 8 h');
+    expect(nextRunShort(at(29, 5), now)).toBe('29. 11. 05:00');
+    expect(nextRunShort(null, now)).toBe('–');
   });
 });
