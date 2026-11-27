@@ -1,4 +1,4 @@
-import { CalendarClock, FolderClock, History, Loader2, Pencil, Play, Plus, RefreshCw, Square, Trash2 } from 'lucide-react';
+import { CalendarClock, ChevronRight, FolderClock, History, Loader2, Pencil, Play, Plus, Power, RefreshCw, Square, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { StorageDisk, StorageReport, Task, TaskDef, TaskHistory, TaskList, TaskRun, TaskWeekday } from '../api/types';
@@ -6,8 +6,8 @@ import { formatBytes } from '../lib/format';
 import { useVisiblePoll } from '../hooks/useVisiblePoll';
 import { cs } from '../i18n/cs';
 import {
-  MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, isPowerTask, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
-  resultVariant, scheduleLabel, sortDays, validateTask, weekdayShort,
+  MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, isPowerTask, isTaskProblem, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
+  resultVariant, scheduleLabel, sortDays, taskSummary, taskTone, validateTask, weekdayShort,
 } from '../lib/tasks';
 import { BackupTaskFields } from './BackupTaskFields';
 import { BackupVersions } from './BackupVersions';
@@ -17,6 +17,7 @@ import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
 import { Field, invalidCls } from './ui/field';
 import { Input } from './ui/input';
+import { RowMenu, type RowMenuItem } from './ui/row-menu';
 import { Skeleton } from './ui/skeleton';
 
 const t = cs.tasks;
@@ -37,7 +38,7 @@ function RunExtra({ run }: { run: TaskRun }) {
 }
 
 function RunBadge({ run }: { run: TaskRun }) {
-  return <Badge variant={resultVariant[run.result]}>{t.result[run.result]}</Badge>;
+  return <Badge variant={resultVariant[run.result]} className="shrink-0">{t.result[run.result]}</Badge>;
 }
 
 function EditorDialog({ initial, disks, onSave, onClose }: {
@@ -200,59 +201,82 @@ function HistoryDialog({ task, onClose }: { task: Task; onClose: () => void }) {
   );
 }
 
-function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHistory, onVersions, onRemove }: {
+const DOT = { success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-muted-foreground/50' } as const;
+
+function StatusBadge({ task }: { task: Task }) {
+  if (task.running) {
+    return <Badge variant="warning" className="shrink-0"><Loader2 className="h-3 w-3 animate-spin" aria-hidden />{t.running}</Badge>;
+  }
+  if (!task.enabled) return <Badge className="shrink-0">{t.disabledBadge}</Badge>;
+  return task.lastRun ? <RunBadge run={task.lastRun} /> : <Badge className="shrink-0">{t.noRunBadge}</Badge>;
+}
+
+function TaskRow({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHistory, onVersions, onRemove }: {
   task: Task; readOnly: boolean; busy: boolean;
   onToggle: () => void; onRun: () => void; onStop: () => void; onEdit: () => void; onHistory: () => void; onVersions: () => void; onRemove: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const n = task.name;
-  const sub = task.type === 'smart' && task.smart ? `${t.types.smart}, ${t.testShort[task.smart.test]} test`
-    : task.type === 'backup-pull' && task.backup ? `${t.types[task.type]}: ${task.backup.user}@${task.backup.host}${task.backup.dest?.share ? ` → ${task.backup.dest.share}${task.backup.dest.folder ? `/${task.backup.dest.folder}` : ''}` : ''}` : t.types[task.type];
+  const detailId = `task-detail-${task.id}`;
+  const problem = isTaskProblem(task);
+  const when = task.enabled ? `${scheduleLabel(task.schedule)} · ${nextRunLabel(task.nextRun)}` : scheduleLabel(task.schedule);
+  const canRun = task.running || !isPowerTask(task.type);
+  const items: RowMenuItem[] = readOnly
+    ? [{ key: 'history', label: t.history, icon: <History className="h-4 w-4" aria-hidden />, onSelect: onHistory }]
+    : [
+      ...(canRun ? [task.running
+        ? { key: 'stop', label: t.stop, icon: <Square className="h-4 w-4" aria-hidden />, disabled: busy, onSelect: onStop }
+        : { key: 'run', label: t.runNow, icon: <Play className="h-4 w-4" aria-hidden />, disabled: busy, onSelect: onRun }] : []),
+      { key: 'history', label: t.history, icon: <History className="h-4 w-4" aria-hidden />, onSelect: onHistory },
+      ...(task.type === 'backup-pull' ? [{ key: 'versions', label: t.versions, icon: <FolderClock className="h-4 w-4" aria-hidden />, onSelect: onVersions }] : []),
+      { key: 'edit', label: t.edit, icon: <Pencil className="h-4 w-4" aria-hidden />, disabled: busy, onSelect: onEdit },
+      { key: 'toggle', label: task.enabled ? t.disable : t.enable, icon: <Power className="h-4 w-4" aria-hidden />, disabled: busy, onSelect: onToggle },
+      { key: 'remove', label: t.remove, icon: <Trash2 className="h-4 w-4" aria-hidden />, danger: true, disabled: busy, onSelect: onRemove },
+    ];
   return (
-    <li className="space-y-3 rounded-lg border border-border p-3">
-      <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-        <div className="min-w-0 flex-1 basis-48">
-          <h3 className="break-words font-semibold">{n}</h3>
-          <p className="break-all text-sm text-muted-foreground">{sub}</p>
-          <p className="text-sm font-medium">{scheduleLabel(task.schedule)}</p>
-        </div>
-        <label className="flex h-10 items-center gap-2 text-sm">
-          <input type="checkbox" role="switch" className="h-4 w-4" checked={task.enabled} disabled={readOnly || busy}
-            aria-label={t.enabledAria(n)} onChange={onToggle} />
-          {task.enabled ? t.enabled : t.disabledBadge}
-        </label>
+    <li className={problem ? 'bg-danger/5' : undefined}>
+      <div className="flex items-center gap-2 py-1.5 pr-1">
+        <button type="button" aria-expanded={open} aria-controls={detailId} aria-label={t.detailsOf(n)}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/60"
+          onClick={() => setOpen((v) => !v)}>
+          <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''}`} aria-hidden />
+          <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[taskTone(task)]}`} aria-hidden />
+          <span className={`truncate font-medium ${task.enabled ? '' : 'text-muted-foreground'}`}>{n}</span>
+          <span className="hidden truncate text-xs text-muted-foreground sm:inline">{taskSummary(task)}</span>
+          <span className="ml-auto hidden shrink-0 pl-2 text-xs tabular-nums text-muted-foreground md:inline">{when}</span>
+        </button>
+        <span aria-live="polite" className="shrink-0"><StatusBadge task={task} /></span>
+        <RowMenu label={t.actionsOf(n)} items={items} />
       </div>
-      <dl className="grid gap-x-4 gap-y-2 text-sm sm:grid-cols-2">
-        <div className="min-w-0">
-          <dt className="text-xs text-muted-foreground">{t.next}</dt>
-          <dd className="break-words font-medium">{task.enabled ? nextRunLabel(task.nextRun) : t.off}</dd>
+      {problem && !open && task.lastRun?.message && <p role="note" className="truncate pb-2 pl-12 text-sm text-danger">{task.lastRun.message}</p>}
+      {open && (
+        <div id={detailId} className="space-y-2 pb-3 pl-12 pr-2 text-sm">
+          <p className="break-all text-muted-foreground">{taskSummary(task)}</p>
+          <dl className="grid gap-x-4 gap-y-2 sm:grid-cols-3">
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{t.schedule}</dt>
+              <dd className="break-words font-medium">{scheduleLabel(task.schedule)}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{t.next}</dt>
+              <dd className="break-words font-medium">{task.enabled ? nextRunLabel(task.nextRun) : t.off}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">{t.last}</dt>
+              <dd className="space-y-1">
+                {task.lastRun ? (
+                  <>
+                    <span className="flex flex-wrap items-center gap-2"><RunBadge run={task.lastRun} /><span className="tabular-nums">{formatWhen(task.lastRun.start)}</span></span>
+                    {task.lastRun.message && <span className="block break-words text-muted-foreground">{task.lastRun.message}</span>}
+                    <RunExtra run={task.lastRun} />
+                  </>
+                ) : <span className="text-muted-foreground">{t.noRun}</span>}
+              </dd>
+            </div>
+          </dl>
+          {!readOnly && !task.running && isPowerTask(task.type) && <p className="text-xs text-muted-foreground">{t.power.runHint}</p>}
         </div>
-        <div className="min-w-0">
-          <dt className="text-xs text-muted-foreground">{t.last}</dt>
-          <dd className="space-y-1" aria-live="polite">
-            {task.running ? (
-              <span role="status" className="inline-flex items-center gap-2 font-medium">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden />{t.running}
-              </span>
-            ) : task.lastRun ? (
-              <>
-                <span className="flex flex-wrap items-center gap-2"><RunBadge run={task.lastRun} /><span className="tabular-nums">{formatWhen(task.lastRun.start)}</span></span>
-                {task.lastRun.message && <span className="block break-words text-muted-foreground">{task.lastRun.message}</span>}
-                <RunExtra run={task.lastRun} />
-              </>
-            ) : <span className="text-muted-foreground">{t.noRun}</span>}
-          </dd>
-        </div>
-      </dl>
-      <div className="flex flex-wrap gap-2">
-        {!readOnly && (task.running || !isPowerTask(task.type)) && (task.running
-          ? <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.stopAria(n)} onClick={onStop}><Square className="h-4 w-4" aria-hidden />{t.stop}</Button>
-          : <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.runAria(n)} onClick={onRun}><Play className="h-4 w-4" aria-hidden />{t.runNow}</Button>)}
-        <Button type="button" size="sm" variant="outline" aria-label={t.historyAria(n)} onClick={onHistory}><History className="h-4 w-4" aria-hidden />{t.history}</Button>
-        {!readOnly && task.type === 'backup-pull' && <Button type="button" size="sm" variant="outline" aria-label={t.versionsAria(n)} onClick={onVersions}><FolderClock className="h-4 w-4" aria-hidden />{t.versions}</Button>}
-        {!readOnly && <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.editAria(n)} onClick={onEdit}><Pencil className="h-4 w-4" aria-hidden />{t.edit}</Button>}
-        {!readOnly && <Button type="button" size="sm" variant="outline" disabled={busy} aria-label={t.removeAria(n)} onClick={onRemove}><Trash2 className="h-4 w-4" aria-hidden />{t.remove}</Button>}
-      </div>
-      {!readOnly && !task.running && isPowerTask(task.type) && <p className="text-xs text-muted-foreground">{t.power.runHint}</p>}
+      )}
     </li>
   );
 }
@@ -329,9 +353,9 @@ export function TasksPage({ readOnly }: { readOnly: boolean }) {
         {failed && <p role="alert" className="mt-2 text-sm text-danger">{t.loadError}</p>}
         {msg && <p role={msg.ok ? 'status' : 'alert'} className={`mt-2 text-sm font-medium ${msg.ok ? 'text-success' : 'text-danger'}`}>{msg.text}</p>}
         {tasks.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">{t.empty}</p> : (
-          <ul className="mt-3 space-y-3">
+          <ul className="-mx-2 mt-3 divide-y divide-border">
             {tasks.map((task) => (
-              <TaskCard key={task.id} task={task} readOnly={readOnly} busy={busy}
+              <TaskRow key={task.id} task={task} readOnly={readOnly} busy={busy}
                 onToggle={() => toggle(task)} onRun={() => action(task, 'run')} onStop={() => action(task, 'stop')}
                 onEdit={() => setEditing(normalizeTask(task))} onHistory={() => setHistory(task)} onVersions={() => setVersions(task)} onRemove={() => setRemoving(task)} />
             ))}

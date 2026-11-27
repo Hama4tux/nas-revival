@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { BackupParams, TaskDef } from '../api/types';
-import { MAX_POWER_TASKS, authorizedLine, formatDuration, isPowerTask, newBackup, listError, newTask, nextRunLabel, normalizeTask, pollInterval, scheduleLabel, taskOk, validateTask } from './tasks';
+import type { BackupParams, Task, TaskDef, TaskRun } from '../api/types';
+import { MAX_POWER_TASKS, authorizedLine, formatDuration, isPowerTask, isTaskProblem, taskSummary, taskTone, newBackup, listError, newTask, nextRunLabel, normalizeTask, pollInterval, scheduleLabel, taskOk, validateTask } from './tasks';
 
 const smart = (p: Partial<TaskDef> = {}): TaskDef => ({
   id: '', name: 'Test', type: 'smart', enabled: true, schedule: { kind: 'daily', time: '03:30' },
@@ -199,5 +199,35 @@ describe('backup destination', () => {
   });
   it('starts a new task with the default folder', () => {
     expect(newBackup().dest).toEqual({ share: '', folder: 'daily-backup' });
+  });
+});
+
+describe('compact row helpers', () => {
+  const run = (result: TaskRun['result']): TaskRun => ({ start: '2026-11-27T03:30:00Z', end: '2026-11-27T03:31:00Z', result, message: '' });
+  const task = (p: Partial<Task> = {}): Task => ({ ...smart({ id: 'a' }), running: false, nextRun: null, lastRun: null, ...p });
+
+  it('colours the dot by running state, enabled flag and last result', () => {
+    expect(taskTone(task({ running: true, lastRun: run('failed') }))).toBe('warning');
+    expect(taskTone(task({ enabled: false, lastRun: run('failed') }))).toBe('neutral');
+    expect(taskTone(task())).toBe('neutral');
+    expect(taskTone(task({ lastRun: run('ok') }))).toBe('success');
+    expect(taskTone(task({ lastRun: run('failed') }))).toBe('danger');
+    expect(taskTone(task({ lastRun: run('skipped') }))).toBe('warning');
+  });
+
+  it('flags only an enabled, idle task whose last run failed', () => {
+    expect(isTaskProblem(task({ lastRun: run('failed') }))).toBe(true);
+    expect(isTaskProblem(task({ lastRun: run('failed'), enabled: false }))).toBe(false);
+    expect(isTaskProblem(task({ lastRun: run('failed'), running: true }))).toBe(false);
+    expect(isTaskProblem(task({ lastRun: run('skipped') }))).toBe(false);
+  });
+
+  it('summarises what the task does', () => {
+    expect(taskSummary(smart())).toBe('Test disku (SMART), dlouhý test');
+    expect(taskSummary(newTask())).toContain('Test disku');
+    const b: BackupParams = { ...newBackup(), host: 'pve', user: 'backup', dest: { share: 'zalohy', folder: 'daily-backup' } };
+    expect(taskSummary({ ...smart(), type: 'backup-pull', smart: undefined, backup: b })).toBe('Stažení zálohy ze serveru: backup@pve → zalohy/daily-backup');
+    expect(taskSummary({ ...smart(), type: 'backup-pull', smart: undefined, backup: { ...b, dest: { share: '', folder: '' } } })).toBe('Stažení zálohy ze serveru: backup@pve');
+    expect(taskSummary({ ...smart(), type: 'reboot', smart: undefined })).toBe('Restart NASu');
   });
 });

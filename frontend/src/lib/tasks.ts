@@ -1,6 +1,6 @@
 import { cs } from '../i18n/cs';
 import { SHARE_NAME_RE } from './shares';
-import type { BackupParams, TaskDef, TaskRun, TaskSchedule, TaskType, TaskWeekday } from '../api/types';
+import type { BackupParams, Task, TaskDef, TaskRun, TaskSchedule, TaskType, TaskWeekday } from '../api/types';
 
 export const WEEKDAYS: TaskWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 export const MAX_TASKS = 32;
@@ -190,3 +190,25 @@ export const resultVariant = { ok: 'success', failed: 'danger', skipped: 'warnin
 export const pollInterval = (tasks: { running: boolean }[]) => (tasks.some((t) => t.running) ? 10_000 : 60_000);
 
 export const lastResult = (r: TaskRun | null) => r?.result ?? null;
+
+/** Dot colour of a compact task row: a disabled task is grey whatever it did last. */
+export function taskTone(t: Pick<Task, 'enabled' | 'running' | 'lastRun'>): 'success' | 'warning' | 'danger' | 'neutral' {
+  if (t.running) return 'warning';
+  if (!t.enabled || !t.lastRun) return 'neutral';
+  return resultVariant[t.lastRun.result];
+}
+
+/** An enabled task whose last run failed: the row is tinted and shows the message while collapsed. */
+export const isTaskProblem = (t: Pick<Task, 'enabled' | 'running' | 'lastRun'>) =>
+  t.enabled && !t.running && t.lastRun?.result === 'failed';
+
+/** What the task does, one line: "Test disku (SMART), dlouhý test", "Stažení zálohy ze serveru: backup@pve → zalohy/daily-backup". */
+export function taskSummary(t: TaskDef): string {
+  const type = cs.tasks.types[t.type] ?? t.type;
+  if (t.type === 'smart' && t.smart) return `${type}, ${cs.tasks.testShort[t.smart.test]} test`;
+  if (t.type === 'backup-pull' && t.backup) {
+    const d = t.backup.dest;
+    return `${type}: ${t.backup.user}@${t.backup.host}${d?.share ? ` → ${d.share}${d.folder ? `/${d.folder}` : ''}` : ''}`;
+  }
+  return type;
+}
