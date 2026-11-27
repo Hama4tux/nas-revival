@@ -1,0 +1,5 @@
+# Reviewed false positives (gitleaks fingerprint = commit:file:rule:line). Add only after checking the hit.
+# Test of the pre-commit hook: the key body is a generated variable, not a key.
+4a88ec35f729740ce13f6b2a2d394d51b4a24c10:tests/test_pre_commit.sh:private-key:37
+# Prose "application/privileged operations" matched the generic API key pattern.
+8c949e811560e2b30964b68a8ef0a82658038664:docs/security/threat-model.md:generic-api-key:7
