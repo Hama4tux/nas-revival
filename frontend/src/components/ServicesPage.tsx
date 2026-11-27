@@ -1,15 +1,18 @@
-import { Activity, RefreshCw, ScrollText, ShieldCheck } from 'lucide-react';
+import { Activity, ChevronRight, RefreshCw, ScrollText, ShieldCheck } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import type { ServiceAction, ServiceInfo, ServiceList, ServiceLog } from '../api/types';
 import { useVisiblePoll } from '../hooks/useVisiblePoll';
 import { cs } from '../i18n/cs';
 import { formatBytes, formatPercent } from '../lib/format';
-import { groupPorts, needsConfirm, priorityTone, problems, sortServices, stateTone } from '../lib/services';
+import {
+  groupPorts, isDangerAction, isProblem, isRunning, needsConfirm, portSummary, priorityTone, problems, sortServices, stateTone, type Tone,
+} from '../lib/services';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
+import { RowMenu, type RowMenuItem } from './ui/row-menu';
 import { Skeleton } from './ui/skeleton';
 import { NfsPanel } from './NfsPanel';
 import { SmbPanel } from './SmbPanel';
@@ -28,6 +31,10 @@ function apiMessage(e: unknown): string {
   }
   return cs.errors.generic;
 }
+
+const DOT: Record<Tone, string> = {
+  success: 'bg-success', warning: 'bg-warning', danger: 'bg-danger', neutral: 'bg-muted-foreground/50',
+};
 
 const dateTime = (iso: string | null) => {
   const d = iso ? new Date(iso) : null;
@@ -61,19 +68,39 @@ function Ports({ s }: { s: ServiceInfo }) {
 function ServiceRow({ s, readOnly, busy, onAction, onLog }: {
   s: ServiceInfo; readOnly: boolean; busy: boolean; onAction: (a: ServiceAction) => void; onLog: () => void;
 }) {
+  const [open, setOpen] = useState(false);
   const installed = s.state !== 'not-installed';
-  // A stopped unit keeps its last CPU counter; a share of CPU only means something while it runs.
-  const running = s.state === 'active' || s.state === 'activating' || s.state === 'deactivating';
+  const running = isRunning(s);
+  const tone = stateTone(s.state);
+  const detailId = `svc-detail-${s.name}`;
+  const summary = [portSummary(s.ports), running && s.memoryBytes != null ? formatBytes(s.memoryBytes) : '']
+    .filter(Boolean).join(' · ');
+  const items: RowMenuItem[] = [
+    ...s.actions.map((a) => ({ key: a, label: t.action[a] ?? a, danger: isDangerAction(a), disabled: busy, onSelect: () => onAction(a) })),
+    { key: 'log', label: t.log, icon: <ScrollText className="h-4 w-4" aria-hidden />, onSelect: onLog },
+  ];
   return (
-    <li className="space-y-2 py-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="font-semibold">{s.label}</span>
-        <Badge variant={stateTone(s.state)}>{t.state[s.state] ?? s.state}</Badge>
-        {s.protected && <Badge title={t.protectedHint}><ShieldCheck className="h-3 w-3" aria-hidden />{t.protectedBadge}</Badge>}
-        <span className="text-xs text-muted-foreground">{s.name}</span>
+    <li className={isProblem(s) ? 'bg-danger/5' : undefined}>
+      <div className="flex items-center gap-2 py-1.5 pr-1">
+        <button type="button" disabled={!installed} aria-expanded={installed ? open : undefined}
+          aria-controls={installed ? detailId : undefined} aria-label={installed ? t.detailsOf(s.label) : undefined}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/60 disabled:cursor-default disabled:hover:bg-transparent"
+          onClick={() => setOpen((v) => !v)}>
+          <ChevronRight className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-90' : ''} ${installed ? '' : 'invisible'}`} aria-hidden />
+          <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[tone]}`} aria-hidden />
+          <span className={`truncate font-medium ${installed ? '' : 'text-muted-foreground'}`}>{s.label}</span>
+          {s.protected && <ShieldCheck className="h-4 w-4 shrink-0 text-muted-foreground" aria-label={t.protectedBadge} />}
+          <span className="hidden truncate text-xs text-muted-foreground sm:inline">{s.name}</span>
+          {summary && <span className="ml-auto hidden shrink-0 pl-2 text-xs tabular-nums text-muted-foreground md:inline">{summary}</span>}
+        </button>
+        <Badge variant={tone} className="shrink-0">{t.state[s.state] ?? s.state}</Badge>
+        {!readOnly && installed
+          ? <RowMenu label={t.actionsOf(s.label)} items={items} />
+          : <span className="w-8 shrink-0" aria-hidden />}
       </div>
-      {!installed ? <p className="text-sm text-muted-foreground">{t.notInstalled}</p> : (
-        <>
+      {s.result && !open && <p role="note" className="truncate pb-2 pl-12 text-sm text-danger">{t.lastError(s.result, s.exitStatus)}</p>}
+      {installed && open && (
+        <div id={detailId} className="space-y-2 pb-3 pl-12 pr-2">
           {s.description && <p className="text-sm text-muted-foreground">{s.description}</p>}
           <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-6">
             <Meta label={t.since}>{dateTime(s.since)}</Meta>
@@ -83,22 +110,9 @@ function ServiceRow({ s, readOnly, busy, onAction, onLog }: {
             <Meta label={t.ports}><Ports s={s} /></Meta>
             <Meta label={t.boot}>{t.enabled[s.enabled] ?? (s.enabled || '–')}</Meta>
           </dl>
+          {s.protected && <p className="text-xs text-muted-foreground">{t.protectedHint}</p>}
           {s.result && <p role="note" className="text-sm text-danger">{t.lastError(s.result, s.exitStatus)}</p>}
-          {!readOnly && (
-            <div role="group" aria-label={t.actionsOf(s.label)} className="flex flex-wrap gap-2">
-              {s.actions.map((a) => (
-                <Button key={a} type="button" size="sm" variant="outline"
-                  className={a === 'stop' || a === 'disable' ? 'text-danger' : undefined}
-                  disabled={busy} onClick={() => onAction(a)}>
-                  {t.action[a]}
-                </Button>
-              ))}
-              <Button type="button" size="sm" variant="ghost" onClick={onLog}>
-                <ScrollText className="h-4 w-4" aria-hidden />{t.log}
-              </Button>
-            </div>
-          )}
-        </>
+        </div>
       )}
     </li>
   );
@@ -235,7 +249,7 @@ function ServiceListPanel({ readOnly }: { readOnly: boolean }) {
         {failed && <p role="alert" className="mt-2 text-sm text-warning">{t.loadError}</p>}
         {msg && <p role="status" className="mt-2 text-sm text-success">{msg}</p>}
         {err && !open && <p role="alert" className="mt-2 text-sm font-medium text-danger">{err}</p>}
-        <ul className="mt-2 divide-y divide-border">
+        <ul className="-mx-2 mt-3 divide-y divide-border">
           {list.map((s) => (
             <ServiceRow key={s.name} s={s} readOnly={readOnly} busy={busy !== null}
               onAction={(a) => act(s, a)} onLog={() => setOpen({ kind: 'log', s })} />

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ServiceInfo } from '../api/types';
-import { groupPorts, needsConfirm, priorityTone, problems, sortServices, stateTone } from './services';
+import { groupPorts, isDangerAction, isProblem, isRunning, needsConfirm, portSummary, priorityTone, problems, sortServices, stateTone } from './services';
 
 const svc = (p: Partial<ServiceInfo>): ServiceInfo => ({
   name: 'x.service', label: 'X', description: '', state: 'active', subState: 'running', enabled: 'enabled', since: null,
@@ -53,5 +53,33 @@ describe('services', () => {
     expect(priorityTone(3)).toBe('danger');
     expect(priorityTone(4)).toBe('warning');
     expect(priorityTone(6)).toBe('neutral');
+  });
+
+  it('flags failed units and enabled units that are stopped', () => {
+    expect(isProblem(svc({ state: 'failed', enabled: 'disabled' }))).toBe(true);
+    expect(isProblem(svc({ state: 'inactive', enabled: 'enabled' }))).toBe(true);
+    expect(isProblem(svc({ state: 'inactive', enabled: 'disabled' }))).toBe(false);
+    expect(isProblem(svc({ state: 'active', enabled: 'enabled' }))).toBe(false);
+  });
+
+  it('counts transitional states as running', () => {
+    expect(isRunning(svc({ state: 'activating' }))).toBe(true);
+    expect(isRunning(svc({ state: 'inactive' }))).toBe(false);
+    expect(isRunning(svc({ state: 'done' }))).toBe(false);
+  });
+
+  it('marks stop and disable as dangerous', () => {
+    expect(isDangerAction('stop')).toBe(true);
+    expect(isDangerAction('disable')).toBe(true);
+    expect(isDangerAction('restart')).toBe(false);
+  });
+
+  it('summarises reachable ports per protocol and skips loopback-only ones', () => {
+    expect(portSummary([
+      { proto: 'tcp', port: 445, address: '0.0.0.0' }, { proto: 'tcp', port: 139, address: '::' },
+      { proto: 'udp', port: 137, address: '0.0.0.0' }, { proto: 'tcp', port: 8080, address: '127.0.0.1' },
+    ])).toBe('TCP 139, 445 · UDP 137');
+    expect(portSummary([{ proto: 'tcp', port: 8080, address: '::1' }])).toBe('');
+    expect(portSummary([])).toBe('');
   });
 });

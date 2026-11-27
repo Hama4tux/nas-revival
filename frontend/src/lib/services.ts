@@ -37,9 +37,31 @@ export function sortServices(list: ServiceInfo[]): ServiceInfo[] {
   return [...list.filter((s) => s.state !== 'not-installed'), ...list.filter((s) => s.state === 'not-installed')];
 }
 
+/** Failed, or enabled at boot but not running (unexpectedly stopped). */
+export const isProblem = (s: Pick<ServiceInfo, 'state' | 'enabled'>) =>
+  s.state === 'failed' || (s.enabled === 'enabled' && s.state === 'inactive');
+
 /** Failed units and enabled units that are not running (unexpectedly stopped). */
 export function problems(list: ServiceInfo[]): ServiceInfo[] {
-  return list.filter((s) => s.state === 'failed' || (s.enabled === 'enabled' && s.state === 'inactive'));
+  return list.filter(isProblem);
+}
+
+/** A stopped unit keeps its last CPU counter; a share of CPU only means something while it runs. */
+export const isRunning = (s: Pick<ServiceInfo, 'state'>) =>
+  s.state === 'active' || s.state === 'activating' || s.state === 'deactivating';
+
+/** Actions that cut something off are shown in red. */
+export const isDangerAction = (a: ServiceAction) => a === 'stop' || a === 'disable';
+
+/** Short port list for the compact row: "TCP 22, 80 · UDP 137"; loopback-only ports are left out (they are in the detail). */
+export function portSummary(ports: ServicePort[]): string {
+  const by = new Map<string, number[]>([['TCP', []], ['UDP', []]]);
+  for (const g of groupPorts(ports)) {
+    if (g.localOnly) continue;
+    const k = g.proto.toUpperCase();
+    by.set(k, [...(by.get(k) ?? []), g.port]);
+  }
+  return [...by.entries()].filter(([, ps]) => ps.length > 0).map(([proto, ps]) => `${proto} ${ps.join(', ')}`).join(' · ');
 }
 
 /** Journal priority → tone: 0–3 error, 4 warning. */

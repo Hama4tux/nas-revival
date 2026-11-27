@@ -208,6 +208,7 @@ export const cs = {
     actionBusy: 'Provádím…',
     actionDone: (label: string, action: string) => `${label}: ${action} – hotovo.`,
     actionsOf: (label: string) => `Akce služby ${label}`,
+    detailsOf: (label: string) => `Podrobnosti služby ${label}`,
     confirm: {
       title: (action: string, label: string) => `${action}: ${label}?`,
       stop: 'Služba se zastaví a její funkce nebudou dostupné, dokud ji znovu nespustíte. Po restartu NASu se spustí znovu, pokud je zapnutá při startu.',
