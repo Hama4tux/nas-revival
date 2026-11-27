@@ -72,11 +72,24 @@ func lines(data []byte, minFields int) [][]string {
 	return out
 }
 
+// parseID parses a uid or gid. It refuses negative values and values that
+// do not fit an int on 32-bit ARM, so later uint32/int conversions are safe.
+func parseID(s string) (int, error) {
+	v, err := strconv.ParseInt(s, 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	if v < 0 {
+		return 0, strconv.ErrRange
+	}
+	return int(v), nil
+}
+
 func ParsePasswd(data []byte) []PasswdEntry {
 	var out []PasswdEntry
 	for _, f := range lines(data, 7) {
-		uid, err1 := strconv.Atoi(f[2])
-		gid, err2 := strconv.Atoi(f[3])
+		uid, err1 := parseID(f[2])
+		gid, err2 := parseID(f[3])
 		if err1 != nil || err2 != nil {
 			continue
 		}
@@ -88,7 +101,7 @@ func ParsePasswd(data []byte) []PasswdEntry {
 func ParseGroup(data []byte) []GroupEntry {
 	var out []GroupEntry
 	for _, f := range lines(data, 4) {
-		gid, err := strconv.Atoi(f[2])
+		gid, err := parseID(f[2])
 		if err != nil {
 			continue
 		}

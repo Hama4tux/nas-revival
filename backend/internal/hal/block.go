@@ -2,6 +2,7 @@ package hal
 
 import (
 	"bufio"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -84,7 +85,7 @@ func (r Reader) partitions(base, disk string) []BlockPartition {
 		}
 		pb := filepath.Join(base, name)
 		num, err := r.readInt(filepath.Join(pb, "partition"))
-		if err != nil {
+		if err != nil || num < 0 || num > math.MaxInt32 {
 			continue // not a partition directory
 		}
 		sectors, _ := r.readInt(filepath.Join(pb, "size"))

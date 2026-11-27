@@ -700,13 +700,14 @@ func LookupUser(name string) (uid uint32, gid int, err error) {
 	if err != nil {
 		return 0, 0, fmt.Errorf("user %q: %w", name, err)
 	}
-	id, err := strconv.ParseUint(u.Uid, 10, 32)
-	if err != nil {
-		return 0, 0, err
+	// int32 range: the ids are later passed as int (32-bit on the NAS).
+	id, err := strconv.ParseInt(u.Uid, 10, 32)
+	if err != nil || id < 0 {
+		return 0, 0, fmt.Errorf("user %q: bad uid %q", name, u.Uid)
 	}
-	g, err := strconv.Atoi(u.Gid)
-	if err != nil {
-		return 0, 0, err
+	g, err := strconv.ParseInt(u.Gid, 10, 32)
+	if err != nil || g < 0 {
+		return 0, 0, fmt.Errorf("user %q: bad gid %q", name, u.Gid)
 	}
-	return uint32(id), g, nil
+	return uint32(id), int(g), nil
 }

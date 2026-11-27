@@ -115,13 +115,15 @@ func ParseStat(data []byte) (Stat, error) {
 		return s, errors.New("short stat")
 	}
 	num := func(i int) uint64 { v, _ := strconv.ParseUint(f[i], 10, 64); return v }
+	// pid and thread count are small; ParseInt with bitSize 32 keeps int safe on 32-bit.
+	small := func(i int) int { v, _ := strconv.ParseInt(f[i], 10, 32); return int(v) }
 	s.PID = pid
 	s.Name = string(data[open+1 : end])
 	s.State = f[0]
-	s.PPID = int(num(1))
+	s.PPID = small(1)
 	s.Flags = num(6)
 	s.CPU = num(11) + num(12)
-	s.Threads = int(num(17))
+	s.Threads = small(17)
 	s.Start = num(19)
 	s.RSS = num(21)
 	return s, nil

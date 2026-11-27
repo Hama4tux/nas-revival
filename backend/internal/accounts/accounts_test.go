@@ -41,6 +41,16 @@ func TestParseSkipsMalformedLines(t *testing.T) {
 	}
 }
 
+func TestParseSkipsOutOfRangeIDs(t *testing.T) {
+	p := ParsePasswd([]byte("neg:x:-1:1::/h:/s\nbig:x:4294967295:1::/h:/s\nbiggid:x:1:2147483648::/h:/s\nok:x:2147483647:0::/h:/s\n"))
+	if len(p) != 1 || p[0].Name != "ok" || p[0].UID != 2147483647 {
+		t.Fatalf("passwd = %+v", p)
+	}
+	if g := ParseGroup([]byte("neg:x:-5:\nbig:x:99999999999:\n")); len(g) != 0 {
+		t.Fatalf("group = %+v", g)
+	}
+}
+
 func TestWebPasswordsRoundTrip(t *testing.T) {
 	w := WebPasswords{Path: filepath.Join(t.TempDir(), "sub", "credentials.json"), OwnerUID: -1, OwnerGID: -1}
 	if m, err := w.Load(); err != nil || len(m) != 0 {
