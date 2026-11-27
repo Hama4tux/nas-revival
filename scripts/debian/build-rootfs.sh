@@ -4,6 +4,8 @@
 # from build-kernel.sh and an SSH public key for root.
 #
 # Debian 13 is merged-usr (/lib -> usr/lib): modules go to usr/lib/modules, never over the symlink.
+# /etc/locale.gen exists before the locales package is configured, so its postinst generates cs_CZ.UTF-8
+# (ssh clients send LANG=cs_CZ.UTF-8; without it bash warns "cannot change locale" at every login).
 # Every hook starts with set -e, otherwise a failing line in a multi-line hook passes silently.
 # No chroot in hooks: under unshare + qemu-user it cannot exec the armel loader.
 # Usage: scripts/debian/build-rootfs.sh <modules-V.tar.gz> <ssh-public-key-file> [out.tar]
@@ -42,7 +44,8 @@ if [ -n "${KEYRING:-}" ]; then
 fi
 mmdebstrap "${KR[@]}" --arch=armel --variant=important --components=main,non-free-firmware \
   --include="$PKGS" \
-  --customize-hook='set -e; tar -C "$1/usr" --no-same-owner -xzf "$MODS"; test -L "$1/lib"' \
+  --essential-hook='set -e; printf "cs_CZ.UTF-8 UTF-8\n" > "$1/etc/locale.gen"' \
+  --customize-hook='set -e; tar -C "$1" --keep-directory-symlink --no-same-owner -xzf "$MODS"; test -L "$1/lib"' \
   --customize-hook='set -e; echo "$HOST" > "$1/etc/hostname"; printf "127.0.1.1\t%s\n" "$HOST" >> "$1/etc/hosts"' \
   --customize-hook='set -e; cat > "$1/etc/fstab" <<EOF
 LABEL=nasroot	/	ext4	noatime,errors=remount-ro	0	1
