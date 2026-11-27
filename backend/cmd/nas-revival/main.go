@@ -58,6 +58,8 @@ func main() {
 		err = setPassword(os.Args[2:])
 	} else if len(os.Args) > 2 && os.Args[1] == "task" && os.Args[2] == "import-pull" {
 		err = importPull(os.Args[3:])
+	} else if len(os.Args) > 2 && os.Args[1] == "task" && os.Args[2] == "migrate-backup-dest" {
+		err = migrateBackupDest(os.Args[3:])
 	} else if len(os.Args) > 2 && os.Args[1] == "task" && os.Args[2] == "run" {
 		err = runTask(os.Args[3:])
 	} else if len(os.Args) > 1 && os.Args[1] == "helper" {
@@ -334,12 +336,7 @@ func runHelper(args []string) error {
 			{ID: helper.FileSsh, Path: sshd.DefaultConfigPath},
 		},
 		Pending: func(id string) bool { return id == helper.FileNetwork && nm.HasPending() }}
-	acls := shares.NewACLProbe(shares.SysSetxattr)
-	shm := &helper.ShareManager{Path: shares.DefaultConfigPath,
-		Accounts:  accounts.Paths{Passwd: accounts.SystemPaths.Passwd, Group: accounts.SystemPaths.Group},
-		Mountinfo: "/proc/self/mountinfo", Statfs: shares.SysStatfs, Probe: acls,
-		SetXattr: shares.SysSetxattr, Chown: shares.SysLchown, Run: helper.ExecRunner, LookPath: exec.LookPath,
-		SambaDir: "/etc/samba", SambaConf: shares.SambaConfPath, SambaMain: "/etc/samba/smb.conf", Now: time.Now}
+	shm := newShareManager()
 	nfsm := &helper.NfsManager{Path: nfs.DefaultConfigPath, Exports: nfs.ExportsPath, Shares: shares.DefaultConfigPath,
 		Accounts: shm.Accounts, ClientsDir: nfs.ClientsDir, Filesystems: "/proc/filesystems",
 		Run: helper.ExecRunner, LookPath: exec.LookPath}
@@ -358,14 +355,15 @@ func runHelper(args []string) error {
 	go dp.ApplyAll(ctx)
 	// Scheduled tasks (W3.3): timers follow tasks.json; the default "recycle" task
 	// replaces the old in-process recycle bin loop.
-	tkm := &helper.TaskManager{Path: tasks.DefaultConfigPath, UnitDir: "/etc/systemd/system", Run: helper.ExecRunner}
+	tkm := &helper.TaskManager{Path: tasks.DefaultConfigPath, UnitDir: "/etc/systemd/system", Run: helper.ExecRunner,
+		SharesPath: shares.DefaultConfigPath}
 	if err := tkm.Reconcile(ctx); err != nil {
 		slog.Error("helper: task timers", "err", err)
 	}
 	// Backup pull jobs (W4.3): key, host keys; the destination is a backupTarget share.
 	bkm := helper.NewBackupManager(*iface, helper.ExecRunner)
 	shm.BackupVolume = tasks.BackupVolume
-	shm.InUseAsBackupTarget = backupTargetUser(tasks.DefaultConfigPath)
+	shm.InUseAsBackupTarget = tasks.BackupTargetUser(tasks.DefaultConfigPath)
 	// The recovery administrator sees every share in the File Station; admin.json
 	// is re-read on every call because set-password may change it.
 	recovery := func() string {
@@ -375,7 +373,7 @@ func runHelper(args []string) error {
 		}
 		return c.Username
 	}
-	files := &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, Recovery: recovery, HasACL: acls,
+	files := &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, Recovery: recovery, HasACL: shm.Probe,
 		Chown: helper.SysFileChown, Statfs: helper.SysFstatfs, Now: time.Now}
 	ln, err := helper.Listen(*sock, gid)
 	if err != nil {
@@ -573,11 +571,14 @@ func runTask(args []string) error {
 	return nil
 }
 
-// backupTargetUser tells which backup uses a share as its destination. Tasks
-// have no destination yet (step 2 of the backup targets reads it from
-// tasks.json); until then nothing is in use.
-func backupTargetUser(_ string) func(share string) (string, bool) {
-	return func(string) (string, bool) { return "", false }
+// newShareManager is the share manager of the helper and of the root
+// subcommands that change shares' folders.
+func newShareManager() *helper.ShareManager {
+	return &helper.ShareManager{Path: shares.DefaultConfigPath,
+		Accounts:  accounts.Paths{Passwd: accounts.SystemPaths.Passwd, Group: accounts.SystemPaths.Group},
+		Mountinfo: "/proc/self/mountinfo", Statfs: shares.SysStatfs, Probe: shares.NewACLProbe(shares.SysSetxattr),
+		SetXattr: shares.SysSetxattr, Chown: shares.SysLchown, Run: helper.ExecRunner, LookPath: exec.LookPath,
+		SambaDir: "/etc/samba", SambaConf: shares.SambaConfPath, SambaMain: "/etc/samba/smb.conf", Now: time.Now}
 }
 
 // backupVolumeMounted checks that the backup volume is a mounted data volume.
@@ -622,11 +623,80 @@ func importPull(args []string) error {
 	if err != nil {
 		return err
 	}
+	// No SharesPath: imported jobs have no destination yet (task migrate-backup-dest gives it).
 	tkm := &helper.TaskManager{Path: tasks.DefaultConfigPath, UnitDir: "/etc/systemd/system", Run: helper.ExecRunner}
 	res, err := tkm.Set(context.Background(), merged, "import-pull")
 	if err != nil {
 		return err
 	}
 	fmt.Printf("tasks.json: %d tasks\n", len(res.Tasks))
+	return nil
+}
+
+// migrateBackupDest is the one-time move of the backup data from the fixed
+// /srv/data/apps and /srv/data/versions to a backupTarget share, and the
+// destination of every backup task that has none (root only).
+func migrateBackupDest(args []string) error {
+	fl := flag.NewFlagSet("task migrate-backup-dest", flag.ContinueOnError)
+	share := fl.String("share", "", "backupTarget share that receives the backups")
+	folder := fl.String("folder", "daily-backup", "subfolder of the share (one level, may be empty)")
+	dry := fl.Bool("n", false, "only print the plan")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	if *share == "" || fl.NArg() != 0 {
+		return errors.New("usage: nas-revival task migrate-backup-dest -share NAME [-folder NAME] [-n]")
+	}
+	if os.Geteuid() != 0 {
+		return errors.New("task migrate-backup-dest must run as root")
+	}
+	uid, gid, err := helper.LookupUser(tasks.BackupUser)
+	if err != nil {
+		return fmt.Errorf("account %s: %w", tasks.BackupUser, err)
+	}
+	list, err := tasks.Load(tasks.DefaultConfigPath)
+	if err != nil {
+		return err
+	}
+	plan, err := tasks.PlanMigration(tasks.BackupVolume, shares.DefaultConfigPath, list,
+		tasks.BackupDest{Share: *share, Folder: *folder})
+	if err != nil {
+		return err
+	}
+	if len(plan.Migrated) == 0 {
+		fmt.Println("no backup task without a destination, nothing to do")
+		return nil
+	}
+	fmt.Printf("tasks that get the destination %s/%s: %s\n", *share, *folder, strings.Join(plan.Migrated, ", "))
+	for _, d := range plan.Mkdirs {
+		fmt.Println("mkdir  ", d)
+	}
+	for _, mv := range plan.Moves {
+		fmt.Printf("move    %s -> %s\n", mv.From, mv.To)
+	}
+	if *dry {
+		fmt.Println("dry run: nothing changed")
+		return nil
+	}
+	if !backupVolumeMounted() {
+		return errors.New(tasks.MsgNoVolume)
+	}
+	if err := plan.Apply(func(p string) error { return os.Lchown(p, int(uid), gid) }); err != nil {
+		return fmt.Errorf("move failed (run again to continue): %w", err)
+	}
+	for _, p := range tasks.RemoveLegacyDirs(tasks.BackupVolume) {
+		fmt.Println("removed", p)
+	}
+	ctx := context.Background()
+	if err := newShareManager().Reapply(ctx, *share); err != nil {
+		return fmt.Errorf("permissions of share %s: %w (data moved, tasks.json not changed; run again)", *share, err)
+	}
+	tkm := &helper.TaskManager{Path: tasks.DefaultConfigPath, UnitDir: "/etc/systemd/system", Run: helper.ExecRunner,
+		SharesPath: shares.DefaultConfigPath}
+	res, err := tkm.Set(ctx, plan.Tasks, "migrate-backup-dest")
+	if err != nil {
+		return fmt.Errorf("tasks.json: %w (data moved; run again)", err)
+	}
+	fmt.Printf("tasks.json: %d tasks, %d migrated\n", len(res.Tasks), len(plan.Migrated))
 	return nil
 }

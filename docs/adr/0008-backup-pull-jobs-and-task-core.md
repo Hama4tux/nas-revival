@@ -36,8 +36,13 @@
   backup user, mode 0700, never offered as an SMB/NFS share and refused as a share path. Superseded: the destination
   is a normal shared folder with the property `backupTarget` (read-only for everybody, `nas-backup` the only writer
   through an ACL entry, not exportable over NFS, on `/srv/data`); the hidden pseudo share `zalohy`, the reserved names
-  and `backup.share.get/set` are gone. Task destinations and the layout inside the share follow in later steps; until
-  then the jobs still write to the old paths. Original text: Restore access comes through the web UI (list versions
+  and `backup.share.get/set` are gone. Step 2 (2026-11-27): a task chooses its destination in `backup.dest`
+  (`share` with `backupTarget`, optional `folder`); the job directory is `<share>/<folder>/<id>/` with `current/`
+  (mirror) and `versions/<date>/` (hardlink snapshots). The runner resolves the share from `shares.json`, refuses
+  symlinks in the path and writes files 0640 / directories 0750, so the share's ACL gives its readers access; tasks
+  without a destination are not run ("Úloha nemá nastavený cíl záloh.") until `nas-revival task migrate-backup-dest`
+  has renamed the old data (`apps/<id>`, `versions/<date>/<id>`) into the new layout and set the destination.
+  Original text: Restore access comes through the web UI (list versions
   and files first, download and restore-to-share with File Station W4.1). Restore-to-share (phase 2b): the helper
   copies a folder or file of a version into a share the admin's own account may write to, in the background
   under a hidden name, never overwriting, owned by the admin like a File Station upload, symlinks skipped.

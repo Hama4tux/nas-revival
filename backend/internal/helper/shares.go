@@ -312,6 +312,31 @@ func (m *ShareManager) checkVolume(s shares.Share) (shares.Volume, error) {
 	return v, nil
 }
 
+// Reapply sets owner, mode and ACLs of a share's whole folder again, e.g.
+// after data was moved into it from outside (backup migration).
+func (m *ShareManager) Reapply(ctx context.Context, name string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cfg, err := m.loadCfg()
+	if err != nil {
+		return err
+	}
+	i := cfg.Find(name)
+	if i < 0 {
+		return notFound("Sdílená složka neexistuje.")
+	}
+	s := cfg.Shares[i]
+	db, err := m.loadDB()
+	if err != nil {
+		return err
+	}
+	vol, err := m.checkVolume(s)
+	if err != nil {
+		return err
+	}
+	return m.applyFS(ctx, s, db, vol, false)
+}
+
 // checkBackupTarget adds the rules of a backup destination: the volume the
 // backup unit may write to, and ACLs (the runner gets its access that way).
 func (m *ShareManager) checkBackupTarget(s shares.Share, vol shares.Volume) error {

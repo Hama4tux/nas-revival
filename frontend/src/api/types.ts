@@ -362,7 +362,11 @@ export interface TaskSchedule {
   weekdays?: TaskWeekday[];
   day?: number;
 }
+/** Destination of a backup task: a share with backupTarget and a subfolder; the job lives in <share>/<folder>/<id>/. */
+export interface BackupDest { share: string; folder?: string }
 export interface BackupParams {
+  /** Empty share = a task from before the destinations (the runner reports it until it is migrated). */
+  dest: BackupDest;
   host: string; port: number; user: string; paths: string[]; keepDays: number;
   fresh?: { file: string; maxAgeHours: number };
   bwlimitKiB: number; excludes: string[];

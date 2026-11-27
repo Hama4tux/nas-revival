@@ -2,16 +2,19 @@ package tasks
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
 	"time"
+
+	"nas-revival/backend/internal/shares"
 )
 
 func goodBackup() *BackupParams {
-	return &BackupParams{Host: "192.0.2.10", Port: 22, User: "root", Paths: []string{"nas-export", "hrcm"},
+	return &BackupParams{Dest: BackupDest{Share: "data", Folder: "daily-backup"}, Host: "192.0.2.10", Port: 22, User: "root", Paths: []string{"nas-export", "hrcm"},
 		KeepDays: 35, Fresh: &FreshParams{File: "nas-export/last-ok", MaxAgeHours: 26}, Excludes: []string{"*.tmp"}}
 }
 
@@ -61,6 +64,10 @@ func TestBackupValidationBad(t *testing.T) {
 		"path many":     func(b *BackupParams) { b.Paths = strings.Split("a b c d e f g h i", " ") },
 		"keep 0":        func(b *BackupParams) { b.KeepDays = 0 },
 		"keep 91":       func(b *BackupParams) { b.KeepDays = 91 },
+		"dest share":    func(b *BackupParams) { b.Dest.Share = "a/b" },
+		"dest folder":   func(b *BackupParams) { b.Dest.Folder = "a/b" },
+		"dest dotdot":   func(b *BackupParams) { b.Dest.Folder = ".." },
+		"dest orphan":   func(b *BackupParams) { b.Dest = BackupDest{Folder: "x"} },
 		"bw":            func(b *BackupParams) { b.BwlimitKiB = 1000001 },
 		"bw neg":        func(b *BackupParams) { b.BwlimitKiB = -1 },
 		"fresh outside": func(b *BackupParams) { b.Fresh.File = "other/x" },
@@ -170,8 +177,14 @@ func (f *fakeExec) run(_ context.Context, name string, args ...string) ([]byte, 
 func newWorker(t *testing.T, f *fakeExec) (*BackupWorker, string) {
 	t.Helper()
 	vol := t.TempDir()
+	os.Mkdir(filepath.Join(vol, "data"), 0o750)
+	sp := filepath.Join(t.TempDir(), "shares.json")
+	if err := shares.Save(sp, shares.Config{Shares: []shares.Share{{Name: "data", Volume: BackupVolume, Folder: "data",
+		ReadOnly: true, BackupTarget: true, Permissions: []shares.Permission{}}}}); err != nil {
+		t.Fatal(err)
+	}
 	now := time.Date(2026, 11, 26, 6, 45, 0, 0, time.Local)
-	return &BackupWorker{Volume: vol, KeyPath: "/k/id", KnownHosts: "/k/kh", Exec: f.run,
+	return &BackupWorker{Volume: vol, SharesPath: sp, KeyPath: "/k/id", KnownHosts: "/k/kh", Exec: f.run,
 		VolumeMounted: func() bool { return true }, Now: func() time.Time { return now }}, vol
 }
 
@@ -191,10 +204,10 @@ func TestBackupRsyncArgv(t *testing.T) {
 	if len(f.calls) != 2 {
 		t.Fatal(f.calls)
 	}
-	want := []string{"rsync", "-rlt", "--delete", "--chmod=D700,F600", "--timeout=600", "--stats", "--bwlimit=500",
+	want := []string{"rsync", "-rlt", "--delete", "--chmod=D750,F640", "--timeout=600", "--stats", "--bwlimit=500",
 		"--exclude=*.tmp", "--exclude=cache/", "-e",
 		"ssh -i /k/id -p 2222 -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/k/kh",
-		"--", "root@[2001:db8::1]:nas-export/", vol + "/apps/pull/nas-export/"}
+		"--", "root@[2001:db8::1]:nas-export/", vol + "/data/daily-backup/pull/current/nas-export/"}
 	if strings.Join(f.calls[0], "\x00") != strings.Join(want, "\x00") {
 		t.Fatalf("%q", f.calls[0])
 	}
@@ -222,7 +235,7 @@ func TestBackupExitCodes(t *testing.T) {
 			t.Errorf("%d: %+v", c.code, o)
 		}
 		// snapshot still taken after a failure
-		if _, err := os.Stat(filepath.Join(vol, "versions", "2026-11-26", "pull")); err != nil {
+		if _, err := os.Stat(filepath.Join(vol, "data", "daily-backup", "pull", "versions", "2026-11-26")); err != nil {
 			t.Errorf("no snapshot: %v", err)
 		}
 	}
@@ -246,7 +259,7 @@ func TestBackupNoVolumeAndStopped(t *testing.T) {
 func TestBackupFreshness(t *testing.T) {
 	f := &fakeExec{}
 	w, vol := newWorker(t, f)
-	marker := filepath.Join(vol, "apps", "pull", "nas-export", "last-ok")
+	marker := filepath.Join(jobOf(vol), "current", "nas-export", "last-ok")
 	f.onRun = func() {
 		os.MkdirAll(filepath.Dir(marker), 0o700)
 	}
@@ -278,25 +291,26 @@ func ino(t *testing.T, p string) uint64 {
 	return st.Sys().(*syscall.Stat_t).Ino
 }
 
+func jobOf(vol string) string { return filepath.Join(vol, "data", "daily-backup", "pull") }
+
 func TestSnapshotHardlinksAndRetention(t *testing.T) {
 	f := &fakeExec{}
 	w, vol := newWorker(t, f)
-	src := filepath.Join(vol, "apps", "pull")
-	os.MkdirAll(filepath.Join(src, "d", "e"), 0o700)
-	os.WriteFile(filepath.Join(src, "d", "f.txt"), []byte("hello"), 0o600)
-	os.WriteFile(filepath.Join(src, "d", "e", "g.txt"), []byte("world!"), 0o600)
+	job := jobOf(vol)
+	src := filepath.Join(job, "current")
+	os.MkdirAll(filepath.Join(src, "d", "e"), 0o750)
+	os.WriteFile(filepath.Join(src, "d", "f.txt"), []byte("hello"), 0o640)
+	os.WriteFile(filepath.Join(src, "d", "e", "g.txt"), []byte("world!"), 0o640)
 	os.Symlink("f.txt", filepath.Join(src, "d", "ln"))
-	// other id and old dates
-	os.MkdirAll(filepath.Join(vol, "versions", "2026-01-01", "other"), 0o700)
-	for _, d := range []string{"2026-11-20", "2026-11-21", "2026-11-22"} {
-		os.MkdirAll(filepath.Join(vol, "versions", d, "pull"), 0o700)
+	for _, d := range []string{"2026-11-20", "2026-11-21", "2026-11-22", "2026-01-02"} {
+		os.MkdirAll(filepath.Join(job, "versions", d), 0o750)
 	}
-	os.MkdirAll(filepath.Join(vol, "versions", "2026-01-02", "pull"), 0o700)
-	n, err := w.snapshot("pull", "2026-11-26", 3)
+	os.MkdirAll(filepath.Join(job, "versions", "not-a-date"), 0o750)
+	n, err := w.snapshot(job, "2026-11-26", 3)
 	if err != nil || n != 3 {
 		t.Fatalf("%d %v", n, err)
 	}
-	snap := filepath.Join(vol, "versions", "2026-11-26", "pull")
+	snap := filepath.Join(job, "versions", "2026-11-26")
 	if ino(t, filepath.Join(snap, "d", "f.txt")) != ino(t, filepath.Join(src, "d", "f.txt")) ||
 		ino(t, filepath.Join(snap, "d", "e", "g.txt")) != ino(t, filepath.Join(src, "d", "e", "g.txt")) {
 		t.Fatal("files are not hardlinks")
@@ -305,36 +319,85 @@ func TestSnapshotHardlinksAndRetention(t *testing.T) {
 		t.Fatalf("symlink %q %v", l, err)
 	}
 	st, _ := os.Stat(filepath.Join(snap, "d"))
-	if st.Mode().Perm() != 0o700 {
+	if st.Mode().Perm() != 0o750 {
 		t.Fatal(st.Mode())
 	}
 	// retention: newest 3 of {01-02, 11-20..22, 11-26} -> keeps 11-26, 11-22, 11-21
 	for d, want := range map[string]bool{"2026-11-26": true, "2026-11-22": true, "2026-11-21": true,
-		"2026-11-20": false, "2026-01-02": false} {
-		_, err := os.Stat(filepath.Join(vol, "versions", d, "pull"))
+		"2026-11-20": false, "2026-01-02": false, "not-a-date": true} {
+		_, err := os.Stat(filepath.Join(job, "versions", d))
 		if (err == nil) != want {
 			t.Errorf("%s present=%v", d, err == nil)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(vol, "versions", "2026-01-02")); err == nil {
-		t.Error("empty date dir kept")
-	}
-	if _, err := os.Stat(filepath.Join(vol, "versions", "2026-01-01", "other")); err != nil {
-		t.Error("other id touched")
-	}
 	// re-running the same day replaces the snapshot, no tmp left
-	if _, err := w.snapshot("pull", "2026-11-26", 3); err != nil {
+	if _, err := w.snapshot(job, "2026-11-26", 3); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(filepath.Join(vol, "versions", "2026-11-26", ".tmp-pull")); err == nil {
+	if _, err := os.Stat(filepath.Join(job, "versions", ".tmp-2026-11-26")); err == nil {
 		t.Error("tmp left")
 	}
 	// used bytes: 5 + 6, hardlinks counted once
-	if u := w.usedBytes("pull"); u != 11 {
+	if u := w.usedBytes(job); u != 11 {
 		t.Fatalf("used %d", u)
 	}
-	if _, err := w.snapshot("pull", "../x", 3); err == nil {
+	if _, err := w.snapshot(job, "../x", 3); err == nil {
 		t.Error("bad date accepted")
+	}
+}
+
+func TestBackupDestinationErrors(t *testing.T) {
+	f := &fakeExec{}
+	w, vol := newWorker(t, f)
+	run := func(b *BackupParams) BackupOutcome { return w.Run(context.Background(), backupTask(b)) }
+	b := goodBackup()
+	b.Dest = BackupDest{}
+	if o := run(b); o.Message != MsgNoDest || len(f.calls) != 0 {
+		t.Fatalf("no dest: %+v", o)
+	}
+	b = goodBackup()
+	b.Dest.Share = "missing"
+	if o := run(b); o.Message != MsgBadDest || len(f.calls) != 0 {
+		t.Fatalf("missing share: %+v", o)
+	}
+	// a share without backupTarget is refused
+	cfg, _ := shares.Load(w.SharesPath)
+	cfg.Shares[0].BackupTarget = false
+	shares.Save(w.SharesPath, cfg)
+	if o := run(goodBackup()); o.Message != MsgBadDest {
+		t.Fatalf("not a target: %+v", o)
+	}
+	cfg.Shares[0].BackupTarget = true
+	shares.Save(w.SharesPath, cfg)
+	// a symlinked subfolder is refused
+	outside := t.TempDir()
+	os.Symlink(outside, filepath.Join(vol, "data", "daily-backup"))
+	if o := run(goodBackup()); o.Message != MsgBadDest || len(f.calls) != 0 {
+		t.Fatalf("symlink: %+v", o)
+	}
+	if _, err := ResolveJobDir(vol, w.SharesPath, backupTask(goodBackup())); !errors.Is(err, ErrBadDest) {
+		t.Fatal(err)
+	}
+	if entries, _ := os.ReadDir(outside); len(entries) != 0 {
+		t.Fatal("wrote through the symlink")
+	}
+}
+
+func TestBackupLayout(t *testing.T) {
+	f := &fakeExec{}
+	w, vol := newWorker(t, f)
+	b := goodBackup()
+	b.Fresh = nil
+	if o := w.Run(context.Background(), backupTask(b)); o.Result != ResultOK {
+		t.Fatalf("%+v", o)
+	}
+	for _, d := range []string{"current/nas-export", "current/hrcm", "versions/2026-11-26/nas-export"} {
+		if st, err := os.Stat(filepath.Join(jobOf(vol), d)); err != nil || !st.IsDir() {
+			t.Errorf("%s: %v", d, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(vol, "apps")); err == nil {
+		t.Error("old apps dir created")
 	}
 }
 

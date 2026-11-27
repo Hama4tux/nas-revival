@@ -15,13 +15,14 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/tasks"
 )
 
 // Browsing the backup versions (W4.3 phase 2, BKP-11). The versions belong to
-// nas-backup (0700); the web process sees them only through these ops. Every
-// lookup goes through os.Root so a symlink stored in a backup can never lead
-// outside versions/<date>/<id>, and a download refuses symlinks entirely.
+// nas-backup (0750, readable through the share ACL); the web process sees
+// them only through these ops. Every lookup goes through os.Root so a symlink
+// stored in a backup can never lead outside <job>/versions/<date>, and a download refuses symlinks entirely.
 
 // Limits of the browse ops.
 const (
@@ -117,6 +118,47 @@ func (m *BackupManager) volume() string {
 	return m.Volume
 }
 
+// jobDir resolves the job directory of a backup task (<share>/<folder>/<id>).
+// ok is false when the task is unknown or has no usable destination, so the
+// job has no versions to show.
+func (m *BackupManager) jobDir(id string) (dir string, ok bool, err error) {
+	if m.JobDir != nil {
+		return m.JobDir(id)
+	}
+	list, err := tasks.Load(m.tasksPath())
+	if err != nil {
+		return "", false, internalErr("Seznam úloh nelze načíst.")
+	}
+	for _, t := range list {
+		if t.ID != id || t.Type != tasks.TypeBackup || t.Backup == nil {
+			continue
+		}
+		dir, err := tasks.ResolveJobDir(m.volume(), m.sharesPath(), t)
+		if errors.Is(err, tasks.ErrNoDest) || errors.Is(err, tasks.ErrBadDest) {
+			return "", false, nil
+		}
+		if err != nil {
+			return "", false, internalErr("Cíl zálohy nelze určit.")
+		}
+		return dir, true, nil
+	}
+	return "", false, nil
+}
+
+func (m *BackupManager) tasksPath() string {
+	if m.TasksPath == "" {
+		return tasks.DefaultConfigPath
+	}
+	return m.TasksPath
+}
+
+func (m *BackupManager) sharesPath() string {
+	if m.SharesPath == "" {
+		return shares.DefaultConfigPath
+	}
+	return m.SharesPath
+}
+
 // realDir reports whether p is a directory and not a symlink.
 func realDir(p string) bool {
 	st, err := os.Lstat(p)
@@ -125,7 +167,14 @@ func realDir(p string) bool {
 
 // versionDates lists the dates that hold a version of id, newest first.
 func (m *BackupManager) versionDates(id string) ([]string, error) {
-	vroot := filepath.Join(m.volume(), "versions")
+	job, ok, err := m.jobDir(id)
+	if err != nil || !ok {
+		return nil, err
+	}
+	vroot := filepath.Join(job, "versions")
+	if !realDir(vroot) {
+		return nil, nil
+	}
 	entries, err := os.ReadDir(vroot)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
@@ -135,7 +184,7 @@ func (m *BackupManager) versionDates(id string) ([]string, error) {
 	}
 	var dates []string
 	for _, e := range entries {
-		if e.IsDir() && versionDateRe.MatchString(e.Name()) && realDir(filepath.Join(vroot, e.Name(), id)) {
+		if e.IsDir() && versionDateRe.MatchString(e.Name()) && realDir(filepath.Join(vroot, e.Name())) {
 			dates = append(dates, e.Name())
 		}
 	}
@@ -164,12 +213,13 @@ func (m *BackupManager) Versions(ctx context.Context, id string) (BackupVersions
 	res := BackupVersions{Versions: make([]BackupVersion, len(dates)), Complete: true}
 	type inode struct{ dev, ino uint64 }
 	var prev map[inode]bool
+	job, _, _ := m.jobDir(id)
 	budget := MaxVersionWalk
 	// Oldest first, so each version is compared with the one before it.
 	for i := len(dates) - 1; i >= 0; i-- {
 		v := BackupVersion{Date: dates[i]}
 		cur := map[inode]bool{}
-		root := filepath.Join(m.volume(), "versions", dates[i], id)
+		root := filepath.Join(job, "versions", dates[i])
 		walkErr := filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 			if err != nil {
 				return nil
@@ -215,7 +265,7 @@ func (m *BackupManager) Versions(ctx context.Context, id string) (BackupVersions
 	return res, nil
 }
 
-// openVersion opens versions/<date>/<id> as a root after checking that no
+// openVersion opens <job>/versions/<date> as a root after checking that no
 // element of it is a symlink.
 func (m *BackupManager) openVersion(id, date string) (*os.Root, error) {
 	if err := checkJob(id); err != nil {
@@ -224,13 +274,20 @@ func (m *BackupManager) openVersion(id, date string) (*os.Root, error) {
 	if !versionDateRe.MatchString(date) {
 		return nil, invalid("date", "Neplatné datum verze.")
 	}
-	vroot := filepath.Join(m.volume(), "versions")
-	for _, p := range []string{vroot, filepath.Join(vroot, date), filepath.Join(vroot, date, id)} {
+	job, ok, err := m.jobDir(id)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, notFound("Verze zálohy neexistuje.")
+	}
+	vroot := filepath.Join(job, "versions")
+	for _, p := range []string{job, vroot, filepath.Join(vroot, date)} {
 		if !realDir(p) {
 			return nil, notFound("Verze zálohy neexistuje.")
 		}
 	}
-	r, err := os.OpenRoot(filepath.Join(vroot, date, id))
+	r, err := os.OpenRoot(filepath.Join(vroot, date))
 	if err != nil {
 		return nil, notFound("Verze zálohy neexistuje.")
 	}

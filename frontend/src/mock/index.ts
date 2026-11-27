@@ -760,7 +760,7 @@ let mockTasks: MockTask[] = [
   { id: 'a1b2c3d4', name: 'SMART dlouhý test', type: 'smart', enabled: true, schedule: { kind: 'monthly', time: '02:00', day: 1 },
     smart: { diskId: 'wwn-0x5000c50000000001', test: 'long' } },
   { id: 'export', name: 'Záloha ze serveru', type: 'backup-pull', enabled: true, schedule: { kind: 'daily', time: '06:45' },
-    backup: { host: '192.0.2.10', port: 22, user: 'root', paths: ['nas-export', 'hrcm'], keepDays: 35,
+    backup: { dest: { share: 'Zalohy', folder: 'daily-backup' }, host: '192.0.2.10', port: 22, user: 'root', paths: ['nas-export', 'hrcm'], keepDays: 35,
       fresh: { file: 'nas-export/last-ok', maxAgeHours: 26 }, bwlimitKiB: 0, excludes: ['*.tmp'] } },
   { id: 'night', name: 'Noční vypnutí', type: 'shutdown', enabled: false, schedule: { kind: 'weekly', time: '01:00', weekdays: ['sun'] } },
 ];

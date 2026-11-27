@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 	"unicode/utf8"
+
+	"nas-revival/backend/internal/shares"
 )
 
 // Limits of a backup-pull task.
@@ -32,8 +34,17 @@ type FreshParams struct {
 	MaxAgeHours int    `json:"maxAgeHours"`
 }
 
+// BackupDest is where a backup task stores its data: a share with the
+// backupTarget property and an optional subfolder (one level) in it. The job
+// directory is <share folder>/<folder>/<task id>/.
+type BackupDest struct {
+	Share  string `json:"share"`
+	Folder string `json:"folder,omitempty"`
+}
+
 // BackupParams are the parameters of a backup-pull task.
 type BackupParams struct {
+	Dest       BackupDest   `json:"dest"`
 	Host       string       `json:"host"`
 	Port       int          `json:"port"`
 	User       string       `json:"user"`
@@ -82,6 +93,17 @@ func validateBackup(p string, in *BackupParams) (*BackupParams, error) {
 		return nil, bad(p[:len(p)-1], "Chybí parametry zálohy.")
 	}
 	b := *in
+	// An empty share is a task from before the destinations; it stays
+	// loadable (the runner reports it) until the migration sets one.
+	if b.Dest.Share != "" && !shares.ValidName(b.Dest.Share) {
+		return nil, bad(p+"dest.share", "Neplatný název sdílené složky.")
+	}
+	if b.Dest.Folder != "" && !shares.ValidName(b.Dest.Folder) {
+		return nil, bad(p+"dest.folder", "Podsložka smí mít jen písmena, číslice, _ a - (jedna úroveň).")
+	}
+	if b.Dest.Share == "" && b.Dest.Folder != "" {
+		return nil, bad(p+"dest.share", "Vyberte cíl záloh.")
+	}
 	if !ValidHost(b.Host) {
 		return nil, bad(p+"host", "Neplatný název nebo adresa serveru.")
 	}

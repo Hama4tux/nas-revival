@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/tasks"
 )
 
@@ -339,5 +340,41 @@ func TestPowerBlockerCodesAgree(t *testing.T) {
 	}
 	if len(have) != len(want) {
 		t.Errorf("runner knows %d codes, preflight %d", len(have), len(want))
+	}
+}
+
+func destTask(id, share string) tasks.Task {
+	return tasks.Task{ID: id, Name: "Záloha", Type: tasks.TypeBackup, Enabled: true,
+		Schedule: tasks.Schedule{Kind: tasks.KindDaily, Time: "06:45"},
+		Backup: &tasks.BackupParams{Dest: tasks.BackupDest{Share: share, Folder: "daily-backup"}, Host: "192.0.2.10",
+			User: "root", Paths: []string{"x"}, KeepDays: 7}}
+}
+
+func TestTaskSetChecksBackupDestination(t *testing.T) {
+	x := newTaskFix(t)
+	x.m.SharesPath = filepath.Join(x.dir, "shares.json")
+	err := shares.Save(x.m.SharesPath, shares.Config{Shares: []shares.Share{
+		{Name: "data", Volume: tasks.BackupVolume, Folder: "data", ReadOnly: true, BackupTarget: true, Permissions: []shares.Permission{}},
+		{Name: "docs", Volume: tasks.BackupVolume, Folder: "docs", Permissions: []shares.Permission{}}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	for _, share := range []string{"docs", "nope", ""} {
+		if _, err := x.m.Set(ctx, []tasks.Task{destTask("pull", share)}, "admin"); err == nil {
+			t.Errorf("share %q accepted", share)
+		}
+	}
+	if _, err := x.m.Set(ctx, []tasks.Task{destTask("pull", "data")}, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	// A task saved before destinations existed may stay without one.
+	old := destTask("old", "")
+	old.Backup.Dest = tasks.BackupDest{}
+	if err := tasks.Save(x.m.Path, []tasks.Task{old}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := x.m.Set(ctx, []tasks.Task{old}, "admin"); err != nil {
+		t.Fatalf("legacy task refused: %v", err)
 	}
 }

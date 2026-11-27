@@ -33,9 +33,12 @@ Backup pull jobs (W4.3, ADR 0008): task type `backup-pull`, one `nas-revival-bac
 (unit `nas-revival-backup@.service`), run as the unprivileged account `nas-backup` (home `/var/lib/nas-backup`,
 0700; key `.ssh/id_ed25519` 0600; history `task-history.json` 0640, read by the web UI through its supplementary
 group `nas-backup`). Data: `/srv/data/apps/<id>/<path>/` is the mirror (`rsync --delete`),
-`/srv/data/versions/<date>/<id>/` the hardlink snapshots (kept `keepDays` newest days). Since 2026-11-27 these names are
-no longer reserved and the pseudo share `zalohy` is gone; the destination becomes a shared folder with "Cíl záloh"
-(`backupTarget`, see docs/api/v1.md). Server host keys are trusted in the UI (Tasks, "Ověřit server") and stored in
+`/srv/data/versions/<date>/<id>/` the hardlink snapshots (kept `keepDays` newest days) – the layout up to 2026-11-26.
+Since 2026-11-27 a task stores into a shared folder with "Cíl záloh" (`backupTarget`, see docs/api/v1.md):
+`<share folder>/<subfolder>/<id>/current/` and `.../versions/<date>/`; the pseudo share `zalohy` is gone. Move the old
+data once, as root, when no backup runs: `nas-revival task migrate-backup-dest -share data -folder daily-backup -n`
+prints the plan, without `-n` it renames the data (hardlinks stay), removes the empty old folders, re-applies the
+share's ACL and sets the destination of the tasks; an interrupted run can be repeated. Server host keys are trusted in the UI (Tasks, "Ověřit server") and stored in
 `/etc/nas-revival/backup_known_hosts` (root, 0644, written only by the helper). The NAS public key goes to the server's
 `authorized_keys` with `from="<NAS IP>",restrict,command="rrsync -ro <folder>"` (the UI shows the line). Install once, as root:
 

@@ -6,7 +6,7 @@ Wants=network-online.target
 [Service]
 # Started by the generated nas-revival-task-<id>.timer (backup-pull tasks) or by "Run now" in the web UI.
 # Runs as the unprivileged account nas-backup: rsync over ssh from the server into
-# /srv/data/apps/<id>/ (mirror) and /srv/data/versions/<date>/<id>/ (hardlink snapshots), ADR 0008.
+# <backupTarget share>/<folder>/<id>/current (mirror) and .../versions/<date>/ (hardlink snapshots), ADR 0008.
 # The runner waits for the heavy-job lock (/run/lock/nas-heavy.lock, group nas-heavy).
 Type=oneshot
 ExecStart=/usr/local/bin/nas-revival task run -config /etc/nas-revival -state /var/lib/nas-backup %i

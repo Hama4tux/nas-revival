@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// versionsFixture builds versions/<date>/job like the runner does: the
+// versionsFixture builds data/daily-backup/job/versions/<date> like the runner does: the
 // unchanged file is a hardlink of the older version, the dump is new.
 func versionsFixture(t *testing.T) (*BackupManager, string) {
 	t.Helper()
@@ -23,8 +23,9 @@ func versionsFixture(t *testing.T) (*BackupManager, string) {
 			t.Fatal(err)
 		}
 	}
-	old := filepath.Join(vol, "versions", "2026-11-24", "job")
-	newer := filepath.Join(vol, "versions", "2026-11-25", "job")
+	jobDir := filepath.Join(vol, "data", "daily-backup", "job")
+	old := filepath.Join(jobDir, "versions", "2026-11-24")
+	newer := filepath.Join(jobDir, "versions", "2026-11-25")
 	mk(filepath.Join(old, "app", "same.txt"), "12345")
 	mk(filepath.Join(old, "app", "dump.sql"), "aaa")
 	os.MkdirAll(filepath.Join(newer, "app"), 0o700)
@@ -39,10 +40,16 @@ func versionsFixture(t *testing.T) (*BackupManager, string) {
 	mk(secret, "top secret")
 	os.Symlink(secret, filepath.Join(newer, "app", "escape"))
 	os.Symlink("../../../../secret", filepath.Join(newer, "app", "rel-escape"))
-	// Another job and a stray file are ignored.
-	mk(filepath.Join(vol, "versions", "2026-11-25", "other", "x"), "x")
-	mk(filepath.Join(vol, "versions", "notes.txt"), "x")
-	return &BackupManager{Volume: vol}, vol
+	// A stray file and a non-date folder are ignored; the mirror is not a version.
+	mk(filepath.Join(jobDir, "versions", "notes.txt"), "x")
+	mk(filepath.Join(jobDir, "versions", "tmp", "x"), "x")
+	mk(filepath.Join(jobDir, "current", "app", "x"), "x")
+	return &BackupManager{Volume: vol, JobDir: func(id string) (string, bool, error) {
+		if id != "job" {
+			return "", false, nil
+		}
+		return jobDir, true, nil
+	}}, vol
 }
 
 func TestBackupVersionsSizesAndAddedBytes(t *testing.T) {

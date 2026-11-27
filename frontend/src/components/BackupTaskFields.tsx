@@ -1,7 +1,7 @@
 import { Copy, KeyRound, Loader2, PlugZap, ShieldCheck } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { BackupKey, BackupParams, BackupScan, BackupTestResult } from '../api/types';
+import type { BackupKey, BackupParams, BackupScan, BackupTestResult, ShareList } from '../api/types';
 import { cs } from '../i18n/cs';
 import { DEFAULT_BACKUP_ROOT, authorizedLine, hostOk, portOk, relPathOk, userOk, type TaskErrors } from '../lib/tasks';
 import { Button } from './ui/button';
@@ -10,6 +10,7 @@ import { Input } from './ui/input';
 import { ListEditor } from './ui/list-editor';
 
 const b = cs.tasks.backup;
+const selectCls = 'h-10 w-full rounded-md border border-border bg-background/80 px-3 text-sm';
 const textareaCls = 'w-full break-all rounded-md border border-border bg-background/80 p-2 font-mono text-xs';
 
 function msgOf(e: unknown, fallback: string): string {
@@ -163,15 +164,59 @@ function ServerCheck({ bk }: { bk: BackupParams }) {
   );
 }
 
+/** Destination: a share with backupTarget (fetched from /shares) and a subfolder. */
+function DestFields({ value, onChange, errors, taskId }: {
+  value: BackupParams; onChange: (p: Partial<BackupParams>) => void; errors: TaskErrors; taskId: string;
+}) {
+  const [targets, setTargets] = useState<string[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let live = true;
+    api<ShareList>('/shares')
+      .then((l) => { if (live) setTargets(l.shares.filter((s) => s.backupTarget).map((s) => s.name)); })
+      .catch(() => { if (live) setFailed(true); });
+    return () => { live = false; };
+  }, []);
+  const dest = value.dest;
+  const setDest = (p: Partial<typeof dest>) => onChange({ dest: { ...dest, ...p } });
+  if (failed) return <p role="alert" className="text-sm font-medium text-danger">{b.destLoadError}</p>;
+  if (targets === null) return <Loader2 className="h-4 w-4 animate-spin" aria-label={b.keyLoading} />;
+  if (targets.length === 0 && dest.share === '') {
+    return <p role="note" className="rounded-md bg-muted/50 p-2 text-sm">{b.destNone} <a className="underline" href="#/shares">{b.destLink}</a></p>;
+  }
+  const missing = dest.share !== '' && !targets.includes(dest.share);
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label={b.dest} hint={b.destHint} error={errors.destShare ?? (missing ? b.destMissing(dest.share) : undefined)}>
+          {(p) => (
+            <select {...p} className={`${selectCls} ${invalidCls}`} value={dest.share} onChange={(e) => setDest({ share: e.target.value })}>
+              <option value="">{b.destChoose}</option>
+              {missing && <option value={dest.share}>{dest.share}</option>}
+              {targets.map((n) => <option key={n} value={n}>{n}</option>)}
+            </select>
+          )}
+        </Field>
+        <Field label={b.destFolder} hint={b.destFolderHint} error={errors.destFolder}>
+          {(p) => <Input {...p} className={invalidCls} value={dest.folder ?? ''} autoComplete="off" spellCheck={false} maxLength={32}
+            onChange={(e) => setDest({ folder: e.target.value })} />}
+        </Field>
+      </div>
+      {dest.share !== '' && <p className="break-all text-xs text-muted-foreground">{b.destPath(dest.share, (dest.folder ?? '').trim(), taskId)}</p>}
+    </div>
+  );
+}
+
 /** Editor fields of a `backup-pull` task (server, folders, retention, key, host-key check). */
-export function BackupTaskFields({ value, onChange, errors, isNew }: {
-  value: BackupParams; onChange: (v: BackupParams) => void; errors: TaskErrors; isNew: boolean;
+export function BackupTaskFields({ value, onChange, errors, isNew, taskId }: {
+  value: BackupParams; onChange: (v: BackupParams) => void; errors: TaskErrors; isNew: boolean; taskId: string;
 }) {
   const set = (p: Partial<BackupParams>) => onChange({ ...value, ...p });
   const num = (v: string) => (v === '' ? 0 : Number(v));
   return (
     <div className="min-w-0 space-y-4">
       {isNew && <p role="note" className="rounded-md bg-muted/50 p-2 text-sm">{b.notice(value.keepDays >= 1 && value.keepDays <= 90 ? value.keepDays : 35)}</p>}
+      <DestFields value={value} onChange={set} errors={errors} taskId={taskId} />
       <Field label={b.server} hint={b.serverHint} error={errors.host}>
         {(p) => <Input {...p} className={invalidCls} value={value.host} autoComplete="off" spellCheck={false} maxLength={253} onChange={(e) => set({ host: e.target.value })} />}
       </Field>

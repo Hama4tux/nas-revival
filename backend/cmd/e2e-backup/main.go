@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/helper"
+	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/tasks"
 )
 
@@ -57,7 +58,7 @@ func main() {
 		r, err := c.BackupTest(ctx, b.Host, b.Port, b.User, b.Paths[0])
 		check("backup.test "+t.ID, err == nil && r.OK && !r.FullAccess,
 			fmt.Sprintf("entries=%d fullAccess=%v %s", len(r.Entries), r.FullAccess, errText(err)))
-		checkVersions(ctx, c, t.ID, check)
+		checkVersions(ctx, c, t, check)
 	}
 	check("backup-pull tasks present", n > 0, fmt.Sprintf("count=%d", n))
 	if fail > 0 {
@@ -68,7 +69,8 @@ func main() {
 // checkVersions lists the versions, walks the newest one down to its first
 // file, reads it through the passed descriptor and checks that the web
 // account cannot open the same file directly. Prints counts only.
-func checkVersions(ctx context.Context, c *helper.Client, id string, check func(string, bool, string)) {
+func checkVersions(ctx context.Context, c *helper.Client, t tasks.Task, check func(string, bool, string)) {
+	id := t.ID
 	v, err := c.BackupVersions(ctx, id)
 	check("backup.versions "+id, err == nil && len(v.Versions) > 0 && v.Complete,
 		fmt.Sprintf("versions=%d complete=%v %s", len(v.Versions), v.Complete, errText(err)))
@@ -115,7 +117,12 @@ func checkVersions(ctx context.Context, c *helper.Client, id string, check func(
 	f.Close()
 	check("backup.open "+id, rerr == nil && meta.Size == size && (n == size || n == 64<<20),
 		fmt.Sprintf("read=%d size=%d", n, size))
-	_, derr := os.Open(filepath.Join(tasks.BackupVolume, "versions", date, id, file))
+	job, jerr := tasks.ResolveJobDir(tasks.BackupVolume, shares.DefaultConfigPath, t)
+	if jerr != nil {
+		check("job directory "+id, false, jerr.Error())
+		return
+	}
+	_, derr := os.Open(filepath.Join(job, "versions", date, file))
 	check("web account has no direct read access "+id, derr != nil && errors.Is(derr, fs.ErrPermission), "")
 	if _, _, err := c.BackupOpen(ctx, id, date, "../"+id); err == nil {
 		check("backup.open refuses ..", false, "")

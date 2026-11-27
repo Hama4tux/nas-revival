@@ -14,8 +14,8 @@ func restoreFixture(t *testing.T) (*RestoreManager, string, *[]chownRec) {
 	bm, bvol := versionsFixture(t)
 	fm, fvol, rec := filesFixture(t)
 	old := time.Date(2026, 11, 20, 8, 0, 0, 0, time.UTC)
-	os.Chtimes(filepath.Join(bvol, "versions", "2026-11-25", "job", "app", "dump.sql"), old, old)
-	os.Chtimes(filepath.Join(bvol, "versions", "2026-11-25", "job", "app"), old, old)
+	os.Chtimes(filepath.Join(bvol, "data", "daily-backup", "job", "versions", "2026-11-25", "app", "dump.sql"), old, old)
+	os.Chtimes(filepath.Join(bvol, "data", "daily-backup", "job", "versions", "2026-11-25", "app"), old, old)
 	return &RestoreManager{Backup: bm, Files: fm}, fvol, rec
 }
 

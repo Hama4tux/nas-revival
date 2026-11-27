@@ -84,7 +84,7 @@ describe('formatting', () => {
 
 const bk = (p: Partial<BackupParams> = {}, t: Partial<TaskDef> = {}): TaskDef => ({
   id: '', name: 'Záloha', type: 'backup-pull', enabled: true, schedule: { kind: 'daily', time: '06:45' },
-  backup: { host: '192.0.2.10', port: 22, user: 'root', paths: ['nas-export', 'hrcm'], keepDays: 35,
+  backup: { dest: { share: 'data', folder: 'daily-backup' }, host: '192.0.2.10', port: 22, user: 'root', paths: ['nas-export', 'hrcm'], keepDays: 35,
     fresh: { file: 'nas-export/last-ok', maxAgeHours: 26 }, bwlimitKiB: 0, excludes: ['*.tmp'], ...p }, ...t,
 });
 
@@ -181,5 +181,23 @@ describe('authorizedLine', () => {
     expect(authorizedLine(hint, '/x" ; rm')).toBeNull();
     expect(authorizedLine(hint, 'rel')).toBeNull();
     expect(authorizedLine(hint, '/a/../b')).toBeNull();
+  });
+});
+
+describe('backup destination', () => {
+  it('needs a share and a plain subfolder', () => {
+    expect(validateTask(bk({ dest: { share: '' } })).destShare).toBeTruthy();
+    expect(validateTask(bk({ dest: { share: 'a/b' } })).destShare).toBeTruthy();
+    expect(validateTask(bk({ dest: { share: 'data', folder: '../x' } })).destFolder).toBeTruthy();
+    expect(validateTask(bk({ dest: { share: 'data', folder: 'a/b' } })).destFolder).toBeTruthy();
+    expect(validateTask(bk({ dest: { share: 'data' } }))).toEqual({});
+    expect(validateTask(bk({ dest: { share: 'data', folder: 'daily-backup' } }))).toEqual({});
+  });
+  it('normalizes the folder and drops an empty one', () => {
+    expect(normalizeTask(bk({ dest: { share: 'data', folder: ' daily-backup ' } })).backup?.dest).toEqual({ share: 'data', folder: 'daily-backup' });
+    expect(normalizeTask(bk({ dest: { share: 'data', folder: ' ' } })).backup?.dest).toEqual({ share: 'data' });
+  });
+  it('starts a new task with the default folder', () => {
+    expect(newBackup().dest).toEqual({ share: '', folder: 'daily-backup' });
   });
 });

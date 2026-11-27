@@ -123,7 +123,7 @@ function EditorDialog({ initial, disks, onSave, onClose }: {
           </div>
         )}
         {form.type === 'backup-pull' && form.backup && (
-          <BackupTaskFields value={form.backup} onChange={(backup) => set({ backup })} errors={errors} isNew={initial.id === ''} />
+          <BackupTaskFields value={form.backup} onChange={(backup) => set({ backup })} errors={errors} isNew={initial.id === ''} taskId={initial.id} />
         )}
         <Field label={ed.kind}>
           {(p) => (
@@ -206,7 +206,7 @@ function TaskCard({ task, readOnly, busy, onToggle, onRun, onStop, onEdit, onHis
 }) {
   const n = task.name;
   const sub = task.type === 'smart' && task.smart ? `${t.types.smart}, ${t.testShort[task.smart.test]} test`
-    : task.type === 'backup-pull' && task.backup ? `${t.types[task.type]}: ${task.backup.user}@${task.backup.host}` : t.types[task.type];
+    : task.type === 'backup-pull' && task.backup ? `${t.types[task.type]}: ${task.backup.user}@${task.backup.host}${task.backup.dest?.share ? ` → ${task.backup.dest.share}${task.backup.dest.folder ? `/${task.backup.dest.folder}` : ''}` : ''}` : t.types[task.type];
   return (
     <li className="space-y-3 rounded-lg border border-border p-3">
       <div className="flex flex-wrap items-start gap-x-3 gap-y-2">

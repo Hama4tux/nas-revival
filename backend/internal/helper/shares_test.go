@@ -483,3 +483,26 @@ func TestShareBackupTargetInUse(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestShareReapplyWalksTheWholeFolder(t *testing.T) {
+	f := newShareFix(t, true)
+	f.m.BackupVolume = f.vol
+	ctx := context.Background()
+	if _, err := f.m.Create(ctx, backupShare(f.vol), "admin"); err != nil {
+		t.Fatal(err)
+	}
+	// data moved in from outside after the share was created
+	moved := filepath.Join(f.vol, "zalohy", "daily-backup", "job", "current")
+	os.MkdirAll(moved, 0o700)
+	os.WriteFile(filepath.Join(moved, "dump.sql"), []byte("x"), 0o600)
+	f.xattrs = nil
+	if err := f.m.Reapply(ctx, "zalohy"); err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(f.xattrs, "|"); !strings.Contains(got, "dump.sql system.posix_acl_access") {
+		t.Errorf("file not covered: %s", got)
+	}
+	if err := f.m.Reapply(ctx, "nope"); codeOf(err) != CodeNotFound {
+		t.Errorf("unknown share: %v", err)
+	}
+}

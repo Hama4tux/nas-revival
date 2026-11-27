@@ -16,6 +16,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"nas-revival/backend/internal/shares"
 )
 
 // Fixed locations of the backup pull jobs (W4.3, ADR 0008).
@@ -33,6 +35,8 @@ const (
 	MsgNoVolume     = "Datový svazek není připojen."
 	MsgHostKey      = "Otisk klíče serveru nesouhlasí – ověřte a potvrďte ho znovu."
 	MsgPartial      = "Část souborů se nepodařilo stáhnout."
+	MsgNoDest       = "Úloha nemá nastavený cíl záloh."
+	MsgBadDest      = "Cíl záloh není k dispozici (složka neexistuje, není na datovém svazku nebo nemá volbu Cíl záloh)."
 )
 
 var dateRe = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}$`)
@@ -98,6 +102,7 @@ func RemoteSpec(user, host, path string) string {
 // BackupWorker does the pull, the snapshot and the retention.
 type BackupWorker struct {
 	Volume     string
+	SharesPath string // shares.json: the destination share is resolved there
 	KeyPath    string
 	KnownHosts string
 	Exec       ExecFunc
@@ -108,7 +113,7 @@ type BackupWorker struct {
 
 // NewBackupWorker returns a worker with the production defaults.
 func NewBackupWorker(volumeMounted func() bool) *BackupWorker {
-	return &BackupWorker{Volume: BackupVolume, KeyPath: BackupKeyPath, KnownHosts: BackupKnownHosts,
+	return &BackupWorker{Volume: BackupVolume, SharesPath: shares.DefaultConfigPath, KeyPath: BackupKeyPath, KnownHosts: BackupKnownHosts,
 		Exec: SysExec, VolumeMounted: volumeMounted, Now: time.Now}
 }
 
@@ -118,15 +123,31 @@ type BackupOutcome struct {
 	Bytes, UsedBytes int64
 }
 
-// under joins validated elements and checks that the result stays below the
-// volume root.
-func (w *BackupWorker) under(elems ...string) (string, error) {
-	p := filepath.Join(append([]string{w.Volume}, elems...)...)
-	rel, err := filepath.Rel(w.Volume, p)
+// within joins validated elements to a job directory and checks that the
+// result stays below it.
+func within(jobDir string, elems ...string) (string, error) {
+	p := filepath.Join(append([]string{jobDir}, elems...)...)
+	rel, err := filepath.Rel(jobDir, p)
 	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
-		return "", errors.New("path escapes the volume")
+		return "", errors.New("path escapes the job directory")
 	}
 	return p, nil
+}
+
+// ensureDir creates a directory below the job directory or accepts an
+// existing real one (never a symlink).
+func ensureDir(p string) error {
+	if err := os.Mkdir(p, 0o750); err != nil && !errors.Is(err, fs.ErrExist) {
+		return err
+	}
+	st, err := os.Lstat(p)
+	if err != nil {
+		return err
+	}
+	if !st.IsDir() {
+		return errors.New("not a real directory: " + p)
+	}
+	return nil
 }
 
 // Run pulls every path, checks freshness, snapshots and prunes.
@@ -139,16 +160,13 @@ func (w *BackupWorker) Run(ctx context.Context, t Task) BackupOutcome {
 		return BackupOutcome{Result: ResultFailed, Message: MsgNoVolume}
 	}
 	fail := func(m string) BackupOutcome { return BackupOutcome{Result: ResultFailed, Message: m} }
-	appDir, err := w.under("apps", t.ID)
+	jobDir, err := ResolveJobDir(w.Volume, w.SharesPath, t)
 	if err != nil {
-		return fail(MsgFailed)
+		slog.Error("backup: destination", "task", t.ID, "err", err)
+		return fail(DestMessage(err))
 	}
-	if err := os.MkdirAll(appDir, 0o700); err != nil {
+	if err := w.prepareJob(jobDir); err != nil {
 		slog.Error("backup: mkdir", "err", err)
-		return fail(MsgFailed)
-	}
-	if err := os.MkdirAll(filepath.Join(w.Volume, "versions"), 0o700); err != nil {
-		slog.Error("backup: mkdir versions", "err", err)
 		return fail(MsgFailed)
 	}
 	var (
@@ -161,17 +179,17 @@ func (w *BackupWorker) Run(ctx context.Context, t Task) BackupOutcome {
 		}
 	}
 	for _, p := range b.Paths {
-		dest, err := w.under("apps", t.ID, p)
+		dest, err := within(jobDir, "current", p)
 		if err != nil {
 			note(MsgFailed)
 			continue
 		}
-		if err := os.MkdirAll(dest, 0o700); err != nil {
+		if err := os.MkdirAll(dest, 0o750); err != nil {
 			slog.Error("backup: mkdir dest", "err", err)
 			note(MsgFailed)
 			continue
 		}
-		args := []string{"-rlt", "--delete", "--chmod=D700,F600", "--timeout=600", "--stats"}
+		args := []string{"-rlt", "--delete", "--chmod=D750,F640", "--timeout=600", "--stats"}
 		if b.BwlimitKiB > 0 {
 			args = append(args, "--bwlimit="+strconv.Itoa(b.BwlimitKiB))
 		}
@@ -199,22 +217,45 @@ func (w *BackupWorker) Run(ctx context.Context, t Task) BackupOutcome {
 		}
 	}
 	if b.Fresh != nil && first == "" {
-		if m := w.checkFresh(t.ID, b.Fresh); m != "" {
+		if m := w.checkFresh(jobDir, b.Fresh); m != "" {
 			note(m)
 		}
 	}
 	day := w.Now().Format("2006-01-02")
-	versions, err := w.snapshot(t.ID, day, b.KeepDays)
+	versions, err := w.snapshot(jobDir, day, b.KeepDays)
 	if err != nil {
 		slog.Error("backup: snapshot", "err", err)
 		note("Verzi se nepodařilo uložit.")
 	}
-	used := w.usedBytes(t.ID)
+	used := w.usedBytes(jobDir)
 	if first != "" {
 		return BackupOutcome{Result: ResultFailed, Message: first, Bytes: total, UsedBytes: used}
 	}
 	return BackupOutcome{Result: ResultOK, Bytes: total, UsedBytes: used,
 		Message: fmt.Sprintf("Staženo %s MB, verzí %d.", mbText(total), versions)}
+}
+
+// prepareJob creates <jobDir>/current and <jobDir>/versions (the job
+// directory itself and its parents below the share folder as needed). The
+// directories inherit the share's default ACL, so the share's readers see them.
+func (w *BackupWorker) prepareJob(jobDir string) error {
+	rel, err := filepath.Rel(w.Volume, jobDir)
+	if err != nil {
+		return err
+	}
+	p := w.Volume
+	for _, seg := range strings.Split(rel, string(filepath.Separator)) {
+		p = filepath.Join(p, seg)
+		if err := ensureDir(p); err != nil {
+			return err
+		}
+	}
+	for _, d := range []string{"current", "versions"} {
+		if err := ensureDir(filepath.Join(jobDir, d)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func mbText(n int64) string {
@@ -248,9 +289,9 @@ func ParseTransferred(out string) int64 {
 
 // checkFresh returns a failure message when the marker file is missing or
 // older than the limit.
-func (w *BackupWorker) checkFresh(id string, f *FreshParams) string {
+func (w *BackupWorker) checkFresh(jobDir string, f *FreshParams) string {
 	msg := fmt.Sprintf("Export na serveru je starší než %d h.", f.MaxAgeHours)
-	p, err := w.under("apps", id, f.File)
+	p, err := within(jobDir, "current", f.File)
 	if err != nil {
 		return MsgFailed
 	}
@@ -264,29 +305,17 @@ func (w *BackupWorker) checkFresh(id string, f *FreshParams) string {
 	return ""
 }
 
-// snapshot hardlinks apps/<id> to versions/<day>/<id> and prunes old
-// versions of this id; it returns how many versions of the id remain.
-func (w *BackupWorker) snapshot(id, day string, keep int) (int, error) {
+// snapshot hardlinks <jobDir>/current to <jobDir>/versions/<day> and prunes
+// the old versions; it returns how many versions remain.
+func (w *BackupWorker) snapshot(jobDir, day string, keep int) (int, error) {
 	if !dateRe.MatchString(day) {
 		return 0, errors.New("bad date")
 	}
-	src, err := w.under("apps", id)
-	if err != nil {
-		return 0, err
-	}
-	dayDir, err := w.under("versions", day)
-	if err != nil {
-		return 0, err
-	}
-	tmp, err := w.under("versions", day, ".tmp-"+id)
-	if err != nil {
-		return 0, err
-	}
-	final, err := w.under("versions", day, id)
-	if err != nil {
-		return 0, err
-	}
-	if err := os.MkdirAll(dayDir, 0o700); err != nil {
+	src := filepath.Join(jobDir, "current")
+	vroot := filepath.Join(jobDir, "versions")
+	tmp := filepath.Join(vroot, ".tmp-"+day)
+	final := filepath.Join(vroot, day)
+	if err := ensureDir(vroot); err != nil {
 		return 0, err
 	}
 	if err := os.RemoveAll(tmp); err != nil {
@@ -304,11 +333,10 @@ func (w *BackupWorker) snapshot(id, day string, keep int) (int, error) {
 		os.RemoveAll(tmp)
 		return 0, err
 	}
-	n, err := w.prune(id, keep)
-	return n, err
+	return w.prune(jobDir, keep)
 }
 
-// linkTree recreates src below dst: directories 0700, files as hardlinks,
+// linkTree recreates src below dst: directories 0750, files as hardlinks,
 // symlinks as symlinks (never followed).
 func linkTree(src, dst string) error {
 	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
@@ -322,7 +350,7 @@ func linkTree(src, dst string) error {
 		target := filepath.Join(dst, rel)
 		switch {
 		case d.IsDir():
-			return os.Mkdir(target, 0o700)
+			return os.Mkdir(target, 0o750)
 		case d.Type()&fs.ModeSymlink != 0:
 			l, err := os.Readlink(p)
 			if err != nil {
@@ -336,23 +364,16 @@ func linkTree(src, dst string) error {
 	})
 }
 
-// prune keeps the newest keep dates that contain id and removes the id's
-// directory from older dates (other ids are never touched).
-func (w *BackupWorker) prune(id string, keep int) (int, error) {
-	vroot, err := w.under("versions")
-	if err != nil {
-		return 0, err
-	}
+// prune keeps the newest keep dated versions of the job.
+func (w *BackupWorker) prune(jobDir string, keep int) (int, error) {
+	vroot := filepath.Join(jobDir, "versions")
 	entries, err := os.ReadDir(vroot)
 	if err != nil {
 		return 0, err
 	}
 	var dates []string
 	for _, e := range entries {
-		if !e.IsDir() || !dateRe.MatchString(e.Name()) {
-			continue
-		}
-		if st, err := os.Lstat(filepath.Join(vroot, e.Name(), id)); err == nil && st.IsDir() {
+		if e.IsDir() && dateRe.MatchString(e.Name()) {
 			dates = append(dates, e.Name())
 		}
 	}
@@ -362,17 +383,15 @@ func (w *BackupWorker) prune(id string, keep int) (int, error) {
 	}
 	var first error
 	for _, d := range dates[keep:] {
-		if err := os.RemoveAll(filepath.Join(vroot, d, id)); err != nil && first == nil {
+		if err := os.RemoveAll(filepath.Join(vroot, d)); err != nil && first == nil {
 			first = err
 		}
-		os.Remove(filepath.Join(vroot, d)) // only succeeds when empty
 	}
 	return keep, first
 }
 
-// usedBytes sums the regular files of apps/<id> and versions/*/<id>, each
-// inode once.
-func (w *BackupWorker) usedBytes(id string) int64 {
+// usedBytes sums the regular files of current and versions/*, each inode once.
+func (w *BackupWorker) usedBytes(jobDir string) int64 {
 	type key struct{ dev, ino uint64 }
 	seen := map[key]bool{}
 	var sum int64
@@ -396,15 +415,11 @@ func (w *BackupWorker) usedBytes(id string) int64 {
 			return nil
 		})
 	}
-	if p, err := w.under("apps", id); err == nil {
-		walk(p)
-	}
-	if vroot, err := w.under("versions"); err == nil {
-		if entries, err := os.ReadDir(vroot); err == nil {
-			for _, e := range entries {
-				if e.IsDir() && dateRe.MatchString(e.Name()) {
-					walk(filepath.Join(vroot, e.Name(), id))
-				}
+	walk(filepath.Join(jobDir, "current"))
+	if entries, err := os.ReadDir(filepath.Join(jobDir, "versions")); err == nil {
+		for _, e := range entries {
+			if e.IsDir() && dateRe.MatchString(e.Name()) {
+				walk(filepath.Join(jobDir, "versions", e.Name()))
 			}
 		}
 	}

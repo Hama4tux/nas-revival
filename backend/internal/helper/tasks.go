@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"sync"
 
 	"nas-revival/backend/internal/atomicfile"
+	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/tasks"
 )
 
@@ -29,7 +31,10 @@ type TaskManager struct {
 	Run     Runner
 	// NewID returns a fresh id for a task saved without one.
 	NewID func() string
-	mu    sync.Mutex
+	// SharesPath is shares.json; backup destinations are checked against it
+	// (empty skips the check, tests only).
+	SharesPath string
+	mu         sync.Mutex
 }
 
 var generatedTimerRe = regexp.MustCompile(`^nas-revival-task-([a-z0-9]{1,16})\.timer$`)
@@ -95,6 +100,9 @@ func (m *TaskManager) Set(ctx context.Context, in []tasks.Task, actor string) (T
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if err := m.checkDests(l); err != nil {
+		return TaskList{}, err
+	}
 	old, oldErr := os.ReadFile(m.Path)
 	if err := tasks.Save(m.Path, l); err != nil {
 		slog.Error("helper: write tasks.json", "err", err)
@@ -117,6 +125,50 @@ func (m *TaskManager) Set(ctx context.Context, in []tasks.Task, actor string) (T
 	}
 	slog.Info("helper: task.set", "count", len(l), "user", actor)
 	return TaskList{Tasks: l}, nil
+}
+
+// checkDests refuses a backup task whose destination is not an existing
+// backupTarget share on the backup volume. A task saved earlier without a
+// destination may stay that way (it is migrated later), a new one needs it.
+func (m *TaskManager) checkDests(l []tasks.Task) error {
+	if m.SharesPath == "" {
+		return nil
+	}
+	var cfg shares.Config
+	loaded := false
+	var prev []tasks.Task
+	for i, t := range l {
+		if t.Type != tasks.TypeBackup || t.Backup == nil {
+			continue
+		}
+		field := fmt.Sprintf("tasks[%d].backup.dest.share", i)
+		d := t.Backup.Dest
+		if d.Share == "" {
+			if prev == nil {
+				prev, _ = tasks.Load(m.Path)
+			}
+			if _, known := tasks.Find(prev, t.ID); !known {
+				return invalid(field, "Vyberte cíl záloh.")
+			}
+			continue
+		}
+		if !loaded {
+			c, err := shares.Load(m.SharesPath)
+			if err != nil {
+				slog.Error("helper: read shares.json", "err", err)
+				return internalErr("Konfiguraci sdílených složek nelze načíst.")
+			}
+			cfg, loaded = c, true
+		}
+		j := cfg.Find(d.Share)
+		if j < 0 {
+			return invalid(field, "Sdílená složka neexistuje.")
+		}
+		if s := cfg.Shares[j]; !s.BackupTarget || s.Volume != tasks.BackupVolume {
+			return invalid(field, "Složka nemá volbu Cíl záloh (nebo není na datovém svazku).")
+		}
+	}
+	return nil
 }
 
 // Reconcile makes the timer units match tasks.json (helper start).

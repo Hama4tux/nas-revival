@@ -1,4 +1,5 @@
 import { cs } from '../i18n/cs';
+import { SHARE_NAME_RE } from './shares';
 import type { BackupParams, TaskDef, TaskRun, TaskSchedule, TaskType, TaskWeekday } from '../api/types';
 
 export const WEEKDAYS: TaskWeekday[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -32,7 +33,7 @@ const PATH_RE = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
 const EXCLUDE_RE = /^[A-Za-z0-9._*?/[\]-]+$/;
 
 export type TaskErrors = Partial<Record<'name' | 'time' | 'weekdays' | 'day' | 'diskId' | 'test' | 'list'
-  | 'host' | 'port' | 'user' | 'paths' | 'keepDays' | 'freshFile' | 'freshAge' | 'bwlimit' | 'excludes', string>>;
+  | 'destShare' | 'destFolder' | 'host' | 'port' | 'user' | 'paths' | 'keepDays' | 'freshFile' | 'freshAge' | 'bwlimit' | 'excludes', string>>;
 
 export function hostOk(h: string): boolean {
   if (h === '' || h.length > 253 || h.startsWith('-')) return false;
@@ -49,6 +50,8 @@ const intIn = (n: number, lo: number, hi: number) => Number.isInteger(n) && n >=
 function validateBackup(b: BackupParams | undefined, e: TaskErrors) {
   const v = cs.tasks.v;
   if (!b) { e.host = v.host; return; }
+  if (!b.dest || !SHARE_NAME_RE.test(b.dest.share)) e.destShare = v.destShare;
+  if (b.dest?.folder && !SHARE_NAME_RE.test(b.dest.folder.trim())) e.destFolder = v.destFolder;
   if (!hostOk(b.host.trim())) e.host = v.host;
   if (!portOk(b.port)) e.port = v.port;
   if (!userOk(b.user.trim())) e.user = v.user;
@@ -117,7 +120,9 @@ export function normalizeTask(t: TaskDef): TaskDef {
   if (t.type === 'smart' && t.smart) out.smart = { diskId: t.smart.diskId, test: t.smart.test };
   if (t.type === 'backup-pull' && t.backup) {
     const b = t.backup;
+    const folder = b.dest.folder?.trim() ?? '';
     out.backup = {
+      dest: { share: b.dest.share, ...(folder !== '' ? { folder } : {}) },
       host: b.host.trim(), port: b.port || 22, user: b.user.trim(), paths: b.paths.map((p) => p.trim()).filter((p) => p !== ''),
       keepDays: b.keepDays, bwlimitKiB: b.bwlimitKiB || 0, excludes: b.excludes.map((x) => x.trim()).filter((x) => x !== ''),
       ...(b.fresh ? { fresh: { file: b.fresh.file.trim(), maxAgeHours: b.fresh.maxAgeHours } } : {}),
@@ -126,7 +131,8 @@ export function normalizeTask(t: TaskDef): TaskDef {
   return out;
 }
 
-export const newBackup = (): BackupParams => ({ host: '', port: 22, user: '', paths: [''], keepDays: 35, bwlimitKiB: 0, excludes: [] });
+export const DEFAULT_BACKUP_FOLDER = 'daily-backup';
+export const newBackup = (): BackupParams => ({ dest: { share: '', folder: DEFAULT_BACKUP_FOLDER }, host: '', port: 22, user: '', paths: [''], keepDays: 35, bwlimitKiB: 0, excludes: [] });
 
 /** authorized_keys line with the folder the admin chose; null when the folder is not a plain absolute path. */
 export function authorizedLine(hint: string, root: string): string | null {

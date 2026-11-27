@@ -87,8 +87,12 @@ type BackupManager struct {
 	KeyPath    string
 	KnownHosts string
 	ConfigPath string
-	// Volume is the data volume with apps/ and versions/ (default tasks.BackupVolume).
+	// Volume is where the data volume is mounted (default tasks.BackupVolume).
 	Volume string
+	// TasksPath and SharesPath resolve a task's job directory (defaults: the
+	// production files); JobDir replaces that in tests.
+	TasksPath, SharesPath string
+	JobDir                func(id string) (dir string, ok bool, err error)
 	// Lookup resolves the nas-backup account.
 	Lookup   func(name string) (uid uint32, gid int, err error)
 	Chown    func(path string, uid, gid int) error
