@@ -118,3 +118,10 @@ Each finding: severity, explanation, one-click link to the setting.
 Go modules pinned in `go.sum` (only `golang.org/x/crypto`, `x/term`), npm via `package-lock.json`,
 built on the workstation. Release artifacts (M5) are signed with ed25519; the public key is
 embedded in the binary; downgrade below the installed version requires explicit confirmation.
+
+Automated checks (`.github/workflows/security.yml`, on every push and pull request to `main`, weekly
+and on demand): gitleaks over the full git history with redacted output, `govulncheck` for the Go
+backend and toolchain, `npm audit` (fails on high/critical) plus registry signature verification for
+the frontend, and CodeQL `security-extended` for Go, TypeScript and the workflows themselves. Actions
+are pinned to commit SHAs. Owner-specific private patterns stay in the local pre-commit hook
+(`scripts/git-hooks/pre-commit`), they cannot run in public CI.
