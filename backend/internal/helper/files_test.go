@@ -103,11 +103,12 @@ func TestFileSharesFollowTheSMBMatrix(t *testing.T) {
 	if g := got("eva"); g != "" {
 		t.Errorf("eva = %s", g)
 	}
+	// Without a recovery administrator configured, "admin" is nobody.
 	if l, _ := m.Shares(ctx, "admin"); !l.NoAccount || len(l.Shares) != 0 {
-		t.Errorf("recovery admin = %+v", l)
+		t.Errorf("unknown admin = %+v", l)
 	}
 	if _, err := m.List(ctx, "admin", "data", "", 0); code(err) != CodeForbidden {
-		t.Errorf("recovery admin list = %v", err)
+		t.Errorf("unknown admin list = %v", err)
 	}
 	if _, err := m.List(ctx, "eva", "data", "", 0); code(err) != CodeNotFound {
 		t.Errorf("eva list = %v", err)
@@ -348,5 +349,48 @@ func TestFileUploadOverSocket(t *testing.T) {
 	m.Statfs = func(*os.File) (uint64, error) { return 10 << 20, nil }
 	if _, _, err := cl.FileUploadOpen(uctx, "data", "", "big", 1<<20, false); code(err) != CodeInvalid {
 		t.Errorf("full volume = %v", err)
+	}
+}
+
+func TestAdminsSeeEveryShareInFiles(t *testing.T) {
+	m, _, rec := filesFixture(t)
+	ctx := context.Background()
+	base, _ := m.DB()
+	db := base
+	db.Passwd = append(append([]accounts.PasswdEntry{}, base.Passwd...), accounts.PasswdEntry{Name: "karel", UID: 1004, GID: 990})
+	db.Groups = append(append([]accounts.GroupEntry{}, base.Groups...), accounts.GroupEntry{Name: accounts.AdminGroup, GID: 991, Members: []string{"karel"}})
+	m.DB = func() (accounts.DB, error) { return db, nil }
+	m.Recovery = func() string { return "admin" }
+	for _, user := range []string{"karel", "admin"} {
+		l, err := m.Shares(ctx, user)
+		if err != nil || l.NoAccount {
+			t.Fatalf("%s: %+v %v", user, l, err)
+		}
+		var s []string
+		for _, sh := range l.Shares {
+			s = append(s, sh.Name+":"+sh.Access)
+		}
+		// No permission entry needed; a read-only share stays read-only.
+		if g := strings.Join(s, ","); g != "data:rw,bin:rw,ro:ro,gone:rw" {
+			t.Errorf("%s = %s", user, g)
+		}
+		if _, err := m.List(ctx, user, "data", "", 0); err != nil {
+			t.Errorf("%s list = %v", user, err)
+		}
+		if _, err := m.Mkdir(ctx, user, "ro", "", "x"); code(err) != CodeForbidden {
+			t.Errorf("%s read-only share mkdir = %v", user, err)
+		}
+	}
+	*rec = nil
+	if _, err := m.Mkdir(ctx, "admin", "data", "", "od-admina"); err != nil {
+		t.Fatal(err)
+	}
+	// The recovery administrator has no account: new entries are root's with group nas-users.
+	if len(*rec) != 1 || (*rec)[0].uid != 0 || (*rec)[0].gid != 990 {
+		t.Errorf("owner = %+v", *rec)
+	}
+	// Other accounts are not affected.
+	if l, _ := m.Shares(ctx, "eva"); len(l.Shares) != 0 {
+		t.Errorf("eva = %+v", l.Shares)
 	}
 }

@@ -54,6 +54,9 @@ var uploadTokenRe = regexp.MustCompile(`^[0-9a-f]{32}$`)
 type FileManager struct {
 	Config func() (shares.Config, error)
 	DB     func() (accounts.DB, error)
+	// Recovery names the recovery administrator (admin.json, no Linux
+	// account); "" when there is none.
+	Recovery func() string
 	// HasACL says whether the volume enforces POSIX ACLs; without them the
 	// helper gives new entries the modes Samba uses (0660/0770).
 	HasACL func(volume string) bool
@@ -123,6 +126,30 @@ func forbidden(msg string) *Error { return &Error{Code: CodeForbidden, Message: 
 
 func existsErr(msg string) *Error { return &Error{Code: CodeFileExists, Message: msg} }
 
+// isRecovery: user is the recovery administrator. A NAS account of the same
+// name replaces it, as at the web login.
+func (m *FileManager) isRecovery(db accounts.DB, user string) bool {
+	return m.Recovery != nil && user != "" && user == m.Recovery() && !db.IsNASUser(user)
+}
+
+// isAdmin: administrators (nas-admin and the recovery administrator) see every
+// share in the File Station, without an entry in the permissions; they could
+// grant it to themselves anyway. SMB and SFTP keep the matrix.
+func (m *FileManager) isAdmin(db accounts.DB, user string) bool {
+	return m.isRecovery(db, user) || (db.IsNASUser(user) && db.RoleOf(user) == accounts.RoleAdmin)
+}
+
+// access is the caller's access to s in the File Station.
+func (m *FileManager) access(s shares.Share, db accounts.DB, user string) string {
+	if m.isAdmin(db, user) {
+		if s.ReadOnly {
+			return shares.AccessRO
+		}
+		return shares.AccessRW
+	}
+	return accessOf(s, db, user)
+}
+
 // accessOf is the caller's access to s, the same matrix the SMB side gets.
 func accessOf(s shares.Share, db accounts.DB, user string) string {
 	for _, ua := range shares.Effective(s, db) {
@@ -140,7 +167,7 @@ func (m *FileManager) Shares(ctx context.Context, user string) (FileShareList, e
 		return FileShareList{}, err
 	}
 	out := FileShareList{Shares: []FileShare{}}
-	if !db.IsNASUser(user) {
+	if !db.IsNASUser(user) && !m.isRecovery(db, user) {
 		out.NoAccount = true
 		return out, nil
 	}
@@ -149,7 +176,7 @@ func (m *FileManager) Shares(ctx context.Context, user string) (FileShareList, e
 		return FileShareList{}, err
 	}
 	for _, s := range cfg.Shares {
-		if a := accessOf(s, db, user); a != shares.AccessNone {
+		if a := m.access(s, db, user); a != shares.AccessNone {
 			out.Shares = append(out.Shares, FileShare{Name: s.Name, Description: s.Description, Access: a, Recycle: s.Recycle.Enabled})
 		}
 	}
@@ -162,10 +189,15 @@ func (m *FileManager) open(user, share string, write bool) (*fileCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	u, ok := db.User(user)
 	g, gok := db.Group(accounts.UsersGroup)
-	if !ok || !gok || !db.IsNASUser(user) {
-		return nil, forbidden("Soubory má jen účet NASu; záchranný správce je nemá.")
+	uid := 0 // the recovery administrator has no account: new entries are root's
+	if u, ok := db.User(user); ok && db.IsNASUser(user) {
+		uid = u.UID
+	} else if !m.isRecovery(db, user) {
+		gok = false
+	}
+	if !gok {
+		return nil, forbidden("Soubory má jen účet NASu.")
 	}
 	cfg, err := m.Config()
 	if err != nil {
@@ -175,7 +207,7 @@ func (m *FileManager) open(user, share string, write bool) (*fileCtx, error) {
 		if s.Name != share {
 			continue
 		}
-		a := accessOf(s, db, user)
+		a := m.access(s, db, user)
 		if a == shares.AccessNone {
 			break
 		}
@@ -189,7 +221,7 @@ func (m *FileManager) open(user, share string, write bool) (*fileCtx, error) {
 		if err != nil {
 			return nil, notFound("Složka sdílení na disku chybí (svazek není připojený?).")
 		}
-		return &fileCtx{share: s, access: a, uid: u.UID, gid: g.GID, user: user, acl: m.HasACL(s.Volume), root: r}, nil
+		return &fileCtx{share: s, access: a, uid: uid, gid: g.GID, user: user, acl: m.HasACL(s.Volume), root: r}, nil
 	}
 	// Unknown and forbidden shares look the same.
 	return nil, notFound("Sdílená složka neexistuje nebo k ní nemáte přístup.")

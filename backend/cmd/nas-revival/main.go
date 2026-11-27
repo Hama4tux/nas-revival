@@ -361,7 +361,16 @@ func runHelper(args []string) error {
 	bkm := helper.NewBackupManager(*iface, helper.ExecRunner)
 	bkm.ApplyShare = shm.Resamba
 	shm.BackupShare = bkm.ShareEnabled
-	files := &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, HasACL: acls,
+	// The recovery administrator sees every share in the File Station; admin.json
+	// is re-read on every call because set-password may change it.
+	recovery := func() string {
+		c, err := auth.LoadCredentials("/etc/nas-revival/admin.json")
+		if err != nil {
+			return ""
+		}
+		return c.Username
+	}
+	files := &helper.FileManager{Config: shm.LoadConfig, DB: shm.LoadDB, Recovery: recovery, HasACL: acls,
 		Chown: helper.SysFileChown, Statfs: helper.SysFstatfs, Now: time.Now}
 	ln, err := helper.Listen(*sock, gid)
 	if err != nil {

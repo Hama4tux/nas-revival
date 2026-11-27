@@ -14,8 +14,11 @@
   share folder, so neither `..` nor a symlink can leave the share. `.recycle` and unfinished uploads
   (`.nas-upload-<token>`) are hidden and refused.
 - Access is the SMB matrix (`shares.Effective`: user entry wins, else the best group, read-only share
-  caps to ro). Admins get no implicit access. The recovery administrator (`admin.json`, no Linux
-  account) has no files. Unknown and forbidden shares give the same 404.
+  caps to ro). ~~Admins get no implicit access. The recovery administrator (`admin.json`, no Linux
+  account) has no files.~~ Amended 2026-11-27 (owner): administrators – members of `nas-admin` and the
+  recovery administrator – see every share in the File Station with read/write (a read-only share stays
+  read-only), without an entry in the matrix; they could grant it to themselves anyway. Entries the
+  recovery administrator creates belong to root with group `nas-users`. SMB and SFTP keep the matrix. Unknown and forbidden shares give the same 404.
 - The helper works as root with explicit checks instead of `setfsuid` (Go threads make per-thread fs
   ids fragile). New entries are `chown`ed to the user and group `nas-users`; without ACLs they get the
   Samba masks 0660/0770, with ACLs the default ACL applies. In SMB mode the share-level check is the

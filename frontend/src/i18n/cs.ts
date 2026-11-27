@@ -972,7 +972,7 @@ export const cs = {
   },
   files: {
     loadError: 'Soubory se nepodařilo načíst.', unavailable: 'Služba pro soubory není dostupná.',
-    noAccount: 'Tento účet je záchranný správce a nemá vlastní soubory. Přihlaste se účtem NASu.',
+    noAccount: 'Tento účet nemá přístup k souborům. Přihlaste se účtem NASu.',
     noShares: 'Nemáte přístup k žádné sdílené složce. Přístup nastavuje správce v části Sdílení.',
     shares: 'Sdílené složky', pickShare: 'Vyberte sdílenou složku', readOnly: 'jen čtení', recycle: 's košem',
     crumbs: 'Cesta ve sdílené složce', emptyDir: 'Složka je prázdná.',

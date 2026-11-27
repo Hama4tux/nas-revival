@@ -155,7 +155,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 
 | ID | Module | Feature | P | State | HW | SW deps | Res | Security risk | Acceptance criteria | Deps |
 |---|---|---|---|---|---|---|---|---|---|---|
-| FS-01 | File Station | Browse shares, tree, paged list | P2 | Implemented (2026-11-26, ADR 0009; unit and socket tests, deployed; owner tests on the NAS) | — | — | L | path traversal, symlink escape | `openat2(RESOLVE_BENEATH)` per share root; tests with `..` and symlinks | USR-04, SHARE-01 |
+| FS-01 | File Station | Browse shares, tree, paged list | P2 | Implemented (2026-11-26, ADR 0009; unit and socket tests, deployed; owner tests on the NAS; since 2026-11-27 administrators see every share) | — | — | L | path traversal, symlink escape | `openat2(RESOLVE_BENEATH)` per share root; tests with `..` and symlinks | USR-04, SHARE-01 |
 | FS-02 | File Station | Create folder, rename, copy, move, delete, multi-select | P2 | Partial (folder, rename, move within a share, delete to bin, multi-select 2026-11-26; copy and cross-share move with FS-04) | — | — | M | data loss | operations as the logged-in user's uid (helper setfsuid) | FS-01 |
 | FS-03 | File Station | Streamed upload/download | P2 | Implemented (2026-11-26, ADR 0009; unit and socket tests, deployed; owner tests on the NAS) | — | — | M | memory exhaustion | 2 GiB upload with RSS growth < 4 MiB | FS-01 |
 | FS-04 | File Station | Operation progress, cancel, max 2 concurrent ops | P2 | Not started | — | — | M | — | queue bounded | FS-02 |
