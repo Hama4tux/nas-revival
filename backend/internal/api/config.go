@@ -17,10 +17,10 @@ import (
 type ConfigHistory interface {
 	ConfigHistory(ctx context.Context) (config.History, error)
 	ConfigVersion(ctx context.Context, id int) (config.Detail, error)
-	ConfigRollback(ctx context.Context, id int, takeover bool) (helper.ConfigRollbackResult, error)
+	ConfigRollback(ctx context.Context, id int, takeover bool, clientAddr string) (helper.ConfigRollbackResult, error)
 	ConfigExport(ctx context.Context) (helper.ConfigArchive, error)
 	ConfigImportPreview(ctx context.Context, archive json.RawMessage) (helper.ConfigImportPreview, error)
-	ConfigImport(ctx context.Context, archive json.RawMessage, takeover bool) (helper.ConfigImportResult, error)
+	ConfigImport(ctx context.Context, archive json.RawMessage, takeover bool, clientAddr string) (helper.ConfigImportResult, error)
 }
 
 func (s *Server) registerConfig(api *http.ServeMux) {
@@ -95,7 +95,7 @@ func (s *Server) configRollback(w http.ResponseWriter, r *http.Request) {
 	if !decodeBody(w, r, 1024, &body) {
 		return
 	}
-	res, err := s.Config.ConfigRollback(r.Context(), n, body.Takeover)
+	res, err := s.Config.ConfigRollback(r.Context(), n, body.Takeover, clientIP(r))
 	if err != nil {
 		writeHelperError(w, err)
 		return
@@ -166,7 +166,7 @@ func (s *Server) configImport(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	res, err := s.Config.ConfigImport(r.Context(), b.Archive, b.Takeover)
+	res, err := s.Config.ConfigImport(r.Context(), b.Archive, b.Takeover, clientIP(r))
 	if err != nil {
 		writeHelperError(w, err)
 		return

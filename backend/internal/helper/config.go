@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/config"
+	"nas-revival/backend/internal/firewall"
 )
 
 // Managed file IDs (the registry of config history, CFG-01..04).
@@ -20,6 +21,7 @@ const (
 	FileSmb       = "smb"
 	FileNfs       = "nfs"
 	FileSsh       = "ssh"
+	FileFirewall  = "firewall"
 )
 
 // ConfigManager serves config.list, config.get and config.rollback and
@@ -37,6 +39,9 @@ type ConfigManager struct {
 	Nfs *NfsManager
 	// Ssh restores ssh.json; nil when SSH settings are disabled.
 	Ssh *SshManager
+	// Firewall restores firewall.json through its confirm-or-rollback
+	// window (ADR 0014); nil when the firewall is disabled.
+	Firewall *FirewallManager
 	// Hostname and Now stamp the export file; nil uses the system.
 	Hostname func() string
 	Now      func() time.Time
@@ -50,6 +55,9 @@ type ConfigRollbackResult struct {
 	// NetworkPending: the network file was restored and waits for
 	// confirmation from the new address like any network change.
 	NetworkPending *Pending `json:"networkPending"`
+	// FirewallPending: the firewall file was restored; the rules are loaded
+	// and wait for confirmation (firewall.confirm), else they roll back.
+	FirewallPending *FirewallPending `json:"firewallPending"`
 }
 
 func configErr(err error) error {
@@ -107,34 +115,70 @@ func (c *ConfigManager) Get(id int) (config.Detail, error) {
 }
 
 var errNetPending = &Error{Code: CodeChangePending, Message: "Změna sítě čeká na potvrzení; nejdřív ji potvrďte nebo nechte vrátit."}
+var errFwPending = &Error{Code: CodeChangePending, Message: "Změna firewallu čeká na potvrzení; nejdřív ji potvrďte nebo nechte vrátit."}
+
+// pendingErr refuses a rollback or import while a network or firewall
+// change waits for confirmation.
+func (c *ConfigManager) pendingErr() error {
+	if c.Net.HasPending() {
+		return errNetPending
+	}
+	if c.Firewall != nil && c.Firewall.HasPending() {
+		return errFwPending
+	}
+	return nil
+}
 
 // Rollback writes version id back. Time and disk power are applied first; the
-// network file goes last and through the confirm-or-rollback window, so a
-// version with an unreachable address reverts by itself.
-func (c *ConfigManager) Rollback(ctx context.Context, id int, takeover bool, user string) (ConfigRollbackResult, error) {
+// firewall and the network file go last and through their confirm-or-rollback
+// windows, so a version with an unreachable address or rules that lock the
+// browser out reverts by itself. clientAddr is the browser's address for the
+// firewall's anti-lockout check.
+func (c *ConfigManager) Rollback(ctx context.Context, id int, takeover bool, user, clientAddr string) (ConfigRollbackResult, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.Net.HasPending() {
-		return ConfigRollbackResult{}, errNetPending
+	if err := c.pendingErr(); err != nil {
+		return ConfigRollbackResult{}, err
 	}
 	plan, err := c.Store.Plan(id, user, takeover)
 	if err != nil {
 		return ConfigRollbackResult{}, configErr(err)
 	}
-	restored, pending, err := c.apply(ctx, plan, user, config.KindRollback, id)
+	res, err := c.apply(ctx, plan, user, clientAddr, config.KindRollback, id)
 	if err == nil {
-		slog.Info("helper: config.rollback", "version", id, "restored", restored, "user", user)
+		slog.Info("helper: config.rollback", "version", id, "restored", res.Restored, "user", user)
 	}
-	return ConfigRollbackResult{RollbackOf: id, Restored: restored, NetworkPending: pending}, err
+	res.RollbackOf = id
+	return res, err
+}
+
+// firewallRestore validates a planned firewall file before anything is
+// written: a version or import that would lock the browser out is refused as
+// a whole instead of failing half-way.
+func (c *ConfigManager) firewallRestore(r config.Restore, clientAddr string) (firewall.Settings, error) {
+	if c.Firewall == nil {
+		return firewall.Settings{}, internalErr("Firewall není dostupný.")
+	}
+	s := firewall.Default()
+	if r.Present {
+		var err error
+		if s, err = firewall.Parse(r.Data); err != nil {
+			return s, internalErr("Uložené nastavení firewallu je poškozené.")
+		}
+	}
+	return ValidateFirewall(s, clientAddr)
 }
 
 // apply writes the planned files through their owners, the network file
 // last. Whatever was written is recorded as one version of kind, also when a
 // later file fails.
-func (c *ConfigManager) apply(ctx context.Context, plan []config.Restore, user, kind string, rollbackOf int) (restored []string, pending *Pending, err error) {
-	restored = []string{}
+//
+// The firewall file is written only on firewall.confirm, which records its own
+// version; the version recorded here holds the other files.
+func (c *ConfigManager) apply(ctx context.Context, plan []config.Restore, user, clientAddr, kind string, rollbackOf int) (res ConfigRollbackResult, err error) {
+	res.Restored = []string{}
 	defer func() {
-		if len(restored) == 0 {
+		if len(res.Restored) == 0 {
 			return
 		}
 		if _, _, rerr := c.Store.Record(user, kind, "", rollbackOf); rerr != nil {
@@ -142,11 +186,23 @@ func (c *ConfigManager) apply(ctx context.Context, plan []config.Restore, user, 
 		}
 	}()
 	var network *config.Restore
+	var fw *firewall.Settings
+	for i := range plan {
+		if plan[i].ID == FileFirewall {
+			s, ferr := c.firewallRestore(plan[i], clientAddr)
+			if ferr != nil {
+				return res, ferr
+			}
+			fw = &s
+		}
+	}
 	for i := range plan {
 		r := plan[i]
 		switch r.ID {
 		case FileNetwork:
 			network = &plan[i]
+			continue
+		case FileFirewall:
 			continue
 		case FileTime:
 			_, err = c.Time.Restore(ctx, r.Data, r.Present)
@@ -180,19 +236,27 @@ func (c *ConfigManager) apply(ctx context.Context, plan []config.Restore, user, 
 			err = internalErr("Neznámý spravovaný soubor.")
 		}
 		if err != nil {
-			return restored, nil, err
+			return res, err
 		}
-		restored = append(restored, r.ID)
+		res.Restored = append(res.Restored, r.ID)
+	}
+	if fw != nil {
+		st, err := c.Firewall.Apply(ctx, *fw, clientAddr)
+		if err != nil {
+			return res, err
+		}
+		res.Restored = append(res.Restored, FileFirewall)
+		res.FirewallPending = st.Pending
 	}
 	if network != nil {
 		st, err := c.Net.Restore(ctx, network.Data, network.Present)
 		if err != nil {
-			return restored, nil, err
+			return res, err
 		}
-		restored = append(restored, FileNetwork)
-		pending = st.Pending
+		res.Restored = append(res.Restored, FileNetwork)
+		res.NetworkPending = st.Pending
 	}
-	return restored, pending, nil
+	return res, nil
 }
 
 var userRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)

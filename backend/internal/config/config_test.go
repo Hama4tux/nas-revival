@@ -319,3 +319,43 @@ func TestImportHonoursDrift(t *testing.T) {
 		t.Fatalf("manual state not kept: %+v", h.Entries[0])
 	}
 }
+
+// A file added to the registry by a later build: Init records it at once (no
+// drift), and a rollback to a version that predates it leaves it alone.
+func TestRegistryGrowthKeepsNewFileUntouched(t *testing.T) {
+	f := newFixture(t)
+	fw := filepath.Join(filepath.Dir(f.net), "firewall.json")
+	f.write(fw, "{\"enabled\":true}\n")
+	f.s.Files = append(f.s.Files, File{"firewall", fw})
+	if err := f.s.Init(); err != nil {
+		t.Fatal(err)
+	}
+	h := f.list()
+	if len(h.Entries) != 2 || h.Entries[0].Kind != KindBaseline || len(h.Entries[0].Changed) != 1 || h.Entries[0].Changed[0] != "firewall" {
+		t.Fatalf("entries = %+v", h.Entries)
+	}
+	if driftOf(h, "firewall") != StateOK {
+		t.Fatalf("drift = %+v", h.Drift)
+	}
+	if err := f.s.Init(); err != nil || len(f.list().Entries) != 2 {
+		t.Fatal("second Init recorded again")
+	}
+	plan, err := f.s.Plan(1, "admin", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, r := range plan {
+		if r.ID == "firewall" {
+			t.Fatalf("rollback to a version without the file plans %+v", r)
+		}
+	}
+	d, err := f.s.Get(1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, fd := range d.Files {
+		if fd.ID == "firewall" {
+			t.Fatalf("detail of an old version lists the untracked file: %+v", fd)
+		}
+	}
+}

@@ -145,11 +145,20 @@ func (s *Store) Init() error {
 	if err != nil {
 		return err
 	}
-	if len(ents) > 0 {
-		return nil
+	if len(ents) == 0 {
+		_, _, err = s.recordLocked(nil, "system", KindBaseline, "", 0)
+		return err
 	}
-	_, _, err = s.recordLocked(nil, "system", KindBaseline, "", 0)
-	return err
+	// A file new in the registry (a later build manages more files) is
+	// recorded at once, so it does not show as changed outside the web UI.
+	latest := latestOf(ents)
+	for _, f := range s.Files {
+		if _, ok := stateOf(latest, f.ID); !ok {
+			_, _, err = s.recordLocked(latest, "system", KindBaseline, "", 0)
+			return err
+		}
+	}
+	return nil
 }
 
 // readLimited reads a managed file; a missing file is (nil, false, nil).
@@ -544,7 +553,10 @@ func (s *Store) Get(id int) (Detail, error) {
 		return Detail{}, err
 	}
 	for _, f := range s.Files {
-		st, _ := stateOf(&e, f.ID)
+		st, tracked := stateOf(&e, f.ID)
+		if !tracked {
+			continue
+		}
 		var old []byte
 		if st.Present {
 			old = s.content(e, f.ID)
@@ -606,7 +618,12 @@ func (s *Store) Plan(id int, user string, takeover bool) ([]Restore, error) {
 	}
 	want := []Restore{}
 	for _, f := range s.Files {
-		st, _ := stateOf(&e, f.ID)
+		// A file the version does not know (added to the registry later)
+		// stays untouched, as a part missing from an import.
+		st, tracked := stateOf(&e, f.ID)
+		if !tracked {
+			continue
+		}
 		r := Restore{ID: f.ID, Path: f.Path, Present: st.Present}
 		if st.Present {
 			r.Data = s.content(e, f.ID)

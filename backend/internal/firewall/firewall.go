@@ -5,6 +5,7 @@
 package firewall
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -379,11 +380,35 @@ func Load(path string) (Settings, error) {
 	return Validate(s, "")
 }
 
+// Parse reads firewall.json strictly (unknown fields refused) and validates
+// it without a client address; the config import uses it (ADR 0011).
+func Parse(b []byte) (Settings, error) {
+	var s Settings
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(&s); err != nil {
+		return Settings{}, err
+	}
+	if dec.More() {
+		return Settings{}, errors.New("firewall: trailing data")
+	}
+	return Validate(s, "")
+}
+
+// Encode renders firewall.json exactly as Save writes it.
+func Encode(s Settings) ([]byte, error) {
+	b, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
+}
+
 // Save writes firewall.json (0644).
 func Save(path string, s Settings) error {
-	b, err := json.MarshalIndent(s, "", "  ")
+	b, err := Encode(s)
 	if err != nil {
 		return err
 	}
-	return atomicfile.Write(path, append(b, '\n'), 0o644)
+	return atomicfile.Write(path, b, 0o644)
 }

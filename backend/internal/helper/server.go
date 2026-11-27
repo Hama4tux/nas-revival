@@ -302,8 +302,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			break
 		}
 		var a struct {
-			Archive  json.RawMessage `json:"archive"`
-			Takeover bool            `json:"takeover"`
+			Archive    json.RawMessage `json:"archive"`
+			Takeover   bool            `json:"takeover"`
+			ClientAddr string          `json:"clientAddr"`
 		}
 		if err := decodeArgs(req.Args, &a); err != nil {
 			return nil, err
@@ -311,14 +312,15 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 		if req.Op == "config.importPreview" {
 			return d.Config.ImportPreview(a.Archive)
 		}
-		return d.Config.Import(ctx, a.Archive, a.Takeover, user)
+		return d.Config.Import(ctx, a.Archive, a.Takeover, user, a.ClientAddr)
 	case "config.get", "config.rollback":
 		if d.Config == nil {
 			break
 		}
 		var a struct {
-			ID       int  `json:"id"`
-			Takeover bool `json:"takeover"`
+			ID         int    `json:"id"`
+			Takeover   bool   `json:"takeover"`
+			ClientAddr string `json:"clientAddr"`
 		}
 		if err := decodeArgs(req.Args, &a); err != nil {
 			return nil, err
@@ -329,7 +331,7 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 		if req.Op == "config.get" {
 			return d.Config.Get(a.ID)
 		}
-		return d.Config.Rollback(ctx, a.ID, a.Takeover, user)
+		return d.Config.Rollback(ctx, a.ID, a.Takeover, user, a.ClientAddr)
 	}
 	if (strings.HasPrefix(req.Op, "user.") || strings.HasPrefix(req.Op, "group.")) && d.Users != nil {
 		return d.handleUsers(ctx, req, user)
@@ -413,8 +415,9 @@ func (d *Dispatcher) handleLogs(ctx context.Context, req request) (any, error) {
 	return nil, invalid("", "Neznámá operace.")
 }
 
-// handleFirewall runs the firewall operations (SEC-12). firewall.json is not
-// part of the config history: a restore would bypass the confirmation.
+// handleFirewall runs the firewall operations (SEC-12). firewall.json is written
+// only on confirm, so the config history records the version there; a restore
+// from the history goes through Apply and the same confirmation.
 func (d *Dispatcher) handleFirewall(ctx context.Context, req request, user string) (any, error) {
 	switch req.Op {
 	case "firewall.get":
@@ -427,6 +430,7 @@ func (d *Dispatcher) handleFirewall(ctx context.Context, req request, user strin
 		if err := decodeArgs(req.Args, &a); err != nil {
 			return nil, err
 		}
+		d.Config.Prepare()
 		st, err := d.Firewall.Apply(ctx, a.Settings, a.ClientAddr)
 		if err == nil {
 			slog.Info("helper: firewall.apply", "enabled", a.Settings.Enabled, "user", user)
@@ -435,6 +439,7 @@ func (d *Dispatcher) handleFirewall(ctx context.Context, req request, user strin
 	case "firewall.confirm":
 		st, err := d.Firewall.Confirm(ctx)
 		if err == nil {
+			d.Config.Changed(user, FileFirewall)
 			slog.Info("helper: firewall.confirm", "enabled", st.Settings.Enabled, "user", user)
 		}
 		return st, err

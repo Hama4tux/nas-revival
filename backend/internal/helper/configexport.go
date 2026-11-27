@@ -12,6 +12,7 @@ import (
 
 	"nas-revival/backend/internal/config"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/firewall"
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/smb"
@@ -60,8 +61,9 @@ type ConfigImportPreview struct {
 
 // ConfigImportResult is the result of config.import.
 type ConfigImportResult struct {
-	Restored       []string `json:"restored"`
-	NetworkPending *Pending `json:"networkPending"`
+	Restored        []string         `json:"restored"`
+	NetworkPending  *Pending         `json:"networkPending"`
+	FirewallPending *FirewallPending `json:"firewallPending"`
 }
 
 func (c *ConfigManager) hostname() string {
@@ -223,6 +225,13 @@ func canonical(id string, b []byte) ([]byte, bool, error) {
 		}
 		out, err := sshd.Encode(s)
 		return out, true, err
+	case FileFirewall:
+		s, err := firewall.Parse(b)
+		if err != nil {
+			return nil, false, badArchive("")
+		}
+		out, err := firewall.Encode(s)
+		return out, true, err
 	}
 	return nil, false, badArchive("")
 }
@@ -244,21 +253,21 @@ func (c *ConfigManager) ImportPreview(raw []byte) (ConfigImportPreview, error) {
 // Import writes the files of an export like a rollback: drift needs takeover,
 // the network file goes last through the confirm-or-rollback window, and the
 // result is a new version of kind "import" (the version before it is the undo).
-func (c *ConfigManager) Import(ctx context.Context, raw []byte, takeover bool, user string) (ConfigImportResult, error) {
+func (c *ConfigManager) Import(ctx context.Context, raw []byte, takeover bool, user, clientAddr string) (ConfigImportResult, error) {
 	_, in, err := parseArchive(raw)
 	if err != nil {
 		return ConfigImportResult{}, err
 	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.Net.HasPending() {
-		return ConfigImportResult{}, errNetPending
+	if err := c.pendingErr(); err != nil {
+		return ConfigImportResult{}, err
 	}
 	plan, err := c.Store.PlanImport(in, user, takeover)
 	if err != nil {
 		return ConfigImportResult{}, configErr(err)
 	}
-	restored, pending, err := c.apply(ctx, plan, user, config.KindImport, 0)
-	slog.Info("helper: config.import", "restored", restored, "user", user, "ok", err == nil)
-	return ConfigImportResult{Restored: restored, NetworkPending: pending}, err
+	res, err := c.apply(ctx, plan, user, clientAddr, config.KindImport, 0)
+	slog.Info("helper: config.import", "restored", res.Restored, "user", user, "ok", err == nil)
+	return ConfigImportResult{Restored: res.Restored, NetworkPending: res.NetworkPending, FirewallPending: res.FirewallPending}, err
 }

@@ -28,8 +28,8 @@ func (f *fakeConfig) ConfigImportPreview(_ context.Context, a json.RawMessage) (
 	f.imported = append(f.imported, "preview:"+string(a))
 	return helper.ConfigImportPreview{Hostname: "nas"}, f.err
 }
-func (f *fakeConfig) ConfigImport(_ context.Context, a json.RawMessage, takeover bool) (helper.ConfigImportResult, error) {
-	f.imported = append(f.imported, fmt.Sprintf("import:%s:%v", a, takeover))
+func (f *fakeConfig) ConfigImport(_ context.Context, a json.RawMessage, takeover bool, clientAddr string) (helper.ConfigImportResult, error) {
+	f.imported = append(f.imported, fmt.Sprintf("import:%s:%v:%s", a, takeover, clientAddr))
 	return helper.ConfigImportResult{Restored: []string{"smb"}}, f.err
 }
 
@@ -42,11 +42,11 @@ func (f *fakeConfig) ConfigVersion(_ context.Context, id int) (config.Detail, er
 	}
 	return config.Detail{Entry: config.Entry{ID: 2}}, nil
 }
-func (f *fakeConfig) ConfigRollback(ctx context.Context, id int, takeover bool) (helper.ConfigRollbackResult, error) {
+func (f *fakeConfig) ConfigRollback(ctx context.Context, id int, takeover bool, clientAddr string) (helper.ConfigRollbackResult, error) {
 	if f.err != nil {
 		return helper.ConfigRollbackResult{}, f.err
 	}
-	f.rollbacks = append(f.rollbacks, map[bool]string{true: "takeover", false: "plain"}[takeover])
+	f.rollbacks = append(f.rollbacks, map[bool]string{true: "takeover", false: "plain"}[takeover]+"@"+clientAddr)
 	return helper.ConfigRollbackResult{RollbackOf: id, Restored: []string{"time"}}, nil
 }
 
@@ -99,7 +99,7 @@ func TestConfigRollback(t *testing.T) {
 	if rec := do(h, "POST", "/api/v1/config/rollback/2", `{"path":"/etc/shadow"}`, xrw, c); rec.Code != 400 {
 		t.Fatalf("unknown field = %d", rec.Code)
 	}
-	if len(f.rollbacks) != 1 || f.rollbacks[0] != "takeover" {
+	if len(f.rollbacks) != 1 || f.rollbacks[0] != "takeover@192.0.2.5" {
 		t.Fatalf("rollbacks = %v", f.rollbacks)
 	}
 	f.err = &helper.Error{Code: helper.CodeConfigDrift, Message: "změněno"}
@@ -130,7 +130,7 @@ func TestConfigImportPassesTheFileThrough(t *testing.T) {
 	if rec := do(h, "POST", "/api/v1/config/import", `{"archive":{"format":"x"},"takeover":true}`, xrw, c); rec.Code != 200 {
 		t.Fatalf("import = %d %s", rec.Code, rec.Body)
 	}
-	if len(f.imported) != 2 || f.imported[0] != `preview:{"format":"x"}` || f.imported[1] != `import:{"format":"x"}:true` {
+	if len(f.imported) != 2 || f.imported[0] != `preview:{"format":"x"}` || f.imported[1] != `import:{"format":"x"}:true:192.0.2.5` {
 		t.Fatalf("calls = %q", f.imported)
 	}
 	for _, bad := range []string{`{}`, `{"archive":"text"}`, `{"archive":[1]}`, `{"archive":{},"extra":1}`} {

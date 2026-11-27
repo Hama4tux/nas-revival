@@ -28,7 +28,7 @@ const clone = (s: FirewallSettings): FirewallSettings =>
   ({ enabled: s.enabled, allow: { web: [...s.allow.web], ssh: [...s.allow.ssh], smb: [...s.allow.smb], nfs: [...s.allow.nfs] },
     rules: s.rules.map((r) => ({ ...r })) });
 
-function PendingBox({ deadline, onConfirmed, onExpired }: { deadline: string; onConfirmed: (s: FirewallState) => void; onExpired: () => void }) {
+export function FirewallPendingBox({ deadline, onConfirmed, onExpired }: { deadline: string; onConfirmed: (s: FirewallState) => void; onExpired: () => void }) {
   const left = useCountdown(deadline);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -294,7 +294,7 @@ export function FirewallPanel({ readOnly }: { readOnly: boolean }) {
       </p>
       {state.pending && (
         <div className="mt-4">
-          <PendingBox deadline={state.pending.deadline} onConfirmed={onConfirmed} onExpired={onExpired} />
+          <FirewallPendingBox deadline={state.pending.deadline} onConfirmed={onConfirmed} onExpired={onExpired} />
         </div>
       )}
       <form onSubmit={(e) => void save(e)} className="mt-4 space-y-4" noValidate>

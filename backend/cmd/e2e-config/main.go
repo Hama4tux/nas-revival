@@ -76,7 +76,7 @@ func main() {
 		os.Exit(1)
 	}
 	before, _ := hc.ConfigHistory(ctx)
-	r, err := hc.ConfigImport(ctx, orig, false)
+	r, err := hc.ConfigImport(ctx, orig, false, "")
 	after, _ := hc.ConfigHistory(ctx)
 	check(err == nil && len(r.Restored) == 0 && len(after.Entries) == len(before.Entries),
 		"import of the own export writes nothing: %v, versions %d → %d, err %v", r.Restored, len(before.Entries), len(after.Entries), err)
@@ -107,14 +107,14 @@ func main() {
 	mod.Files[idx] = helper.ArchiveFile{ID: helper.FileTime, Present: true, Content: helper.RenderTimesyncd([]string{"tik.cesnet.cz", "tak.cesnet.cz"})}
 	p, err = hc.ConfigImportPreview(ctx, raw(mod))
 	check(err == nil && strings.Join(changed(p), ",") == helper.FileTime, "preview of a changed NTP list: %v %v", changed(p), err)
-	r, err = hc.ConfigImport(ctx, raw(mod), false)
+	r, err = hc.ConfigImport(ctx, raw(mod), false, "")
 	check(err == nil && strings.Join(r.Restored, ",") == helper.FileTime, "import of the changed NTP list: %v %v", r.Restored, err)
 	h, _ := hc.ConfigHistory(ctx)
 	check(len(h.Entries) > 0 && h.Entries[0].Kind == "import" && h.Entries[0].User == "w44-e2e", "history: newest version is the import by w44-e2e: %+v", h.Entries[0])
 	ts, err := hc.TimeGet(ctx)
 	check(err == nil && strings.Join(ts.NTPServers, " ") == "tik.cesnet.cz tak.cesnet.cz", "timesyncd uses the imported servers: %v %v", ts.NTPServers, err)
 
-	r, err = hc.ConfigImport(ctx, orig, false)
+	r, err = hc.ConfigImport(ctx, orig, false, "")
 	check(err == nil && strings.Join(r.Restored, ",") == helper.FileTime, "import of the original export restores the time part: %v %v", r.Restored, err)
 	p, err = hc.ConfigImportPreview(ctx, orig)
 	check(err == nil && len(changed(p)) == 0, "NAS matches the original export again: %v %v", changed(p), err)

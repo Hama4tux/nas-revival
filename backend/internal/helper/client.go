@@ -194,11 +194,11 @@ func (c *Client) ConfigVersion(ctx context.Context, id int) (config.Detail, erro
 
 // ConfigRollback writes version id back. Disk power re-applies hdparm to
 // every disk, hence the longer timeout.
-func (c *Client) ConfigRollback(ctx context.Context, id int, takeover bool) (ConfigRollbackResult, error) {
+func (c *Client) ConfigRollback(ctx context.Context, id int, takeover bool, clientAddr string) (ConfigRollbackResult, error) {
 	var r ConfigRollbackResult
 	long := *c
 	long.Timeout = 45 * time.Second
-	err := long.Call(ctx, "config.rollback", map[string]any{"id": id, "takeover": takeover}, &r)
+	err := long.Call(ctx, "config.rollback", map[string]any{"id": id, "takeover": takeover, "clientAddr": clientAddr}, &r)
 	return r, err
 }
 
@@ -218,11 +218,11 @@ func (c *Client) ConfigImportPreview(ctx context.Context, archive json.RawMessag
 
 // ConfigImport writes an export file back; like a rollback it may re-apply
 // disk power and wait for Samba, hence the longer timeout.
-func (c *Client) ConfigImport(ctx context.Context, archive json.RawMessage, takeover bool) (ConfigImportResult, error) {
+func (c *Client) ConfigImport(ctx context.Context, archive json.RawMessage, takeover bool, clientAddr string) (ConfigImportResult, error) {
 	var r ConfigImportResult
 	long := *c
 	long.Timeout = 45 * time.Second
-	err := long.Call(ctx, "config.import", map[string]any{"archive": archive, "takeover": takeover}, &r)
+	err := long.Call(ctx, "config.import", map[string]any{"archive": archive, "takeover": takeover, "clientAddr": clientAddr}, &r)
 	return r, err
 }
 

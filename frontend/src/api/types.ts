@@ -227,7 +227,7 @@ export interface SystemPowerResult { action: SystemPowerAction; forced: boolean;
 
 /* ---------- config history (GET /config/history, /config/history/{n}, POST /config/rollback/{n}) ---------- */
 
-export type ConfigFileId = 'network' | 'time' | 'disk-power' | 'shares' | 'smb' | 'nfs' | 'ssh';
+export type ConfigFileId = 'network' | 'time' | 'disk-power' | 'shares' | 'smb' | 'nfs' | 'ssh' | 'firewall';
 export type ConfigEntryKind = 'baseline' | 'change' | 'manual' | 'rollback' | 'import';
 export interface ConfigFileState { id: ConfigFileId; path: string; present: boolean; sha256?: string; size: number }
 export interface ConfigEntry {
@@ -245,12 +245,14 @@ export interface ConfigDetail { entry: ConfigEntry; files: ConfigFileDiff[]; dri
 export interface ConfigRollbackResult {
   rollbackOf: number; restored: ConfigFileId[];
   networkPending: { deadline: string } | null;
+  /** The firewall part was restored: the rules are loaded and wait for POST /security/firewall/confirm. */
+  firewallPending?: { deadline: string } | null;
 }
 /** POST /config/import/preview and /config/import (W4.4, CFG-05). The export file itself stays opaque. */
 export interface ConfigImportPreview {
   created: string; hostname: string; otherHost: boolean; files: ConfigFileDiff[]; drift: ConfigFileId[];
 }
-export interface ConfigImportResult { restored: ConfigFileId[]; networkPending: { deadline: string } | null }
+export interface ConfigImportResult { restored: ConfigFileId[]; networkPending: { deadline: string } | null; firewallPending?: { deadline: string } | null }
 
 /** GET /storage/activity (W1.9): one on-demand measurement. */
 export interface ActivityCounters { readOps: number; readBytes: number; writeOps: number; writeBytes: number }

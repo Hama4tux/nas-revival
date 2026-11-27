@@ -37,4 +37,8 @@
 - Not yet in the export: scheduled tasks and backup jobs (`tasks.json`, `backup.json`), hardware settings
   (`hardware.json`). They need a `Restore` with apply (timers, fan, LEDs) before they join the registry;
   then they appear in the history and the export without a format change.
+- `firewall.json` joined the registry on 2026-11-27 (ADR 0014 amendment): restored through the firewall's own
+  confirm-or-rollback window, recorded on confirm. A file that joins the registry later is recorded by `Init`
+  as a baseline version at once, and a rollback to a version that does not track it leaves it untouched (a
+  version is treated like an import that lacks the part).
 - A future encrypted export (if secrets are added) gets a new schema; schema 1 stays readable.

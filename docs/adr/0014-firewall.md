@@ -55,5 +55,12 @@
 
 - Recovery when locked out anyway: wait 180 s (rollback), reboot (the boot file was not changed yet), or on the
   console `nft delete table ip nas_revival` and remove the boot file (docs/RECOVERY.md R4).
-- Not in phase 1: config history / export of `firewall.json` (restore would bypass the confirmation), packet
-  counters, rate limiting of new connections, IPv6.
+- Not in phase 1: packet counters, rate limiting of new connections, IPv6.
+- **Config history and export (2026-11-27 amendment):** `firewall.json` is a managed file (ID `firewall`, ADR 0011).
+  Because the file is written only on confirm, `firewall.confirm` records the history version (module
+  `firewall`); an unconfirmed apply records nothing. A rollback or import that changes the file does not write it:
+  the helper parses it strictly (`firewall.Parse`, unknown fields refused), runs the anti-lockout check against
+  the browser's address (the API passes `RemoteAddr` to `config.rollback` / `config.import`) before any other file
+  is written, then loads it through `Apply` as the last-but-one step (the network file stays last). The result
+  carries `firewallPending`; the history page shows the same confirm box as the firewall card. Rollback and
+  import are refused while a firewall (or network) change is pending.

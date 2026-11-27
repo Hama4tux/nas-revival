@@ -357,6 +357,7 @@ func runHelper(args []string) error {
 			{ID: helper.FileSmb, Path: smb.DefaultConfigPath},
 			{ID: helper.FileNfs, Path: nfs.DefaultConfigPath},
 			{ID: helper.FileSsh, Path: sshd.DefaultConfigPath},
+			{ID: helper.FileFirewall, Path: firewall.DefaultConfigPath},
 		},
 		Pending: func(id string) bool { return id == helper.FileNetwork && nm.HasPending() }}
 	shm := newShareManager()
@@ -372,7 +373,7 @@ func runHelper(args []string) error {
 	if err := store.Init(); err != nil {
 		slog.Error("helper: config history disabled", "err", err)
 	} else {
-		cm = &helper.ConfigManager{Store: store, Net: nm, Time: tm, Power: dp, Shares: shm, Smb: smbm, Nfs: nfsm, Ssh: sshm}
+		cm = &helper.ConfigManager{Store: store, Net: nm, Time: tm, Power: dp, Shares: shm, Smb: smbm, Nfs: nfsm, Ssh: sshm, Firewall: fwm}
 	}
 	// Boot task disk-power: hdparm settings do not survive a power cycle.
 	go dp.ApplyAll(ctx)

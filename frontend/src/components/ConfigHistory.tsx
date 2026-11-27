@@ -11,6 +11,7 @@ import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
 import { Field } from './ui/field';
 import { Skeleton } from './ui/skeleton';
+import { FirewallPendingBox } from './FirewallPanel';
 
 const t = cs.config;
 const dt = (iso: string) => {
@@ -27,6 +28,11 @@ function apiMessage(e: unknown): string {
     if (e.status === 400 || e.status === 404 || e.status === 409) return e.message;
   }
   return cs.errors.generic;
+}
+
+/** The result message with the confirmations a restored network or firewall part still waits for. */
+function withPending(text: string, r: { networkPending: unknown; firewallPending?: unknown }): string {
+  return [text, r.networkPending ? t.donePending : '', r.firewallPending ? t.fwPending : ''].filter(Boolean).join(' ');
 }
 
 function KindBadge({ e }: { e: ConfigEntry }) {
@@ -127,6 +133,7 @@ function ChangeList({ files, drift, takeover, setTakeover, intro }: {
       {changes.map((f) => <FileChange key={f.id} f={f} />)}
       {same.length > 0 && <p className="text-muted-foreground">{t.unchanged}: {same.map((f) => fileLabel(f.id)).join(', ')}</p>}
       {changes.some((f) => f.id === 'network') && <p role="note" className="rounded-md border border-warning/50 bg-warning/10 p-2">{t.networkWarn}</p>}
+      {changes.some((f) => f.id === 'firewall') && <p role="note" className="rounded-md border border-warning/50 bg-warning/10 p-2">{t.firewallWarn}</p>}
       {changes.some((f) => f.id === 'disk-power') && <p role="note" className="text-muted-foreground">{t.diskWarn}</p>}
       {drift.length > 0 && (
         <div className="space-y-2 rounded-md border border-warning/50 bg-warning/10 p-2">
@@ -208,6 +215,7 @@ export function ConfigHistoryWidget({ className, readOnly = false }: { className
   const [open, setOpen] = useState<number | null>(null);
   const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [fwDeadline, setFwDeadline] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try { setData(await api<History_>('/config/history')); setFailed(false); }
@@ -242,6 +250,13 @@ export function ConfigHistoryWidget({ className, readOnly = false }: { className
         </section>
       )}
       {msg && <p role="status" className="mt-3 text-sm text-success">{msg}</p>}
+      {fwDeadline && (
+        <div className="mt-3">
+          <FirewallPendingBox deadline={fwDeadline}
+            onConfirmed={() => { setFwDeadline(null); setMsg(t.fwConfirmed); void load(); }}
+            onExpired={() => { setFwDeadline(null); setMsg(t.fwExpired); void load(); }} />
+        </div>
+      )}
       {!data ? (
         failed ? <p role="alert" className="mt-3 text-sm text-danger">{t.loadError}</p>
           : <div aria-busy="true" aria-label={cs.common.loading} className="mt-3"><Skeleton className="h-32 w-full" /></div>
@@ -281,7 +296,8 @@ export function ConfigHistoryWidget({ className, readOnly = false }: { className
         <ImportDialog onClose={() => setImporting(false)}
           onDone={(r) => {
             setImporting(false);
-            setMsg(r.restored.length === 0 ? t.importNothing : r.networkPending ? `${t.imported(r.restored.length)} ${t.donePending}` : t.imported(r.restored.length));
+            setMsg(r.restored.length === 0 ? t.importNothing : withPending(t.imported(r.restored.length), r));
+            setFwDeadline(r.firewallPending?.deadline ?? null);
             void load();
           }} />
       )}
@@ -289,7 +305,8 @@ export function ConfigHistoryWidget({ className, readOnly = false }: { className
         <VersionDialog id={open} onClose={() => setOpen(null)}
           onDone={(r) => {
             setOpen(null);
-            setMsg(r.restored.length === 0 ? t.nothingDone : r.networkPending ? `${t.done(r.rollbackOf)} ${t.donePending}` : t.done(r.rollbackOf));
+            setMsg(r.restored.length === 0 ? t.nothingDone : withPending(t.done(r.rollbackOf), r));
+            setFwDeadline(r.firewallPending?.deadline ?? null);
             void load();
           }} />
       )}
