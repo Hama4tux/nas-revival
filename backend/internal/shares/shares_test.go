@@ -475,43 +475,88 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
-func TestBackupNamesReserved(t *testing.T) {
-	for _, n := range []string{"apps", "Versions", "zalohy", "ZALOHY"} {
+func TestBackupNamesNoLongerReserved(t *testing.T) {
+	for _, n := range []string{"apps", "versions", "zalohy"} {
 		s := baseShare()
-		s.Name = n
-		if _, err := ValidateRequest(s); err == nil || !strings.Contains(err.Error(), "vyhrazen pro zálohy") {
-			t.Errorf("name %q: %v", n, err)
+		s.Name, s.Folder = n, n
+		if _, err := ValidateShape(s); err != nil {
+			t.Errorf("%q: %v", n, err)
 		}
-		s = baseShare()
-		s.Folder = n
-		if _, err := ValidateRequest(s); err == nil || !strings.Contains(err.Error(), "folder") {
-			t.Errorf("folder %q: %v", n, err)
-		}
-	}
-	s := baseShare()
-	s.Name, s.Folder = "Fotky2", "Fotky2"
-	if _, err := ValidateRequest(s); err != nil {
-		t.Fatal(err)
-	}
-	// An existing shares.json that already holds such a name keeps loading.
-	s = baseShare()
-	s.Name, s.Folder = "apps", "apps"
-	if _, err := ValidateShape(s); err != nil {
-		t.Fatalf("load of an older share named apps: %v", err)
 	}
 }
 
-func TestRenderBackupShareReadOnly(t *testing.T) {
-	out := RenderBackupShare("/srv/data/versions")
-	for _, want := range []string{"[zalohy]", "path = /srv/data/versions", "read only = yes", "valid users = @nas-admin",
-		"force user = nas-backup", "force group = nas-backup"} {
-		if !strings.Contains(out, want) {
-			t.Errorf("missing %q in %s", want, out)
+func TestBackupTargetValidation(t *testing.T) {
+	cases := []struct {
+		name string
+		mod  func(*Share)
+		want string // "" = ok
+	}{
+		{"read-only permissions", func(s *Share) {
+			s.Permissions = []Permission{{KindGroup, "rodina", AccessRO}, {KindUser, "petr", AccessNone}}
+		}, ""},
+		{"no permissions", func(s *Share) { s.Permissions = nil }, ""},
+		{"group rw", func(s *Share) {}, "jen oprávnění ke čtení"},
+		{"user rw", func(s *Share) { s.Permissions = []Permission{{KindUser, "jana", AccessRW}} }, "jen oprávnění ke čtení"},
+	}
+	for _, c := range cases {
+		s := baseShare()
+		s.BackupTarget = true
+		c.mod(&s)
+		n, err := ValidateShape(s)
+		switch {
+		case c.want == "" && err != nil:
+			t.Errorf("%s: %v", c.name, err)
+		case c.want != "" && (err == nil || !strings.Contains(err.Error(), c.want)):
+			t.Errorf("%s: err = %v", c.name, err)
+		case c.want == "" && (!n.ReadOnly || n.Recycle.Enabled || n.Recycle.Days != 0 || !n.BackupTarget):
+			t.Errorf("%s: not normalised: %+v", c.name, n)
 		}
 	}
-	for _, bad := range []string{"write list", "admin users", "read only = no", "writeable", "writable", "recycle"} {
-		if strings.Contains(out, bad) {
-			t.Errorf("must not contain %q", bad)
+	// An ordinary share keeps its recycle bin and rw.
+	n, err := ValidateShape(baseShare())
+	if err != nil || n.ReadOnly || !n.Recycle.Enabled || n.BackupTarget {
+		t.Errorf("ordinary share changed: %+v %v", n, err)
+	}
+}
+
+func TestBackupTargetACLEntry(t *testing.T) {
+	db := testDB()
+	db.Passwd = append(db.Passwd, accounts.PasswdEntry{Name: BackupAccount, UID: 995, GID: 995})
+	s := Share{Name: "zalohy", Volume: "/srv/data", Folder: "zalohy", BackupTarget: true, ReadOnly: true,
+		Permissions: []Permission{{KindGroup, "rodina", AccessRO}}}
+	find := func(es []ACLEntry, tag uint16, id uint32) (ACLEntry, bool) {
+		for _, e := range es {
+			if e.Tag == tag && e.ID == id {
+				return e, true
+			}
+		}
+		return ACLEntry{}, false
+	}
+	if e, ok := find(BuildACL(s, db, true), TagUser, 995); !ok || e.Perm != 7 {
+		t.Errorf("dir entry = %+v %v", e, ok)
+	}
+	if e, ok := find(BuildACL(s, db, false), TagUser, 995); !ok || e.Perm != 6 {
+		t.Errorf("file entry = %+v %v", e, ok)
+	}
+	if e, ok := find(BuildACL(s, db, true), TagGroup, 1100); !ok || e.Perm != 5 {
+		t.Errorf("readers = %+v %v", e, ok)
+	}
+	// Without the account the entry is skipped silently; ordinary shares never get it.
+	if _, ok := find(BuildACL(s, testDB(), true), TagUser, 995); ok {
+		t.Error("entry without account")
+	}
+	s.BackupTarget = false
+	if _, ok := find(BuildACL(s, db, true), TagUser, 995); ok {
+		t.Error("ordinary share got the backup account")
+	}
+}
+
+func TestBackupTargetEffectiveCapsRW(t *testing.T) {
+	s := baseShare()
+	s.BackupTarget = true // an unnormalised share still never shows rw
+	for _, ua := range Effective(s, testDB()) {
+		if ua.Access == AccessRW {
+			t.Errorf("%s has rw", ua.User)
 		}
 	}
 }

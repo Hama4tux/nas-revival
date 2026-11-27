@@ -289,3 +289,25 @@ func TestShareDeleteBlockedWhileExported(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestNfsRefusesBackupTarget(t *testing.T) {
+	x := newNfsFix(t, true)
+	cfg, _ := shares.Load(x.shares)
+	cfg.Shares = append(cfg.Shares, shares.Share{Name: "zalohy", Volume: "/srv/data", Folder: "zalohy", ReadOnly: true, BackupTarget: true})
+	if err := shares.Save(x.shares, cfg); err != nil {
+		t.Fatal(err)
+	}
+	s := proxmox(true)
+	s.Exports[0].Share = "zalohy"
+	if _, err := x.m.Set(context.Background(), s, "admin"); codeOf(err) != CodeInvalid || !strings.Contains(err.Error(), "Cíl záloh nelze exportovat přes NFS") {
+		t.Fatalf("export of backup target: %v", err)
+	}
+	if fileExists(x.m.Path) || fileExists(x.m.Exports) {
+		t.Fatal("refused export wrote files")
+	}
+	// An old nfs.json entry is never rendered.
+	ok, _ := nfs.Resolve(s, cfg)
+	if len(ok) != 0 {
+		t.Fatalf("resolved %v", ok)
+	}
+}

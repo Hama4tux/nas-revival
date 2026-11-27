@@ -39,9 +39,6 @@ func main() {
 	check("backup.key.get", err == nil && strings.HasPrefix(k.PublicKey, "ssh-ed25519 ") &&
 		strings.Contains(k.AuthorizedKeysHint, "restrict,command=\"rrsync -ro "), errText(err))
 
-	sh, err := c.BackupShareGet(ctx)
-	check("backup.share.get", err == nil && sh.Name == "zalohy", fmt.Sprintf("enabled=%v %s", sh.Enabled, errText(err)))
-
 	l, err := tasks.Load(tasks.DefaultConfigPath)
 	if err != nil {
 		check("tasks.json", false, err.Error())

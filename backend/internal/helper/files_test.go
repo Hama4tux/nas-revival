@@ -49,6 +49,8 @@ func filesFixture(t *testing.T) (*FileManager, string, *[]chownRec) {
 			Permissions: []shares.Permission{perm(shares.KindUser, "jana", shares.AccessRW)}},
 		{Name: "ro", Volume: vol, Folder: "ro", ReadOnly: true,
 			Permissions: []shares.Permission{perm(shares.KindUser, "jana", shares.AccessRW)}},
+		{Name: "bkp", Volume: vol, Folder: "ro", BackupTarget: true, ReadOnly: true,
+			Permissions: []shares.Permission{perm(shares.KindUser, "jana", shares.AccessRO)}},
 		{Name: "gone", Volume: vol, Folder: "gone",
 			Permissions: []shares.Permission{perm(shares.KindUser, "jana", shares.AccessRW)}},
 	}}
@@ -94,7 +96,7 @@ func TestFileSharesFollowTheSMBMatrix(t *testing.T) {
 		}
 		return strings.Join(s, ",")
 	}
-	if g := got("jana"); g != "data:rw,bin:rw,ro:ro,gone:rw" {
+	if g := got("jana"); g != "data:rw,bin:rw,ro:ro,bkp:ro,gone:rw" {
 		t.Errorf("jana = %s", g)
 	}
 	if g := got("petr"); g != "data:ro" {
@@ -371,7 +373,7 @@ func TestAdminsSeeEveryShareInFiles(t *testing.T) {
 			s = append(s, sh.Name+":"+sh.Access)
 		}
 		// No permission entry needed; a read-only share stays read-only.
-		if g := strings.Join(s, ","); g != "data:rw,bin:rw,ro:ro,gone:rw" {
+		if g := strings.Join(s, ","); g != "data:rw,bin:rw,ro:ro,bkp:ro,gone:rw" {
 			t.Errorf("%s = %s", user, g)
 		}
 		if _, err := m.List(ctx, user, "data", "", 0); err != nil {
@@ -379,6 +381,9 @@ func TestAdminsSeeEveryShareInFiles(t *testing.T) {
 		}
 		if _, err := m.Mkdir(ctx, user, "ro", "", "x"); code(err) != CodeForbidden {
 			t.Errorf("%s read-only share mkdir = %v", user, err)
+		}
+		if _, err := m.Mkdir(ctx, user, "bkp", "", "x"); code(err) != CodeForbidden {
+			t.Errorf("%s backup target mkdir = %v", user, err)
 		}
 	}
 	*rec = nil

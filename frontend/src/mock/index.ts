@@ -651,13 +651,15 @@ function usersRoute(path: string, method: string, body: Record<string, unknown>)
 
 /* ---------- shared folders (W2.3) ---------- */
 const mockVolumes: ShareVolume[] = [
-  { path: '/srv/data', fsType: 'ext4', totalBytes: 2e12, availBytes: 1.2e12, acl: false },
+  { path: '/srv/data', fsType: 'ext4', totalBytes: 2e12, availBytes: 1.2e12, acl: true },
   { path: '/srv/usb1', fsType: 'ext4', totalBytes: 5e11, availBytes: 4.1e11, acl: true },
 ];
 let mockShares: Share[] = [
   { name: 'Fotky', description: 'Rodinné fotky', volume: '/srv/data', folder: 'Fotky', readOnly: false, hidden: false,
     recycle: { enabled: true, days: 30 },
     permissions: [{ kind: 'group', name: 'rodina', access: 'rw' }, { kind: 'user', name: 'petr', access: 'none' }] },
+  { name: 'Zalohy', description: 'Cíl záloh ze serverů', volume: '/srv/data', folder: 'Zalohy', readOnly: true, hidden: false, backupTarget: true,
+    recycle: { enabled: false, days: 30 }, permissions: [{ kind: 'group', name: 'nas-users', access: 'ro' }] },
   { name: 'Archiv', description: '', volume: '/srv/usb1', folder: 'Archiv', readOnly: true, hidden: true,
     recycle: { enabled: false, days: 30 }, permissions: [{ kind: 'group', name: 'nas-users', access: 'ro' }, { kind: 'user', name: 'jana', access: 'ro' }] },
 ];
@@ -672,7 +674,7 @@ function effective(s: Share): UserAccess[] {
         if (p.kind === 'group' && groups.some((g) => g.name === p.name) && rank(p.access) > rank(access)) { access = p.access; via = `group:${p.name}`; }
       }
     }
-    if (s.readOnly && access === 'rw') access = 'ro';
+    if ((s.readOnly || s.backupTarget) && access === 'rw') access = 'ro';
     return { user: u.name, access, via };
   });
 }
@@ -775,7 +777,6 @@ const taskView = () => mockTasks.map((t) => ({
 }));
 
 const MOCK_FP = 'SHA256:q3Zk0m7H1nP2yB8cV5xT9aLwR4eDfG6uJhS1oXiNtEw';
-let mockShareOn = false;
 // Mock restore: scans 1 s, copies 84 MB in ~8 s.
 let mockRestore: Record<string, unknown> & { state: string; started?: string } | null = null;
 function mockRestoreStatus(): Record<string, unknown> {
@@ -790,12 +791,7 @@ function mockRestoreStatus(): Record<string, unknown> {
 }
 
 function backupRoute(path: string, method: string, body: Record<string, unknown>, search = ''): Response | null {
-  if (path === '/backup/share' && method === 'GET') return json(200, { enabled: mockShareOn, name: 'zalohy', path: '/srv/data/versions' });
   if (sessionRole() !== 'admin') return err(403, 'forbidden', 'K této části nemáte přístup.');
-  if (path === '/backup/share' && method === 'PUT') {
-    mockShareOn = body.enabled === true;
-    return json(200, { enabled: mockShareOn, name: 'zalohy', path: '/srv/data/versions' });
-  }
   if (path === '/backup/key' && method === 'GET') {
     const pub = 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMockMockMockMockMockMockMockMockMockMockMock nas-backup@nas';
     return json(200, { publicKey: pub, fingerprint: 'SHA256:Zx8Wq1LrT5uYb2NcVd9HeA3oKpMf7GsJi4RtXyU0aBc',
@@ -1035,7 +1031,10 @@ function sharesRoute(path: string, method: string, body: Record<string, unknown>
     if (['global', 'homes', 'printers', 'print$', 'ipc$', 'netlogon', 'profiles'].includes(s.name.toLowerCase())) return bad('name', 'Tento název je vyhrazený.');
     if (mockShares.some((x) => x.name.toLowerCase() === s.name.toLowerCase())) return bad('name', 'Složka s tímto názvem už existuje.');
     if (!mockVolumes.some((v) => v.path === s.volume)) return bad('volume', 'Svazek není připojený.');
-    mockShares = [...mockShares, { ...s, folder: s.name, description: (s.description ?? '').trim() }].sort((a, b) => a.name.localeCompare(b.name));
+    if (s.backupTarget && s.permissions?.some((p) => p.access === 'rw')) return bad('permissions', 'Cíl záloh může mít jen oprávnění ke čtení.');
+    if (s.backupTarget && s.volume !== '/srv/data') return bad('backupTarget', 'Cíl záloh musí být na datovém svazku /srv/data.');
+    if (s.backupTarget && !mockVolumes.find((v) => v.path === s.volume)?.acl) return bad('backupTarget', 'Cíl záloh potřebuje svazek s ACL.');
+    mockShares = [...mockShares, { ...s, ...(s.backupTarget ? { readOnly: true, recycle: { enabled: false, days: 0 } } : {}), folder: s.name, description: (s.description ?? '').trim() }].sort((a, b) => a.name.localeCompare(b.name));
     return json(201, shareList());
   }
   const m = /^\/shares\/([^/]+)$/.exec(path);
@@ -1045,8 +1044,11 @@ function sharesRoute(path: string, method: string, body: Record<string, unknown>
   if (method === 'PUT') {
     const s = body as unknown as Share;
     if (s.permissions?.some((p) => p.kind === 'group' && p.access === 'none')) return bad('permissions', 'Skupině nelze přístup zakázat.');
-    mockShares = mockShares.map((x) => (x.name === cur.name ? { ...cur, description: (s.description ?? '').trim(), readOnly: !!s.readOnly,
-      hidden: !!s.hidden, recycle: s.recycle, permissions: s.permissions } : x));
+    if (s.backupTarget && s.permissions?.some((p) => p.access === 'rw')) return bad('permissions', 'Cíl záloh může mít jen oprávnění ke čtení.');
+    if (s.backupTarget && !mockVolumes.find((v) => v.path === cur.volume)?.acl) return bad('backupTarget', 'Cíl záloh potřebuje svazek s ACL.');
+    const bt = !!s.backupTarget;
+    mockShares = mockShares.map((x) => (x.name === cur.name ? { ...cur, description: (s.description ?? '').trim(), readOnly: bt || !!s.readOnly,
+      hidden: !!s.hidden, recycle: bt ? { enabled: false, days: 0 } : s.recycle, permissions: s.permissions, backupTarget: bt } : x));
     return json(200, shareList());
   }
   if (method === 'DELETE') {

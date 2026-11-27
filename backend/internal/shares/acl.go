@@ -93,9 +93,16 @@ func BuildACL(s Share, db accounts.DB, dir bool) []ACLEntry {
 		{TagMask, owner, idNone},
 		{TagOther, 0, idNone},
 	}
+	if s.BackupTarget {
+		// The backup runner is the only writer; people read through the
+		// permissions below (never rw, validation refuses it).
+		if u, ok := db.User(BackupAccount); ok {
+			es = append(es, ACLEntry{TagUser, permFor(AccessRW, dir), uint32(u.UID)})
+		}
+	}
 	for _, p := range s.Permissions {
 		acc := p.Access
-		if s.ReadOnly && acc == AccessRW {
+		if (s.ReadOnly || s.BackupTarget) && acc == AccessRW {
 			acc = AccessRO
 		}
 		switch p.Kind {

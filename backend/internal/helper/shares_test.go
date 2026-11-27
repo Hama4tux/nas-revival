@@ -11,6 +11,7 @@ import (
 
 	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/shares"
+	"nas-revival/backend/internal/tasks"
 )
 
 type shareFix struct {
@@ -392,5 +393,93 @@ func TestShareDispatcherAndRestore(t *testing.T) {
 	}
 	if _, err := (&Dispatcher{}).Handle(context.Background(), request{Op: "share.list"}); err == nil {
 		t.Fatal("share op without manager")
+	}
+}
+
+func TestBackupAccountMatchesTasks(t *testing.T) {
+	if shares.BackupAccount != tasks.BackupUser {
+		t.Fatalf("%q != %q", shares.BackupAccount, tasks.BackupUser)
+	}
+}
+
+func backupShare(vol string) shares.Share {
+	return shares.Share{Name: "zalohy", Volume: vol, BackupTarget: true,
+		Permissions: []shares.Permission{{Kind: "group", Name: "nas-users", Access: "ro"}}}
+}
+
+func TestShareBackupTargetCreate(t *testing.T) {
+	f := newShareFix(t, true)
+	f.m.BackupVolume = f.vol
+	ctx := context.Background()
+	l, err := f.m.Create(ctx, backupShare(f.vol), "admin")
+	if err != nil || !l.Shares[0].BackupTarget || !l.Shares[0].ReadOnly || l.Shares[0].Recycle.Enabled {
+		t.Fatalf("%+v %v", l.Shares, err)
+	}
+	// rw permission refused
+	s := backupShare(f.vol)
+	s.Name = "Druha"
+	s.Permissions[0].Access = "rw"
+	if _, err := f.m.Create(ctx, s, "admin"); codeOf(err) != CodeInvalid || !strings.Contains(err.Error(), "jen oprávnění ke čtení") {
+		t.Errorf("rw permission: %v", err)
+	}
+	// other volume refused
+	f.m.BackupVolume = "/srv/jiny"
+	s = backupShare(f.vol)
+	s.Name = "Treti"
+	if _, err := f.m.Create(ctx, s, "admin"); codeOf(err) != CodeInvalid || !strings.Contains(err.Error(), "datovém svazku") {
+		t.Errorf("volume: %v", err)
+	}
+}
+
+func TestShareBackupTargetNeedsACL(t *testing.T) {
+	f := newShareFix(t, false)
+	f.m.BackupVolume = f.vol
+	if _, err := f.m.Create(context.Background(), backupShare(f.vol), "admin"); codeOf(err) != CodeInvalid || !strings.Contains(err.Error(), "ACL") {
+		t.Fatalf("no ACL volume: %v", err)
+	}
+}
+
+func TestShareBackupTargetNfs(t *testing.T) {
+	f := newShareFix(t, true)
+	f.m.BackupVolume = f.vol
+	ctx := context.Background()
+	if _, err := f.m.Create(ctx, shares.Share{Name: "Docs", Volume: f.vol}, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	f.m.NfsExported = func(n string) bool { return n == "Docs" }
+	on := shares.Share{Name: "Docs", Volume: f.vol, BackupTarget: true}
+	if _, err := f.m.Update(ctx, on, "admin"); codeOf(err) != CodeInvalid || !strings.Contains(err.Error(), "NFS") {
+		t.Fatalf("backupTarget on exported share: %v", err)
+	}
+	f.m.NfsExported = func(string) bool { return false }
+	if _, err := f.m.Update(ctx, on, "admin"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestShareBackupTargetInUse(t *testing.T) {
+	f := newShareFix(t, true)
+	f.m.BackupVolume = f.vol
+	ctx := context.Background()
+	if _, err := f.m.Create(ctx, backupShare(f.vol), "admin"); err != nil {
+		t.Fatal(err)
+	}
+	f.m.InUseAsBackupTarget = func(n string) (string, bool) { return "úloha „Server“", n == "zalohy" }
+	off := shares.Share{Name: "zalohy", Volume: f.vol, Permissions: []shares.Permission{}}
+	if _, err := f.m.Update(ctx, off, "admin"); codeOf(err) != CodeInvalid || !strings.Contains(err.Error(), "úloha „Server“") {
+		t.Fatalf("turn off: %v", err)
+	}
+	if _, err := f.m.Delete(ctx, ShareDelete{Name: "zalohy"}, "admin"); codeOf(err) != CodeInvalid || !strings.Contains(err.Error(), "cíl záloh") {
+		t.Fatalf("delete: %v", err)
+	}
+	// Changing something else while it stays a target is fine.
+	keep := backupShare(f.vol)
+	keep.Description = "x"
+	if _, err := f.m.Update(ctx, keep, "admin"); err != nil {
+		t.Fatal(err)
+	}
+	f.m.InUseAsBackupTarget = func(string) (string, bool) { return "", false }
+	if _, err := f.m.Update(ctx, off, "admin"); err != nil {
+		t.Fatal(err)
 	}
 }

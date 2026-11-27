@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Share } from '../api/types';
-import { accessChoices, addPermission, daysProblem, descriptionProblem, permissionsProblem, removePermission, shareNameProblem, shareValid, toShare, usersWithAccess } from './shares';
+import { accessChoices, addPermission, daysProblem, descriptionProblem, permissionsProblem, removePermission, shareNameProblem, shareValid, toShare, usersWithAccess, withBackupTarget } from './shares';
 
 const share = (p: Partial<Share> = {}): Share => ({
   name: 'Fotky', description: '', volume: '/srv/data', folder: 'Fotky', readOnly: false, hidden: false,
@@ -53,5 +53,27 @@ describe('toShare', () => {
       path: '/srv/data/Fotky', exists: true, enforcement: 'acl' as const, effective: [], conflicts: [] };
     expect(Object.keys(toShare(info)).sort()).toEqual(Object.keys(share()).sort());
     expect(toShare(info).permissions).toEqual([{ kind: 'user', name: 'jana', access: 'rw' }]);
+  });
+});
+
+describe('backup target', () => {
+  const rw = [{ kind: 'group' as const, name: 'rodina', access: 'rw' as const }];
+  it('refuses rw entries and offers only read access', () => {
+    expect(permissionsProblem(rw, true)).toBe('backupRw');
+    expect(permissionsProblem(rw, false)).toBeNull();
+    expect(accessChoices('user', true)).toEqual(['ro', 'none']);
+    expect(accessChoices('group', true)).toEqual(['ro']);
+    expect(shareValid(share({ backupTarget: true, permissions: rw }), false, [])).toBe(false);
+  });
+  it('switching it on forces read-only, no recycle bin and no rw', () => {
+    const s = withBackupTarget(share({ permissions: rw }), true);
+    expect(s).toMatchObject({ backupTarget: true, readOnly: true, recycle: { enabled: false } });
+    expect(s.permissions[0]?.access).toBe('ro');
+    expect(shareValid(s, false, [])).toBe(true);
+    expect(withBackupTarget(s, false).backupTarget).toBe(false);
+  });
+  it('sends backupTarget only when set', () => {
+    expect(toShare(share()).backupTarget).toBeUndefined();
+    expect(toShare(share({ backupTarget: true })).backupTarget).toBe(true);
   });
 });

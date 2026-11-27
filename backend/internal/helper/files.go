@@ -142,7 +142,9 @@ func (m *FileManager) isAdmin(db accounts.DB, user string) bool {
 // access is the caller's access to s in the File Station.
 func (m *FileManager) access(s shares.Share, db accounts.DB, user string) string {
 	if m.isAdmin(db, user) {
-		if s.ReadOnly {
+		// A backup target stays read-only for everybody: its versions are
+		// hardlinks, a write would change every version.
+		if s.ReadOnly || s.BackupTarget {
 			return shares.AccessRO
 		}
 		return shares.AccessRW

@@ -22,8 +22,6 @@ type BackupAdmin interface {
 	BackupHostScan(ctx context.Context, host string, port int) (helper.HostScan, error)
 	BackupHostTrust(ctx context.Context, host string, port int, typ, key string) error
 	BackupTest(ctx context.Context, host string, port int, user, path string) (helper.BackupTestResult, error)
-	BackupShareGet(ctx context.Context) (helper.BackupShareState, error)
-	BackupShareSet(ctx context.Context, enabled bool) (helper.BackupShareState, error)
 	BackupVersions(ctx context.Context, id string) (helper.BackupVersions, error)
 	BackupBrowse(ctx context.Context, id, date, path string, offset int) (helper.BrowseResult, error)
 	BackupOpen(ctx context.Context, id, date, path string) (*os.File, helper.BackupFileMeta, error)
@@ -66,8 +64,6 @@ func (s *Server) registerBackup(api *http.ServeMux) {
 	api.HandleFunc("POST /api/v1/backup/hostkey/scan", admin(s.backupScan))
 	api.HandleFunc("POST /api/v1/backup/hostkey/trust", admin(s.backupTrust))
 	api.HandleFunc("POST /api/v1/backup/test", admin(s.backupTest))
-	api.HandleFunc("GET /api/v1/backup/share", s.requireSession(s.backupShareGet))
-	api.HandleFunc("PUT /api/v1/backup/share", s.requireSession(s.backupShareSet))
 	api.HandleFunc("GET /api/v1/backup/{id}/versions", admin(s.backupVersions))
 	api.HandleFunc("GET /api/v1/backup/{id}/versions/{date}/browse", admin(s.backupBrowse))
 	api.HandleFunc("GET /api/v1/backup/{id}/versions/{date}/file", admin(s.backupFile))
@@ -178,41 +174,6 @@ func (s *Server) backupTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, res)
-}
-
-func (s *Server) backupShareGet(w http.ResponseWriter, r *http.Request) {
-	if !s.backupReady(w) {
-		return
-	}
-	st, err := s.Backup.BackupShareGet(r.Context())
-	if err != nil {
-		writeHelperError(w, err)
-		return
-	}
-	writeJSON(w, http.StatusOK, st)
-}
-
-func (s *Server) backupShareSet(w http.ResponseWriter, r *http.Request) {
-	if !s.backupReady(w) {
-		return
-	}
-	var b struct {
-		Enabled *bool `json:"enabled"`
-	}
-	if !decodeBody(w, r, backupBodyLimit, &b) {
-		return
-	}
-	if b.Enabled == nil {
-		writeInvalid(w, "enabled", "Chybí hodnota enabled.")
-		return
-	}
-	st, err := s.Backup.BackupShareSet(helper.WithUser(r.Context(), sessionUser(r)), *b.Enabled)
-	if err != nil {
-		writeHelperError(w, err)
-		return
-	}
-	slog.Info("backup share changed", "enabled", st.Enabled, "by", sessionUser(r))
-	writeJSON(w, http.StatusOK, st)
 }
 
 // backupJob validates the {id} of the versions routes.

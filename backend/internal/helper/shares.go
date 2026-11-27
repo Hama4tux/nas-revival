@@ -86,10 +86,14 @@ type ShareManager struct {
 	// re-renders the exports after a change. Both are nil without NFS.
 	NfsExported func(name string) bool
 	NfsRefresh  func(ctx context.Context, cfg shares.Config)
-	// BackupShare says whether the read-only share of the backup versions is
-	// part of the Samba fragment (W4.3); nil means no.
-	BackupShare func() bool
-	mu          sync.Mutex
+	// InUseAsBackupTarget names what still uses a share as a backup
+	// destination (a task, the USB copy); nil means nothing does. It blocks
+	// turning backupTarget off, renaming and deleting the share.
+	InUseAsBackupTarget func(share string) (user string, inUse bool)
+	// BackupVolume is the only volume a backupTarget share may live on (the
+	// backup unit may write only there).
+	BackupVolume string
+	mu           sync.Mutex
 }
 
 func (m *ShareManager) nfsRefresh(ctx context.Context, cfg shares.Config) {
@@ -100,7 +104,7 @@ func (m *ShareManager) nfsRefresh(ctx context.Context, cfg shares.Config) {
 
 // ValidateShare checks the shape of a share (the web process runs it too).
 func ValidateShare(s shares.Share) (shares.Share, error) {
-	n, err := shares.ValidateRequest(s)
+	n, err := shares.ValidateShape(s)
 	return n, shareErr(err)
 }
 
@@ -269,9 +273,6 @@ func (m *ShareManager) writeSamba(ctx context.Context, cfg shares.Config) error 
 		return nil
 	}
 	text := shares.Render(cfg.Shares, m.hasACL)
-	if m.BackupShare != nil && m.BackupShare() {
-		text += shares.RenderBackupShare(BackupSharePath)
-	}
 	if _, err := m.LookPath("testparm"); err == nil {
 		tmp, err := os.CreateTemp("", "nas-revival-smb-*.conf")
 		if err != nil {
@@ -302,17 +303,6 @@ func (m *ShareManager) writeSamba(ctx context.Context, cfg shares.Config) error 
 	return nil
 }
 
-// Resamba renders the Samba fragment again (the backup share was switched).
-func (m *ShareManager) Resamba(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	cfg, err := m.loadCfg()
-	if err != nil {
-		return err
-	}
-	return m.writeSamba(ctx, cfg)
-}
-
 // checkNew runs the checks that need the volume list and account database.
 func (m *ShareManager) checkVolume(s shares.Share) (shares.Volume, error) {
 	v, err := shares.FindVolume(m.volumes(), s.Volume)
@@ -320,6 +310,33 @@ func (m *ShareManager) checkVolume(s shares.Share) (shares.Volume, error) {
 		return v, volumeMissing(s.Volume)
 	}
 	return v, nil
+}
+
+// checkBackupTarget adds the rules of a backup destination: the volume the
+// backup unit may write to, and ACLs (the runner gets its access that way).
+func (m *ShareManager) checkBackupTarget(s shares.Share, vol shares.Volume) error {
+	if !s.BackupTarget {
+		return nil
+	}
+	if m.BackupVolume == "" || s.Volume != m.BackupVolume {
+		return invalid("backupTarget", "Cíl záloh musí být na datovém svazku "+m.BackupVolume+".")
+	}
+	if !vol.ACL {
+		return invalid("backupTarget", "Cíl záloh potřebuje svazek s ACL.")
+	}
+	return nil
+}
+
+// backupTargetInUse refuses a change that would pull a folder from under a
+// backup that writes into it.
+func (m *ShareManager) backupTargetInUse(s shares.Share, what string) error {
+	if !s.BackupTarget || m.InUseAsBackupTarget == nil {
+		return nil
+	}
+	if user, used := m.InUseAsBackupTarget(s.Name); used {
+		return invalid("", "Složku používá "+user+" jako cíl záloh; "+what+" nejdřív změňte tam.")
+	}
+	return nil
 }
 
 func (m *ShareManager) Create(ctx context.Context, in shares.Share, actor string) (ShareList, error) {
@@ -353,6 +370,9 @@ func (m *ShareManager) Create(ctx context.Context, in shares.Share, actor string
 	}
 	vol, err := m.checkVolume(s)
 	if err != nil {
+		return ShareList{}, err
+	}
+	if err := m.checkBackupTarget(s, vol); err != nil {
 		return ShareList{}, err
 	}
 	adopted, err := shares.PrepareDir(s.Path())
@@ -427,6 +447,17 @@ func (m *ShareManager) Update(ctx context.Context, in shares.Share, actor string
 	if err != nil {
 		return ShareList{}, err
 	}
+	if err := m.checkBackupTarget(s, vol); err != nil {
+		return ShareList{}, err
+	}
+	if s.BackupTarget && !cur.BackupTarget && m.NfsExported != nil && m.NfsExported(s.Name) {
+		return ShareList{}, invalid("backupTarget", "Cíl záloh nelze exportovat přes NFS; nejdřív odeberte export ve Službách → NFS.")
+	}
+	if cur.BackupTarget && !s.BackupTarget {
+		if err := m.backupTargetInUse(cur, "volbu Cíl záloh"); err != nil {
+			return ShareList{}, err
+		}
+	}
 	if fi, err := os.Lstat(s.Path()); err == nil && fi.IsDir() {
 		if err := m.applyFS(ctx, s, db, vol, false); err != nil {
 			return ShareList{}, err
@@ -462,6 +493,9 @@ func (m *ShareManager) Delete(ctx context.Context, d ShareDelete, actor string) 
 	res := ShareDeleteResult{DataRemoval: "none"}
 	if m.NfsExported != nil && m.NfsExported(s.Name) {
 		return res, invalid("", "Složka je exportovaná přes NFS; nejdřív ji odeberte ve Službách → NFS.")
+	}
+	if err := m.backupTargetInUse(s, "cíl"); err != nil {
+		return res, err
 	}
 	var trash string
 	if d.DeleteData {

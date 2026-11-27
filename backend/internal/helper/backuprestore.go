@@ -321,7 +321,7 @@ func (j *restoreJob) scan(ctx context.Context) (files, bytes int64, err error) {
 			return ctx.Err()
 		}
 		if n++; n > MaxRestoreEntries {
-			return invalid("path", "Obnova bere nejvýš 200 000 položek; vyberte menší složku nebo použijte sdílenou složku „zalohy“.")
+			return invalid("path", "Obnova bere nejvýš 200 000 položek; vyberte menší složku.")
 		}
 		if d.Type().IsRegular() {
 			info, err := d.Info()

@@ -506,22 +506,6 @@ func (c *Client) BackupTest(ctx context.Context, host string, port int, user, pa
 	return r, err
 }
 
-// BackupShareGet returns the state of the read-only versions share.
-func (c *Client) BackupShareGet(ctx context.Context) (BackupShareState, error) {
-	var r BackupShareState
-	err := c.Call(ctx, "backup.share.get", nil, &r)
-	return r, err
-}
-
-// BackupShareSet switches the versions share (re-renders the Samba config).
-func (c *Client) BackupShareSet(ctx context.Context, enabled bool) (BackupShareState, error) {
-	long := *c
-	long.Timeout = 30 * time.Second
-	var r BackupShareState
-	err := long.Call(ctx, "backup.share.set", map[string]any{"enabled": enabled}, &r)
-	return r, err
-}
-
 // callFile performs a request whose reply carries an open file descriptor
 // (backup.open). The caller closes the file.
 func (c *Client) callFile(ctx context.Context, op string, args, result any) (*os.File, error) {

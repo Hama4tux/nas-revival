@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"nas-revival/backend/internal/shares"
 	"nas-revival/backend/internal/tasks"
 )
 
@@ -248,56 +247,19 @@ func TestBackupTestArgv(t *testing.T) {
 	}
 }
 
-func TestBackupShareSwitch(t *testing.T) {
+func TestLoadBackupConfigIgnoresOldSmbShare(t *testing.T) {
 	x := newBkFix(t)
-	ctx := context.Background()
-	if x.m.ShareEnabled() {
-		t.Fatal("default must be off")
+	if c, err := LoadBackupConfig(x.m.ConfigPath); err != nil || c.Version != 1 {
+		t.Fatalf("missing file: %+v %v", c, err)
 	}
-	applied := 0
-	x.m.ApplyShare = func(context.Context) error { applied++; return nil }
-	st, err := x.m.ShareSet(ctx, true, "admin")
-	if err != nil || !st.Enabled || st.Name != "zalohy" || st.Path != "/srv/data/versions" || applied != 1 || !x.m.ShareEnabled() {
-		t.Fatalf("%+v %v", st, err)
+	os.WriteFile(x.m.ConfigPath, []byte(`{"version":1,"smbShare":true}`), 0o644)
+	if c, err := LoadBackupConfig(x.m.ConfigPath); err != nil || c.Version != 1 {
+		t.Fatalf("old file with smbShare: %+v %v", c, err)
 	}
-	// failing Samba -> previous state restored
-	x.m.ApplyShare = func(context.Context) error { return internalErr("x") }
-	if _, err := x.m.ShareSet(ctx, false, "admin"); err == nil || !x.m.ShareEnabled() {
-		t.Fatal("not rolled back")
+	os.WriteFile(x.m.ConfigPath, []byte(`{"version":2}`), 0o644)
+	if _, err := LoadBackupConfig(x.m.ConfigPath); err == nil {
+		t.Fatal("version 2 accepted")
 	}
-	x.m.ApplyShare = nil
-	x.m.ShareSet(ctx, false, "admin")
-	if g, _ := x.m.ShareGet(ctx); g.Enabled {
-		t.Fatal("still on")
-	}
-	os.WriteFile(x.m.ConfigPath, []byte(`{"version":1,"smbShare":true,"x":1}`), 0o644)
-	if x.m.ShareEnabled() {
-		t.Fatal("unknown field accepted")
-	}
-}
-
-func TestSambaFragmentIncludesReadOnlyBackupShare(t *testing.T) {
-	dir := t.TempDir()
-	m := &ShareManager{Path: filepath.Join(dir, "shares.json"), SambaDir: dir, SambaConf: filepath.Join(dir, "frag.conf"),
-		LookPath: func(string) (string, error) { return "", errors.New("none") }, Probe: func(string) bool { return true }}
-	on := true
-	m.BackupShare = func() bool { return on }
-	if err := m.Resamba(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	b, _ := os.ReadFile(m.SambaConf)
-	s := string(b)
-	if !strings.Contains(s, "[zalohy]") || !strings.Contains(s, "read only = yes") || !strings.Contains(s, "path = /srv/data/versions") ||
-		strings.Contains(s, "write list") || strings.Contains(s, "admin users") || !strings.Contains(s, "valid users = @nas-admin") {
-		t.Fatalf("%s", s)
-	}
-	on = false
-	m.Resamba(context.Background())
-	b, _ = os.ReadFile(m.SambaConf)
-	if strings.Contains(string(b), "zalohy") {
-		t.Fatal("share still rendered")
-	}
-	_ = shares.BackupShareName
 }
 
 func TestDispatchBackupOps(t *testing.T) {
@@ -307,8 +269,10 @@ func TestDispatchBackupOps(t *testing.T) {
 	if _, err := d.Handle(ctx, request{Op: "backup.test", Args: []byte(`{"host":"-oX","port":22,"user":"root","path":"a"}`)}); err == nil {
 		t.Fatal("option host accepted")
 	}
-	if _, err := d.Handle(ctx, request{Op: "backup.share.set", Args: []byte(`{}`)}); err == nil {
-		t.Fatal("missing enabled accepted")
+	for _, op := range []string{"backup.share.get", "backup.share.set"} {
+		if _, err := d.Handle(ctx, request{Op: op, Args: []byte(`{}`)}); err == nil {
+			t.Fatalf("removed op %s accepted", op)
+		}
 	}
 	if _, err := d.Handle(ctx, request{Op: "backup.host.scan", Args: []byte(`{"host":"a","evil":1}`)}); err == nil {
 		t.Fatal("unknown field accepted")

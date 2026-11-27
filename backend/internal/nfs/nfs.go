@@ -222,6 +222,9 @@ func Resolve(s Settings, cfg shares.Config) (ok []Resolved, missing []string) {
 			continue
 		}
 		sh := cfg.Shares[i]
+		if sh.BackupTarget {
+			continue // never exported, whatever an older nfs.json says
+		}
 		ok = append(ok, Resolved{Export: e, Path: sh.Path(), ShareReadOnly: sh.ReadOnly})
 	}
 	return ok, missing

@@ -288,6 +288,8 @@ export interface SharePermission { kind: PrincipalKind; name: string; access: Sh
 export interface Share {
   name: string; description: string; volume: string; folder: string; readOnly: boolean; hidden: boolean;
   recycle: { enabled: boolean; days: number }; permissions: SharePermission[];
+  /** Destination of backups: read-only for everybody, only the backup runner writes. */
+  backupTarget?: boolean;
 }
 export interface UserAccess { user: string; access: ShareAccess; via: string }
 export interface ShareInfo extends Share { path: string; exists: boolean; enforcement: 'acl' | 'smb'; effective: UserAccess[]; conflicts: string[] }
@@ -379,7 +381,6 @@ export interface BackupTestResult { ok: boolean; entries?: string[]; message?: s
 export interface Task extends TaskDef { running: boolean; nextRun: string | null; lastRun: TaskRun | null }
 export interface TaskList { tasks: Task[] }
 export interface TaskHistory { runs: TaskRun[] }
-export interface BackupShare { enabled: boolean; name: string; path: string }
 
 export interface BackupVersion { date: string; files: number; bytes: number; addedBytes: number }
 export interface BackupVersionList { versions: BackupVersion[]; complete: boolean }

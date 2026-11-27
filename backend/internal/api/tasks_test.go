@@ -184,14 +184,6 @@ func (f *fakeBackup) BackupTest(_ context.Context, host string, port int, user, 
 	f.calls = append(f.calls, "test "+host)
 	return helper.BackupTestResult{OK: true}, nil
 }
-func (f *fakeBackup) BackupShareGet(context.Context) (helper.BackupShareState, error) {
-	return helper.BackupShareState{Name: "zalohy", Path: "/srv/data/versions"}, nil
-}
-func (f *fakeBackup) BackupShareSet(_ context.Context, en bool) (helper.BackupShareState, error) {
-	f.calls = append(f.calls, "share")
-	return helper.BackupShareState{Enabled: en, Name: "zalohy", Path: "/srv/data/versions"}, nil
-}
-
 func (f *fakeBackup) BackupVersions(_ context.Context, id string) (helper.BackupVersions, error) {
 	f.calls = append(f.calls, "versions "+id)
 	return helper.BackupVersions{Versions: []helper.BackupVersion{{Date: "2026-11-25"}}, Complete: true}, nil
@@ -276,14 +268,11 @@ func TestBackupRoutesRoles(t *testing.T) {
 		{"POST", "/api/v1/backup/hostkey/scan", body, 200, 403, 403},
 		{"POST", "/api/v1/backup/hostkey/trust", `{"host":"192.0.2.10","port":22,"type":"ssh-ed25519","key":"AAAA"}`, 200, 403, 403},
 		{"POST", "/api/v1/backup/test", test, 200, 403, 403},
-		{"GET", "/api/v1/backup/share", "", 200, 200, 403},
-		{"PUT", "/api/v1/backup/share", `{"enabled":true}`, 200, 403, 403},
 		// option injection never reaches the helper
 		{"POST", "/api/v1/backup/hostkey/scan", `{"host":"-oProxyCommand=x","port":22}`, 400, 403, 403},
 		{"POST", "/api/v1/backup/test", `{"host":"192.0.2.10","port":22,"user":"root","path":"../x"}`, 400, 403, 403},
 		{"POST", "/api/v1/backup/test", `{"host":"192.0.2.10","port":22,"user":"-x","path":"a"}`, 400, 403, 403},
 		{"POST", "/api/v1/backup/hostkey/scan", `{"host":"a","port":99999}`, 400, 403, 403},
-		{"PUT", "/api/v1/backup/share", `{}`, 400, 403, 403},
 		{"GET", "/api/v1/backup/pull/versions", "", 200, 403, 403},
 		{"GET", "/api/v1/backup/pull/versions/2026-11-25/browse?path=app&offset=200", "", 200, 403, 403},
 		{"GET", "/api/v1/backup/pull/versions/2026-11-25/file?path=app/x", "", 200, 403, 403},

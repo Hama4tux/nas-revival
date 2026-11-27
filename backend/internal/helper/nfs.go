@@ -199,6 +199,11 @@ func (m *NfsManager) Set(ctx context.Context, in nfs.Settings, actor string) (Nf
 	if _, missing := nfs.Resolve(s, cfg); len(missing) > 0 {
 		return NfsService{}, invalid("exports", "Sdílená složka "+missing[0]+" neexistuje.")
 	}
+	for _, e := range s.Exports {
+		if i := cfg.Find(e.Share); i >= 0 && cfg.Shares[i].BackupTarget {
+			return NfsService{}, invalid("exports", "Cíl záloh nelze exportovat přes NFS.")
+		}
+	}
 	if err := m.ensureGroup(ctx); err != nil {
 		return NfsService{}, err
 	}

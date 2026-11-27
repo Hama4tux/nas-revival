@@ -352,7 +352,7 @@ export const cs = {
     sambaMissing: 'Samba není nainstalovaná – složky a oprávnění se uloží a použijí, přístup přes síť bude po instalaci a zapnutí SMB.',
     sambaNotIncluded: 'SMB zatím není nastavené – složky jsou uložené, přístup přes síť zapnete v Službách na kartě SMB.',
     badges: {
-      readOnly: 'jen pro čtení', hidden: 'skrytá', recycle: (d: number) => `koš ${d} ${d === 1 ? 'den' : d >= 2 && d <= 4 ? 'dny' : 'dní'}`,
+      readOnly: 'jen pro čtení', backupTarget: 'Cíl záloh', hidden: 'skrytá', recycle: (d: number) => `koš ${d} ${d === 1 ? 'den' : d >= 2 && d <= 4 ? 'dny' : 'dní'}`,
       missing: 'složka chybí',
     },
     usersCount: (n: number) => (n === 1 ? '1 uživatel má přístup' : n >= 2 && n <= 4 ? `${n} uživatelé mají přístup` : `${n} uživatelů má přístup`),
@@ -379,6 +379,10 @@ export const cs = {
       description: 'Popis', descriptionHint: 'Nepovinné, nejvýše 64 znaků.', descriptionErr: 'Popis je příliš dlouhý nebo obsahuje nepovolený znak.',
       volume: 'Svazek', volumeFree: (path: string, free: string, total: string) => `${path} – volné ${free} z ${total}`,
       volumeHint: 'Složka vznikne na tomto svazku a později ji nelze přesunout.',
+      backupTarget: 'Cíl záloh (jen ke čtení, zapisují jen zálohy)',
+      backupTargetHint: 'Zálohy ukládají verze jako pevné odkazy (hardlinky) – zápis do jednoho souboru by změnil všechny verze. Proto je složka pro všechny jen ke čtení a nejde exportovat přes NFS.',
+      backupTargetNeeds: 'Cíl záloh musí být na datovém svazku (/srv/data) s podporou ACL, nemá koš a nikdo v něm nemá zápis.',
+      readOnlyForced: 'U cíle záloh je složka vždy jen pro čtení.', recycleForced: 'U cíle záloh koš není.',
       readOnly: 'Jen pro čtení', readOnlyHint: 'Nikdo do složky nezapíše, ani když má jinak zápis.',
       hidden: 'Skrytá', hiddenHint: 'Složka se nezobrazí v seznamu sdílení v síti, ale jde k ní přejít zadáním názvu.',
       recycle: 'Koš', recycleHint: 'Smazané soubory se na určenou dobu schovají do složky .recycle.',
@@ -389,7 +393,7 @@ export const cs = {
       groupsOpt: 'Skupiny', usersOpt: 'Uživatelé', noPrincipals: 'Není koho přidat.',
       kindUser: 'uživatel', kindGroup: 'skupina',
       accessOf: (n: string) => `Přístup pro ${n}`, remove: (n: string) => `Odebrat ${n}`,
-      permsErr: { groupNone: 'Skupině nelze přístup zakázat; nastavte „bez přístupu“ jednotlivým uživatelům.', duplicate: 'Položka je v seznamu dvakrát.', tooMany: 'Příliš mnoho položek (nejvýše 64).' },
+      permsErr: { groupNone: 'Skupině nelze přístup zakázat; nastavte „bez přístupu“ jednotlivým uživatelům.', duplicate: 'Položka je v seznamu dvakrát.', tooMany: 'Příliš mnoho položek (nejvýše 64).', backupRw: 'Cíl záloh může mít jen oprávnění ke čtení.' },
       folderInfo: (vol: string, folder: string) => `Umístění: ${vol}/${folder}`,
     },
     del: {
@@ -774,14 +778,6 @@ export const cs = {
       save: 'Uložit', cancel: 'Zrušit',
     },
     backup: {
-      share: {
-        title: 'Přístup k zálohám v síti', switch: 'Zpřístupnit zálohy v síti', loadError: 'Stav sdílení záloh se nepodařilo načíst.',
-        saveError: 'Sdílení záloh se nepodařilo změnit.', on: (unc: string) => `Zálohy jsou dostupné na adrese ${unc}`,
-        off: 'Zálohy nejsou v síti sdílené.',
-        info: 'Jen ke čtení a jen pro administrátory. Každá složka s datem obsahuje celou zálohu toho dne.',
-        confirm: 'Zálohy obsahují osobní údaje ze serverů. Zpřístupnit je administrátorům přes síť (SMB, jen ke čtení)?',
-        confirmYes: 'Zpřístupnit', readOnly: 'Máte jen právo čtení, sdílení nelze měnit.',
-      },
       server: 'Server', serverHint: 'Název nebo IP adresa serveru, ze kterého se zálohuje.', port: 'Port', portHint: 'Obvykle 22.',
       user: 'Uživatel na serveru', paths: 'Složky ke stažení', pathsHint: 'Cesty vzhledem ke kořenu, který server zálohám zpřístupní (ne od /). Například nas-export.',
       pathPlaceholder: 'např. nas-export', addPath: 'Přidat složku', pathAria: (i: number) => `Složka ${i}`,

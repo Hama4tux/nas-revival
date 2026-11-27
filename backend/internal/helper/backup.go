@@ -20,12 +20,10 @@ import (
 	"nas-revival/backend/internal/tasks"
 )
 
-// Backup share (W4.3): fixed name and path of the optional read-only SMB
-// share of the backup versions.
+// BackupConfigPath is backup.json (root, 0644), {"version":1}. It only
+// carries the version since the pseudo share "zalohy" was dropped; an older
+// file with "smbShare" still loads and the field is ignored.
 const (
-	BackupShareName = "zalohy"
-	BackupSharePath = tasks.BackupVolume + "/versions"
-	// BackupConfigPath holds {"version":1,"smbShare":false} (root, 0644).
 	BackupConfigPath = "/etc/nas-revival/backup.json"
 	defaultRemoteDir = "/var/backups"
 	shellCheckMarker = "nr-shell-check"
@@ -33,15 +31,7 @@ const (
 
 // BackupConfig is backup.json.
 type BackupConfig struct {
-	Version  int  `json:"version"`
-	SmbShare bool `json:"smbShare"`
-}
-
-// BackupShareState is the result of backup.share.get/set.
-type BackupShareState struct {
-	Enabled bool   `json:"enabled"`
-	Name    string `json:"name"`
-	Path    string `json:"path"`
+	Version int `json:"version"`
 }
 
 // BackupKey is the result of backup.key.get.
@@ -83,9 +73,8 @@ func LoadBackupConfig(path string) (BackupConfig, error) {
 	if err != nil {
 		return c, err
 	}
-	dec := json.NewDecoder(strings.NewReader(string(b)))
-	dec.DisallowUnknownFields()
-	if err := dec.Decode(&c); err != nil || c.Version != 1 {
+	// Unknown fields (the old smbShare) are ignored.
+	if err := json.Unmarshal(b, &c); err != nil || c.Version != 1 {
 		return BackupConfig{Version: 1}, errors.New("invalid backup.json")
 	}
 	return c, nil
@@ -105,59 +94,13 @@ type BackupManager struct {
 	Chown    func(path string, uid, gid int) error
 	Hostname func() (string, error)
 	TempDir  string
-	// ApplyShare re-renders the Samba fragment (nil without shares).
-	ApplyShare func(ctx context.Context) error
-	mu         sync.Mutex
+	mu       sync.Mutex
 }
 
 // NewBackupManager returns a manager with the production paths.
 func NewBackupManager(iface string, run Runner) *BackupManager {
 	return &BackupManager{Run: run, Iface: iface, KeyPath: tasks.BackupKeyPath, KnownHosts: tasks.BackupKnownHosts,
 		ConfigPath: BackupConfigPath, Lookup: LookupUser, Chown: os.Lchown, Hostname: os.Hostname}
-}
-
-// ShareEnabled reports the backup.json switch (used by the Samba renderer).
-func (m *BackupManager) ShareEnabled() bool {
-	c, err := LoadBackupConfig(m.ConfigPath)
-	return err == nil && c.SmbShare
-}
-
-func (m *BackupManager) shareState() BackupShareState {
-	return BackupShareState{Enabled: m.ShareEnabled(), Name: BackupShareName, Path: BackupSharePath}
-}
-
-// ShareGet returns the state of the versions share.
-func (m *BackupManager) ShareGet(context.Context) (BackupShareState, error) {
-	if _, err := LoadBackupConfig(m.ConfigPath); err != nil {
-		return BackupShareState{}, internalErr("Nastavení záloh nelze načíst.")
-	}
-	return m.shareState(), nil
-}
-
-// ShareSet switches the share and re-renders Samba; on failure the previous
-// backup.json comes back.
-func (m *BackupManager) ShareSet(ctx context.Context, enabled bool, actor string) (BackupShareState, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	old, oldErr := os.ReadFile(m.ConfigPath)
-	b, _ := json.MarshalIndent(BackupConfig{Version: 1, SmbShare: enabled}, "", "  ")
-	if err := atomicfile.Write(m.ConfigPath, append(b, '\n'), 0o644); err != nil {
-		slog.Error("helper: write backup.json", "err", err)
-		return BackupShareState{}, internalErr("Nastavení záloh nelze uložit.")
-	}
-	if m.ApplyShare != nil {
-		if err := m.ApplyShare(ctx); err != nil {
-			if oldErr == nil {
-				atomicfile.Write(m.ConfigPath, old, 0o644)
-			} else {
-				os.Remove(m.ConfigPath)
-			}
-			m.ApplyShare(ctx)
-			return BackupShareState{}, err
-		}
-	}
-	slog.Info("helper: backup.share.set", "enabled", enabled, "user", actor)
-	return m.shareState(), nil
 }
 
 func (m *BackupManager) account() (uint32, int, error) {
@@ -526,13 +469,6 @@ func (d *Dispatcher) handleBackup(ctx context.Context, req request, user string)
 		return struct{}{}, d.Backup.HostTrust(ctx, a.Host, a.Port, a.Type, a.Key)
 	case "backup.test":
 		return d.Backup.Test(ctx, a.Host, a.Port, a.User, a.Path)
-	case "backup.share.get":
-		return d.Backup.ShareGet(ctx)
-	case "backup.share.set":
-		if a.Enabled == nil {
-			return nil, invalid("enabled", "Chybí hodnota enabled.")
-		}
-		return d.Backup.ShareSet(ctx, *a.Enabled, user)
 	case "backup.versions":
 		return d.Backup.Versions(ctx, a.ID)
 	case "backup.browse":

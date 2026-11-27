@@ -9,7 +9,6 @@ import {
   MAX_TASKS, WEEKDAYS, newBackup, formatDuration, formatWhen, isPowerTask, listError, newTask, nextRunLabel, normalizeTask, pollInterval,
   resultVariant, scheduleLabel, sortDays, validateTask, weekdayShort,
 } from '../lib/tasks';
-import { BackupShareCard } from './BackupShareCard';
 import { BackupTaskFields } from './BackupTaskFields';
 import { BackupVersions } from './BackupVersions';
 import { Badge } from './ui/badge';
@@ -345,7 +344,6 @@ export function TasksPage({ readOnly }: { readOnly: boolean }) {
             </Button>
           )}
       </Widget>
-      {tasks.some((x) => x.type === 'backup-pull') && <BackupShareCard readOnly={readOnly} />}
       {editing && <EditorDialog initial={editing} disks={disks} onSave={saveEdited} onClose={() => setEditing(null)} />}
       {history && <HistoryDialog task={history} onClose={() => setHistory(null)} />}
       {versions && <BackupVersions task={versions} onClose={() => setVersions(null)} />}

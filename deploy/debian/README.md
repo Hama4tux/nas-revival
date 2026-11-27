@@ -33,8 +33,9 @@ Backup pull jobs (W4.3, ADR 0008): task type `backup-pull`, one `nas-revival-bac
 (unit `nas-revival-backup@.service`), run as the unprivileged account `nas-backup` (home `/var/lib/nas-backup`,
 0700; key `.ssh/id_ed25519` 0600; history `task-history.json` 0640, read by the web UI through its supplementary
 group `nas-backup`). Data: `/srv/data/apps/<id>/<path>/` is the mirror (`rsync --delete`),
-`/srv/data/versions/<date>/<id>/` the hardlink snapshots (kept `keepDays` newest days); both directory names and the share
-name `zalohy` are reserved for shares. Server host keys are trusted in the UI (Tasks, "Ověřit server") and stored in
+`/srv/data/versions/<date>/<id>/` the hardlink snapshots (kept `keepDays` newest days). Since 2026-11-27 these names are
+no longer reserved and the pseudo share `zalohy` is gone; the destination becomes a shared folder with "Cíl záloh"
+(`backupTarget`, see docs/api/v1.md). Server host keys are trusted in the UI (Tasks, "Ověřit server") and stored in
 `/etc/nas-revival/backup_known_hosts` (root, 0644, written only by the helper). The NAS public key goes to the server's
 `authorized_keys` with `from="<NAS IP>",restrict,command="rrsync -ro <folder>"` (the UI shows the line). Install once, as root:
 
@@ -52,10 +53,7 @@ Migration of the interim `nas-pull` job (once, as root, after installing the new
 `./migrate-nas-pull.sh [HH:MM]` creates the account, copies the key and known hosts, takes over `/srv/data/apps` and
 `/srv/data/versions`, imports `/etc/nas-pull/jobs.conf` as backup-pull tasks (`nas-revival task import-pull`; daily
 06:45, 35 days, freshness file `nas-export/last-ok` 26 h when a path is `nas-export`) and disables `nas-pull.timer`.
-It is idempotent. Afterwards check Tasks in the web UI and run the task once. Optional: Plánované úlohy → card "Přístup k zálohám v síti"
-publishes `/srv/data/versions` as the read-only SMB share `zalohy` for `nas-admin` (state in
-`/etc/nas-revival/backup.json`; read-only because versions are hardlinks).
-Versions and restore (phase 2): "Verze a obnova" on a backup task lists the versions, browses them and downloads single
+It is idempotent. Afterwards check Tasks in the web UI and run the task once. Versions and restore (phase 2): "Verze a obnova" on a backup task lists the versions, browses them and downloads single
 files; the helper opens each file as root and passes the descriptor to the web process, which keeps no read access to
 `/srv/data/versions`. After deploying, run `scripts/webui/e2e-backup.sh` (read-only; also walks the newest version of
 every job to a file and reads it).

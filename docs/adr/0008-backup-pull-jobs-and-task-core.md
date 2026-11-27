@@ -31,9 +31,13 @@
   1–90), optional freshness marker file and maximum age, optional bandwidth limit and excludes.
   Mode "mirror + versions": `--delete` applies to the mirror only, the versions keep what was
   deleted; the UI explains this before the job is saved (FEATURE_MATRIX BKP-10 rule).
-- **Storage root:** pulled backups live under one reserved root on the data volume
-  (`/srv/data/apps`, `/srv/data/versions`), owned by the backup user, mode 0700, never offered as an
-  SMB/NFS share and refused as a share path. Restore access comes through the web UI (list versions
+- **Storage root** *(amended 2026-11-27: the destination is a `backupTarget` share)*: the original design kept
+  pulled backups under one reserved root on the data volume (`/srv/data/apps`, `/srv/data/versions`), owned by the
+  backup user, mode 0700, never offered as an SMB/NFS share and refused as a share path. Superseded: the destination
+  is a normal shared folder with the property `backupTarget` (read-only for everybody, `nas-backup` the only writer
+  through an ACL entry, not exportable over NFS, on `/srv/data`); the hidden pseudo share `zalohy`, the reserved names
+  and `backup.share.get/set` are gone. Task destinations and the layout inside the share follow in later steps; until
+  then the jobs still write to the old paths. Original text: Restore access comes through the web UI (list versions
   and files first, download and restore-to-share with File Station W4.1). Restore-to-share (phase 2b): the helper
   copies a folder or file of a version into a share the admin's own account may write to, in the background
   under a hidden name, never overwriting, owned by the admin like a File Station upload, symlinks skipped.

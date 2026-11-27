@@ -8,7 +8,7 @@ import { cs } from '../i18n/cs';
 import { formatBytes } from '../lib/format';
 import {
   accessChoices, addPermission, daysProblem, descriptionProblem, permissionsProblem, removePermission, shareNameProblem, toShare,
-  shareValid, usersWithAccess,
+  shareValid, usersWithAccess, withBackupTarget,
 } from '../lib/shares';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
@@ -62,17 +62,20 @@ const volumeLabel = (v: ShareVolume) =>
 
 const SmbNote = () => <p role="note" className="text-sm text-muted-foreground">{t.smbEnforced}</p>;
 
-function Toggle({ label, hint, checked, onChange }: { label: string; hint: string; checked: boolean; onChange: (v: boolean) => void }) {
+function Toggle({ label, hint, checked, onChange, disabled }: {
+  label: string; hint: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean;
+}) {
   return (
     <label className="flex min-h-10 items-start gap-2 rounded-md px-2 py-1.5 hover:bg-muted">
-      <input type="checkbox" className="mt-1 h-4 w-4" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+      <input type="checkbox" className="mt-1 h-4 w-4" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span><span className="font-medium">{label}</span><span className="block text-sm text-muted-foreground">{hint}</span></span>
     </label>
   );
 }
 
-function PermissionsEditor({ value, onChange, principals, error }: {
+function PermissionsEditor({ value, onChange, principals, error, backupTarget }: {
   value: SharePermission[]; onChange: (v: SharePermission[]) => void; principals: ShareList['principals']; error: string | null;
+  backupTarget: boolean;
 }) {
   const [pick, setPick] = useState('');
   const free = (kind: PrincipalKind, names: string[]) => names.filter((n) => !value.some((p) => p.kind === kind && p.name === n));
@@ -81,7 +84,7 @@ function PermissionsEditor({ value, onChange, principals, error }: {
   function add() {
     const [kind, ...rest] = pick.split(':');
     if (!pick || (kind !== 'user' && kind !== 'group')) return;
-    onChange(addPermission(value, { kind, name: rest.join(':'), access: 'rw' }));
+    onChange(addPermission(value, { kind, name: rest.join(':'), access: backupTarget ? 'ro' : 'rw' }));
     setPick('');
   }
   const set = (p: SharePermission, access: ShareAccess) =>
@@ -100,7 +103,7 @@ function PermissionsEditor({ value, onChange, principals, error }: {
               </span>
               <select aria-label={t.form.accessOf(p.name)} className={`${selectCls} !w-auto min-w-36`} value={p.access}
                 onChange={(e) => set(p, e.target.value as ShareAccess)}>
-                {accessChoices(p.kind).map((a) => <option key={a} value={a}>{t.access[a]}</option>)}
+                {accessChoices(p.kind, backupTarget).map((a) => <option key={a} value={a}>{t.access[a]}</option>)}
               </select>
               <Button type="button" variant="outline" size="sm" aria-label={t.form.remove(p.name)}
                 onClick={() => onChange(removePermission(value, p.kind, p.name))}>
@@ -145,7 +148,7 @@ function ShareDialog({ share, list, onClose, onDone }: {
   const days = Number(daysText);
   const np = creating ? shareNameProblem(s.name, existing) : null;
   const draft: Share = { ...s, folder: creating ? s.name : s.folder, recycle: { enabled: s.recycle.enabled, days } };
-  const permProblem = permissionsProblem(s.permissions);
+  const permProblem = permissionsProblem(s.permissions, s.backupTarget === true);
   const valid = shareValid(draft, creating, existing);
   const fieldErr = (f: string) => (a.field === f ? a.err : null);
 
@@ -191,19 +194,23 @@ function ShareDialog({ share, list, onClose, onDone }: {
           {(p) => <Input {...p} value={s.description} autoComplete="off" className={invalidCls}
             data-autofocus={creating ? undefined : true} onChange={(e) => setS({ ...s, description: e.target.value })} />}
         </Field>
-        <Toggle label={t.form.readOnly} hint={t.form.readOnlyHint} checked={s.readOnly} onChange={(v) => setS({ ...s, readOnly: v })} />
+        <Toggle label={t.form.backupTarget} hint={t.form.backupTargetHint} checked={s.backupTarget === true}
+          onChange={(v) => setS(withBackupTarget(s, v))} />
+        {s.backupTarget && <p role="note" className="text-sm text-muted-foreground">{t.form.backupTargetNeeds}</p>}
+        <Toggle label={t.form.readOnly} hint={s.backupTarget ? t.form.readOnlyForced : t.form.readOnlyHint} checked={s.readOnly || s.backupTarget === true}
+          onChange={(v) => setS({ ...s, readOnly: v })} disabled={s.backupTarget === true} />
         <Toggle label={t.form.hidden} hint={t.form.hiddenHint} checked={s.hidden} onChange={(v) => setS({ ...s, hidden: v })} />
-        <Toggle label={t.form.recycle} hint={t.form.recycleHint} checked={s.recycle.enabled}
-          onChange={(v) => setS({ ...s, recycle: { ...s.recycle, enabled: v } })} />
-        {s.recycle.enabled && (
+        <Toggle label={t.form.recycle} hint={s.backupTarget ? t.form.recycleForced : t.form.recycleHint} checked={s.recycle.enabled}
+          onChange={(v) => setS({ ...s, recycle: { ...s.recycle, enabled: v } })} disabled={s.backupTarget === true} />
+        {s.recycle.enabled && !s.backupTarget && (
           <Field label={t.form.days} error={(daysProblem(days) ? t.form.daysErr : null) ?? fieldErr('recycle')} className="max-w-40">
             {(p) => <Input {...p} type="number" inputMode="numeric" min={1} max={365} value={daysText} className={invalidCls}
               onChange={(e) => setDaysText(e.target.value)} />}
           </Field>
         )}
-        <PermissionsEditor value={s.permissions} onChange={(v) => setS({ ...s, permissions: v })} principals={list.principals}
+        <PermissionsEditor value={s.permissions} onChange={(v) => setS({ ...s, permissions: v })} principals={list.principals} backupTarget={s.backupTarget === true}
           error={(permProblem ? t.form.permsErr[permProblem] : null) ?? fieldErr('permissions')} />
-        {a.err && (!a.field || !['name', 'volume', 'description', 'recycle', 'permissions'].includes(a.field)) && (
+        {a.err && (!a.field || !['name', 'volume', 'description', 'recycle', 'permissions', 'backupTarget'].includes(a.field)) && (
           <p role="alert" className="font-medium text-danger">{a.err}</p>
         )}
       </form>
@@ -308,7 +315,8 @@ function ShareRow({ s, readOnly, expanded, onToggle, onEdit, onDelete }: {
     <li className="space-y-2 py-3">
       <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="font-medium break-all">{s.name}</span>
-        {s.readOnly && <Badge>{t.badges.readOnly}</Badge>}
+        {s.backupTarget && <Badge>{t.badges.backupTarget}</Badge>}
+        {s.readOnly && !s.backupTarget && <Badge>{t.badges.readOnly}</Badge>}
         {s.hidden && <Badge>{t.badges.hidden}</Badge>}
         {s.recycle.enabled && <Badge>{t.badges.recycle(s.recycle.days)}</Badge>}
         {!s.exists && <Badge variant="warning">{t.badges.missing}</Badge>}

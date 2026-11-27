@@ -362,10 +362,10 @@ func runHelper(args []string) error {
 	if err := tkm.Reconcile(ctx); err != nil {
 		slog.Error("helper: task timers", "err", err)
 	}
-	// Backup pull jobs (W4.3): key, host keys, optional read-only versions share.
+	// Backup pull jobs (W4.3): key, host keys; the destination is a backupTarget share.
 	bkm := helper.NewBackupManager(*iface, helper.ExecRunner)
-	bkm.ApplyShare = shm.Resamba
-	shm.BackupShare = bkm.ShareEnabled
+	shm.BackupVolume = tasks.BackupVolume
+	shm.InUseAsBackupTarget = backupTargetUser(tasks.DefaultConfigPath)
 	// The recovery administrator sees every share in the File Station; admin.json
 	// is re-read on every call because set-password may change it.
 	recovery := func() string {
@@ -571,6 +571,13 @@ func runTask(args []string) error {
 		return fmt.Errorf("task %s: %s: %s", fl.Arg(0), run.Result, run.Message)
 	}
 	return nil
+}
+
+// backupTargetUser tells which backup uses a share as its destination. Tasks
+// have no destination yet (step 2 of the backup targets reads it from
+// tasks.json); until then nothing is in use.
+func backupTargetUser(_ string) func(share string) (string, bool) {
+	return func(string) (string, bool) { return "", false }
 }
 
 // backupVolumeMounted checks that the backup volume is a mounted data volume.
