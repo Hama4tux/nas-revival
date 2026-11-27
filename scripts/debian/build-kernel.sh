@@ -1,7 +1,7 @@
 #!/bin/bash
 # Build the NSA310 kernel: mainline 6.12 LTS, mvebu_v5_defconfig + NAS options, kirkwood-nsa310a.dtb appended.
 # Output in $OUT: uImage (for the NAND slot / USB stick), modules-<release>.tar.gz, kernel-<release>.config, SHA256SUMS.
-# Needs: arm-linux-gnueabi-gcc, make, bc, bison, flex, libssl-dev, u-boot-tools (mkimage), curl.
+# Needs: arm-linux-gnueabi-gcc, libc6-dev-armel-cross (Kconfig CC_CAN_LINK must be the same everywhere), make, bc, bison, flex, libssl-dev, u-boot-tools (mkimage), curl.
 # Usage: scripts/debian/build-kernel.sh [version]   (env OUT=dir, default output/kernel; JOBS=n; LOCALVERSION)
 # Version and suffix default to scripts/release/versions.conf.
 # Reproducible: the same source and toolchain give the same uImage and modules tarball bytes. Build time,
@@ -25,7 +25,10 @@ curl -fsSL https://cdn.kernel.org/pub/linux/kernel/v6.x/sha256sums.asc | grep " 
 rm -rf "linux-$V"; tar xf "linux-$V.tar.xz"; cd "linux-$V"
 
 export ARCH=arm CROSS_COMPILE=arm-linux-gnueabi-
-make -s mvebu_v5_defconfig
+# RUSTC=false: Kconfig records the version of any rustc on the build host (no Rust is built), which made the
+# workstation's .config differ from CI's.
+kmake() { make RUSTC=false "$@"; }
+kmake -s mvebu_v5_defconfig
 ./scripts/config \
   -e EXT4_FS -e EXT4_FS_POSIX_ACL -e USB_STORAGE -e USB_EHCI_HCD -e USB_EHCI_HCD_ORION -e SATA_MV \
   -e MD -e BLK_DEV_MD -e MD_RAID1 -e DEVTMPFS -e DEVTMPFS_MOUNT -e CGROUPS -e AUTOFS_FS \
@@ -37,7 +40,7 @@ make -s mvebu_v5_defconfig
   -m EXFAT_FS -m NTFS3_FS -e TASKSTATS -e TASK_XACCT -e TASK_IO_ACCOUNTING -e PSI \
   --set-str LOCALVERSION "$LOCALVERSION" -d LOCALVERSION_AUTO \
   -d DEBUG_INFO -d DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT -d DEBUG_INFO_DWARF4 -d DEBUG_INFO_DWARF5 -e DEBUG_INFO_NONE
-make -s olddefconfig
+kmake -s olddefconfig
 # Firewall (W5.2) built in: the helper runs nft with ProtectKernelModules=yes and cannot load modules.
 # scripts/config silently drops options whose dependencies are missing: check the result.
 for o in NETFILTER NF_CONNTRACK NF_TABLES NF_TABLES_IPV4 NFT_CT NFT_REJECT_IPV4 NFT_LIMIT NFT_LOG EXFAT_FS NTFS3_FS TASK_IO_ACCOUNTING PSI; do
@@ -46,11 +49,11 @@ done
 # No debug info: it holds the absolute build path, which changes the build IDs in the image and every module
 # (not reproducible). The NAS never used it; modules were stripped anyway.
 grep -q '^CONFIG_DEBUG_INFO_NONE=y' .config || { echo "debug info still enabled" >&2; exit 1; }
-nice make -s -j"$JOBS" zImage modules dtbs
+nice make RUSTC=false -s -j"$JOBS" zImage modules dtbs
 # Only known after the build (include/config/kernel.release), e.g. 6.12.119-nr1.
-KREL="$(make -s kernelrelease)"
+KREL="$(kmake -s kernelrelease)"
 
-rm -rf "$OUT/modroot"; make -s INSTALL_MOD_PATH="$OUT/modroot" INSTALL_MOD_STRIP=1 modules_install
+rm -rf "$OUT/modroot"; kmake -s INSTALL_MOD_PATH="$OUT/modroot" INSTALL_MOD_STRIP=1 modules_install
 # The build link points into this workstation; update-kernel.sh refuses links in the tarball.
 rm -f "$OUT/modroot/lib/modules/$KREL/build" "$OUT/modroot/lib/modules/$KREL/source"
 # The stock U-Boot 1.1.4 cannot pass a device tree: append it to the kernel. mkimage takes the header

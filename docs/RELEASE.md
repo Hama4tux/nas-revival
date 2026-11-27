@@ -49,9 +49,10 @@ suffix) live only in [`scripts/release/versions.conf`](../scripts/release/versio
   `_USER`, `_HOST` and `_VERSION`, `mkimage` takes the uImage header time from `SOURCE_DATE_EPOCH`.
 - The kernel source tarball is checked against kernel.org's `sha256sums.asc`; the build is in-tree, so no
   absolute path ends up in the image; modules are stripped. Debug info is off (`CONFIG_DEBUG_INFO_NONE`): it
-  holds the absolute build directory, which changed the build IDs of the image and of every module.
+  holds the absolute build directory, which changed the build IDs of the image and of every module. `make
+  RUSTC=false` keeps a host rustc out of `.config`; both sides install `libc6-dev-armel-cross` (`CC_CAN_LINK`).
 - The modules tarball is sorted by name with fixed owner, mode bits and mtime, and gzip stores no name or time.
-- Go: exact toolchain from `go.mod`, `-trimpath`, `-buildid=`, `CGO_ENABLED=0`; the UI comes from
+- Go: exact toolchain from `go.mod`, `-trimpath`, `-buildid=`, `-buildvcs=false`, `CGO_ENABLED=0`; the UI comes from
   `package-lock.json` (`npm ci`).
 - The manifest contains no build time, so a rebuild gives the same manifest and the signature covers it.
 

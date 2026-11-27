@@ -46,7 +46,7 @@ buildinfo() {
   local p
   echo "commit $1"
   echo "source_date_epoch $2"
-  for p in gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi u-boot-tools; do
+  for p in gcc-arm-linux-gnueabi binutils-arm-linux-gnueabi libc6-dev-armel-cross u-boot-tools; do
     echo "dpkg $p $(dpkg-query -W -f='${Version}' "$p" 2>/dev/null || echo missing)"
   done
   echo "cc $(arm-linux-gnueabi-gcc --version | head -1)"

@@ -29,7 +29,8 @@ cd "$repo/backend"
 out="$(realpath -m "${OUT:-$repo/output/webui}")"
 version="${NR_VERSION:-$(git -C "$repo" describe --always --dirty 2>/dev/null || echo dev)}"
 mkdir -p "$out"
-CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 "$GO" build -tags embedui -trimpath \
+# -buildvcs=false: otherwise Go records whether the work tree has untracked files (vcs.modified).
+CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 "$GO" build -tags embedui -trimpath -buildvcs=false \
   -ldflags "-s -w -buildid= -X main.version=$version" -o "$out/nas-revival-armv5" ./cmd/nas-revival
 CGO_ENABLED=0 "$GO" build -tags embedui -trimpath -o "$out/nas-revival-host" ./cmd/nas-revival
 (cd "$out" && sha256sum nas-revival-armv5 > SHA256SUMS)
