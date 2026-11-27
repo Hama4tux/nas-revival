@@ -1,7 +1,9 @@
 # Debian deployment of the web UI
 
 Deployed to the NAS on 2026-11-25 (about 24 MiB RSS after start). Build on the workstation with
-`scripts/webui/build.sh` (output in `output/webui/`), then on the NAS as root:
+`scripts/webui/build.sh` (output in `output/webui/`). An update of an installed NAS is `scripts/webui/deploy.sh [host]`
+(copies the binary, keeps the old one as `nas-revival.prev`, restarts `nas-revival` and puts the old binary back when
+the service is not up within 30 s). First installation, on the NAS as root:
 
 ```sh
 apt install smartmontools hdparm     # SMART card; disk power state and APM
