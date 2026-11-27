@@ -180,4 +180,5 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
   static binary, ~8 MiB). Node and Go run only on the workstation.
 - Deployment today: copy binary, systemd units from `deploy/debian`, restart. Target (M5): signed
   release tarball with manifest, A/B binary directories (`/usr/local/lib/nas-revival/{a,b}`) and a
-  symlink switch; see [RECOVERY](RECOVERY.md) and Update Manager in [ROADMAP](ROADMAP.md).
+  symlink switch; see [RECOVERY](RECOVERY.md) and Update Manager in [ROADMAP](ROADMAP.md). The release itself
+  (reproducible build, manifest, local signing) is in [RELEASE](RELEASE.md).

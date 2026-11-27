@@ -67,7 +67,7 @@ restore of files) · W4.4 Config export/import ✅ 2026-11-27 (deployed, e2e on 
 W5.1 Security Center (phase 1 ✅ 2026-11-27, ADR 0013: session list with forced logout, sessions survive restarts, advisor with SSH/SMB/NFS/certificate/account/login checks and fix links; open: security updates and unexpected ports in the advisor) · W5.2 Firewall with rollback (✅ 2026-11-27, ADR 0014: allowed sources per service, anti-lockout, 180 s confirm-or-rollback, boot unit; needs kernel 6.12.119-nr1) ·
 W5.3 Log Center (✅ 2026-11-27, ADR 0015: journal query by category/severity/time/text with export, audit view of administrative actions from structured journal fields, retention size/age) · W5.4 Update Manager (phase 1 ✅ 2026-11-27, ADR 0016: Debian
 updates – daily check, list with security updates, install in a root job unit, restart recommendation, advisor
-findings; open: NAS Revival self-update and kernel slot update from the web, both need the signed release) · W5.5 English translation.
+findings; reproducible release with manifest and local signing ✅ 2026-11-27, [RELEASE](RELEASE.md); open: NAS Revival self-update and kernel slot update from the web) · W5.5 English translation.
 
 ## W6 – Expansion (M6)
 

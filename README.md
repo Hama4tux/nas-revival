@@ -162,6 +162,7 @@ Test it with `bash tests/test_pre_commit.sh`.
 | [Install guide](docs/debian/install.md) | Step-by-step flashing of a stock NSA310 |
 | [Boot layout](docs/debian/boot.md) | NAND slots, U-Boot environment, writing kernels |
 | [Architecture](docs/ARCHITECTURE.md) | Process model, modules, config manager, HAL |
+| [Release](docs/RELEASE.md) | Reproducible release build, manifest, local signing |
 | [Security model](docs/SECURITY_MODEL.md) | Trust boundaries, privileged helper, auth |
 | [API v1](docs/api/v1.md) | Administration API contract |
 | [Roadmap](docs/ROADMAP.md) · [Web roadmap](docs/WEB_ROADMAP.md) | What comes next |

@@ -1,6 +1,6 @@
 # Validation strategy
 
-Validation covers document links, manifest syntax/safety defaults and Git whitespace (`tests/test_pre_commit.sh`, run by the pre-commit hook). `tests/test_board_scripts.sh` checks the night mode and fault blink of `nsa310-leds` and the profile checks of `nsa310-fan` against fake sysfs trees. Backend and frontend tests live next to their code.
+Validation covers document links, manifest syntax/safety defaults and Git whitespace (`tests/test_pre_commit.sh`, run by the pre-commit hook). `tests/test_board_scripts.sh` checks the night mode and fault blink of `nsa310-leds` and the profile checks of `nsa310-fan` against fake sysfs trees. `tests/test_release.sh` covers the release version format, manifest, build comparison and signing with throwaway keys. CI runs every `tests/test_*.sh`. Backend and frontend tests live next to their code.
 
 Future meaningful tests:
 
