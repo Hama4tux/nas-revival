@@ -363,7 +363,13 @@ func runHelper(args []string) error {
 	// Backup pull jobs (W4.3): key, host keys; the destination is a backupTarget share.
 	bkm := helper.NewBackupManager(*iface, helper.ExecRunner)
 	shm.BackupVolume = tasks.BackupVolume
-	shm.InUseAsBackupTarget = tasks.BackupTargetUser(tasks.DefaultConfigPath)
+	taskUser, copyUser := tasks.BackupTargetUser(tasks.DefaultConfigPath), tasks.UsbCopyTargetUser(tasks.UsbCopyConfigPath)
+	shm.InUseAsBackupTarget = func(share string) (string, bool) {
+		if u, used := taskUser(share); used {
+			return u, true
+		}
+		return copyUser(share)
+	}
 	// The recovery administrator sees every share in the File Station; admin.json
 	// is re-read on every call because set-password may change it.
 	recovery := func() string {
@@ -394,7 +400,8 @@ func runHelper(args []string) error {
 		Tasks:    tkm,
 		Backup:   bkm,
 		Usb: &helper.UsbManager{Report: storage.Collector{HAL: hal.Reader{Root: "/"}, StatFS: statFS}.Report,
-			Run: helper.ExecRunner, DB: shm.LoadDB, Exclude: "/etc/nsa310-copy.exclude", Taken: helper.SysTaken},
+			Run: helper.ExecRunner, DB: shm.LoadDB, Exclude: "/etc/nsa310-copy.exclude", Taken: helper.SysTaken,
+			Copy: helper.NewUsbCopyManager()},
 		Files:    files,
 		Restore:  &helper.RestoreManager{Backup: bkm, Files: files, Lower: helper.SysLowerPriority},
 		Hostname: &helper.HostnameManager{HostsFile: "/etc/hosts", Run: helper.ExecRunner},

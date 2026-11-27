@@ -71,6 +71,8 @@ type UsbManager struct {
 	// Taken reports whether a mount point name is in use (a mount or a
 	// non-empty folder); an empty folder left by an earlier mount is reused.
 	Taken func(string) bool
+	// Copy holds the destination of the COPY button; nil disables usb.copy.*.
+	Copy *UsbCopyManager
 }
 
 var (
@@ -307,11 +309,21 @@ func (d *Dispatcher) handleUsb(ctx context.Context, req request, user string) (a
 		DiskID    string `json:"diskId"`
 		Partition string `json:"partition"`
 		ReadOnly  bool   `json:"readOnly"`
+		Share     string `json:"share"`
+		Folder    string `json:"folder"`
 	}
 	if err := decodeArgs(req.Args, &a); err != nil {
 		return nil, err
 	}
 	switch req.Op {
+	case "usb.copy.get", "usb.copy.set":
+		if d.Usb.Copy == nil {
+			return nil, invalid("", "Neznámá operace.")
+		}
+		if req.Op == "usb.copy.get" {
+			return d.Usb.Copy.Get(ctx)
+		}
+		return d.Usb.Copy.Set(ctx, a.Share, a.Folder, user)
 	case "usb.list":
 		return d.Usb.List(ctx)
 	case "usb.mount":

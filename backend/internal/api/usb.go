@@ -14,11 +14,15 @@ type UsbAdmin interface {
 	UsbMount(ctx context.Context, diskID, part string, readOnly bool) (helper.UsbList, error)
 	UsbUnmount(ctx context.Context, diskID, part string) (helper.UsbList, error)
 	UsbEject(ctx context.Context, diskID string) (helper.UsbList, error)
+	UsbCopyGet(ctx context.Context) (helper.UsbCopyInfo, error)
+	UsbCopySet(ctx context.Context, share, folder string) (helper.UsbCopyInfo, error)
 }
 
 func (s *Server) registerUsb(api *http.ServeMux) {
 	admin := func(h http.HandlerFunc) http.HandlerFunc { return s.requireRole(accounts.RoleAdmin, h) }
 	api.HandleFunc("GET /api/v1/storage/usb", s.requireSession(s.usbList))
+	api.HandleFunc("GET /api/v1/storage/usb/copy", s.requireSession(s.usbCopyGet))
+	api.HandleFunc("PUT /api/v1/storage/usb/copy", admin(s.usbCopySet))
 	api.HandleFunc("POST /api/v1/storage/usb/mount", admin(s.usbMount))
 	api.HandleFunc("POST /api/v1/storage/usb/unmount", admin(s.usbUnmount))
 	api.HandleFunc("POST /api/v1/storage/usb/eject", admin(s.usbEject))
@@ -89,4 +93,37 @@ func (s *Server) usbEject(w http.ResponseWriter, r *http.Request) {
 		l, err := s.Usb.UsbEject(r.Context(), b.DiskID)
 		s.usbReply(w, l, err)
 	}
+}
+
+func (s *Server) usbCopyReply(w http.ResponseWriter, i helper.UsbCopyInfo, err error) {
+	if err != nil {
+		writeHelperError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, i)
+}
+
+func (s *Server) usbCopyGet(w http.ResponseWriter, r *http.Request) {
+	if !s.usbReady(w) {
+		return
+	}
+	i, err := s.Usb.UsbCopyGet(r.Context())
+	s.usbCopyReply(w, i, err)
+}
+
+// usbCopySet saves the destination of the COPY button; an empty share clears it.
+func (s *Server) usbCopySet(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		Share  string `json:"share"`
+		Folder string `json:"folder"`
+	}
+	if !s.usbReady(w) || !decodeBody(w, r, 1024, &b) {
+		return
+	}
+	if len(b.Share) > 64 || len(b.Folder) > 64 {
+		writeInvalid(w, "share", "Neplatná sdílená složka.")
+		return
+	}
+	i, err := s.Usb.UsbCopySet(r.Context(), b.Share, b.Folder)
+	s.usbCopyReply(w, i, err)
 }

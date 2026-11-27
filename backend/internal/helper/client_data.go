@@ -99,3 +99,17 @@ func (c *Client) UsbEject(ctx context.Context, diskID string) (UsbList, error) {
 	err := c.withTimeout(65*time.Second).Call(ctx, "usb.eject", map[string]any{"diskId": diskID}, &r)
 	return r, err
 }
+
+// UsbCopyGet returns the destination of the COPY button.
+func (c *Client) UsbCopyGet(ctx context.Context) (UsbCopyInfo, error) {
+	var r UsbCopyInfo
+	err := c.Call(ctx, "usb.copy.get", struct{}{}, &r)
+	return r, err
+}
+
+// UsbCopySet sets (or, with an empty share, clears) it.
+func (c *Client) UsbCopySet(ctx context.Context, share, folder string) (UsbCopyInfo, error) {
+	var r UsbCopyInfo
+	err := c.Call(ctx, "usb.copy.set", map[string]any{"share": share, "folder": folder}, &r)
+	return r, err
+}

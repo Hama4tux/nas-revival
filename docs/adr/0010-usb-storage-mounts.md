@@ -33,3 +33,24 @@
   missing) until the stick is mounted again under the same name.
 - exFAT/NTFS need a kernel with `CONFIG_EXFAT_FS`/`CONFIG_NTFS3_FS` (NAND write, owner decision).
 - Mounts do not survive a reboot (no automount yet).
+
+## Addendum 2026-11-27: destination of the COPY button
+
+- The COPY job no longer writes to the fixed `/srv/data/usb-zalohy`. The destination is a share with the
+  `backupTarget` option plus an optional subfolder (UI default `usb-backups`), set in Storage -> USB.
+  `usb.copy.get` / `usb.copy.set {share, folder}` (admin; the viewer may read through the API) validate
+  it (share exists, `backupTarget`, on `/srv/data`, folder = share name rules), create the folder inside
+  the share (0770, inherits the default ACL) and write `/etc/nas-revival/usbcopy.json` plus
+  `/etc/nas-revival/usbcopy.dest` (one line: the absolute folder). The shell script cannot parse JSON or
+  `shares.json`, so it reads only the `.dest` file.
+- `nsa310-copy` accepts the folder only when it starts with `/srv/data/`, has no `..` and is a real
+  directory reached without symlinks (`readlink -f` equals the path); otherwise it logs "no copy
+  destination set", lights the red LED and exits 1. The unset default behaves the same.
+- Layout: `<dest>/<vendor>_<model>_<serial>/` (from `/sys/block/<sd>/device/vendor|model` and the USB
+  serial, characters outside `A-Za-z0-9._-` become `_`, repeats collapsed; no serial -> first 8 characters
+  of the first partition UUID). One usable filesystem: versions `<YYYY-MM-DD_HHMMSS>` directly in it;
+  several: `<label or partN>_<uuid>/<stamp>`. `--link-dest` points to the newest version of the same
+  folder; rsync uses `--chmod=D750,F640` so the share's users read the copies through the ACL.
+- The share manager hook `InUseAsBackupTarget` also names the COPY button, so the share cannot be
+  deleted or lose `backupTarget` while it is the destination. The setting is not part of the config
+  export yet.

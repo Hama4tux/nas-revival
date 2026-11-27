@@ -30,6 +30,15 @@ func (f *fakeUsb) UsbEject(_ context.Context, d string) (helper.UsbList, error) 
 	return helper.UsbList{}, &helper.Error{Code: helper.CodeUsbBusy, Message: "busy"}
 }
 
+func (f *fakeUsb) UsbCopyGet(context.Context) (helper.UsbCopyInfo, error) {
+	f.calls = append(f.calls, "copy.get")
+	return helper.UsbCopyInfo{Share: "data", Folder: "usb-backups", Dest: "/srv/data/data/usb-backups"}, nil
+}
+func (f *fakeUsb) UsbCopySet(_ context.Context, s, d string) (helper.UsbCopyInfo, error) {
+	f.calls = append(f.calls, "copy.set "+s+"/"+d)
+	return helper.UsbCopyInfo{Share: s, Folder: d}, nil
+}
+
 func TestUsbRoutesRoles(t *testing.T) {
 	s, h, _, _ := newRoleServer(t)
 	fu := &fakeUsb{}
@@ -40,6 +49,9 @@ func TestUsbRoutesRoles(t *testing.T) {
 		admin, viewer, user int
 	}{
 		{"GET", "/api/v1/storage/usb", "", 200, 200, 403},
+		{"GET", "/api/v1/storage/usb/copy", "", 200, 200, 403},
+		{"PUT", "/api/v1/storage/usb/copy", `{"share":"data","folder":"usb-backups"}`, 200, 403, 403},
+		{"PUT", "/api/v1/storage/usb/copy", `{"share":"data","x":1}`, 400, 403, 403},
 		{"POST", "/api/v1/storage/usb/mount", `{"diskId":"usb-X","partition":"sdb1","readOnly":true}`, 200, 403, 403},
 		{"POST", "/api/v1/storage/usb/mount", `{"diskId":"usb-X"}`, 400, 403, 403},
 		{"POST", "/api/v1/storage/usb/unmount", `{"diskId":"usb-X","partition":"sdb1"}`, 200, 403, 403},
@@ -53,7 +65,7 @@ func TestUsbRoutesRoles(t *testing.T) {
 			}
 		}
 	}
-	want := []string{"list", "list", "mount usb-X sdb1 ro", "unmount usb-X sdb1", "eject usb-X"}
+	want := []string{"list", "list", "copy.get", "copy.get", "copy.set data/usb-backups", "mount usb-X sdb1 ro", "unmount usb-X sdb1", "eject usb-X"}
 	if len(fu.calls) != len(want) {
 		t.Fatalf("calls = %v", fu.calls)
 	}

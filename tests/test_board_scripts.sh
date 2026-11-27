@@ -54,4 +54,23 @@ check "unsafe values: balanced" "$(cat "$work/sys/hwmon0/temp1_auto_temp_min") $
 run_fan 'ZONE_MIN=x\n'
 check "garbage: balanced"       "$(cat "$work/sys/hwmon0/temp1_auto_temp_min")" "40000"
 
+# COPY button (nsa310-copy): folder names and destination file checks.
+copy() { ( NSA310_COPY_LIB=1 NSA310_COPY_DEST_FILE=$work/usbcopy.dest NSA310_COPY_DEST_PREFIX=$work/data/ . "$here/nsa310-copy"; "$@" ); }
+check "san: spaces and repeats"   "$(copy san 'SanDisk  Cruzer/Fit ')"       "SanDisk_Cruzer_Fit"
+check "san: dots and edges"       "$(copy san '../.hidden:x_')"             "hidden_x"
+check "san: only junk"            "$(copy san '///')"                       ""
+check "san: czech letters"        "$(copy san 'Záloha 1')"                  "Z_loha_1"
+mkdir -p "$work/sys/block/sdx/device" "$work/data/data/usb-backups" "$work/outside"
+printf 'SanDisk \n' >"$work/sys/block/sdx/device/vendor"; printf 'Cruzer Fit    \n' >"$work/sys/block/sdx/device/model"
+check "device name, no serial"    "$(copy device_name "$work/sys/block/sdx" 1234-ABCD-9999)" "SanDisk_Cruzer_Fit_1234-ABC"
+ln -s "$work/outside" "$work/data/link"
+dest() { printf '%s\n' "$1" >"$work/usbcopy.dest"; copy read_dest; echo "rc=$?"; }
+check "dest ok"                   "$(dest "$work/data/data/usb-backups")"      "$work/data/data/usb-backupsrc=0"
+check "dest missing file"         "$(rm -f "$work/usbcopy.dest"; copy read_dest; echo "rc=$?")" "rc=1"
+check "dest outside prefix"       "$(dest "$work/outside")"                    "rc=1"
+check "dest with .."              "$(dest "$work/data/data/../data")"          "rc=1"
+check "dest symlink"              "$(dest "$work/data/link")"                  "rc=1"
+check "dest not existing"         "$(dest "$work/data/nope")"                  "rc=1"
+check "dest relative"             "$(dest "data/data")"                        "rc=1"
+
 exit $fail

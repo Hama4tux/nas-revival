@@ -1113,7 +1113,19 @@ let usbDisks = [
   { id: 'usb-Kingston_DataTraveler_01', name: 'sdc', model: 'DataTraveler 3.0', vendor: 'Kingston', sizeBytes: 64_000_000_000, partitions: [
     { name: 'sdc1', sizeBytes: 64_000_000_000, fsType: 'vfat', label: 'FOTKY', mountPoint: '', ours: false, readOnly: false, usedBytes: 0, totalBytes: 0, blocked: '' }] },
 ];
-function usbRoute(path: string, body: Record<string, unknown>): Response | null {
+let usbCopy = { share: '', folder: '', dest: '' };
+function usbRoute(path: string, body: Record<string, unknown>, method = 'POST'): Response | null {
+  if (path === '/storage/usb/copy') {
+    if (method === 'PUT') {
+      const share = String(body.share ?? ''), folder = String(body.folder ?? '');
+      if (share === '') { usbCopy = { share: '', folder: '', dest: '' }; return json(200, usbCopy); }
+      const sh = mockShares.find((x) => x.name === share);
+      if (!sh || !sh.backupTarget) return bad('share', 'Složka nemá volbu Cíl záloh (nebo není na datovém svazku).');
+      if (folder !== '' && !SHARE_NAME.test(folder)) return bad('folder', 'Podsložka smí mít jen písmena, číslice, _ a - (nejvýše 32 znaků, jedna úroveň).');
+      usbCopy = { share, folder, dest: `/srv/data/${sh.folder}${folder ? `/${folder}` : ''}` };
+    }
+    return json(200, usbCopy);
+  }
   if (path === '/storage/usb') return json(200, { disks: usbDisks });
   const d = usbDisks.find((x) => x.id === body.diskId);
   if (!d) return err(404, 'not_found', 'USB disk není připojený.');
@@ -1375,7 +1387,7 @@ export function installMock(): void {
     if (path.startsWith('/storage/usb')) {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
-      const r = usbRoute(path, body);
+      const r = usbRoute(path, body, method);
       if (r) return r;
     }
     if (path.startsWith('/shares')) {

@@ -26,7 +26,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | HAL-01 | HAL | Temperatures and fan RPM from hwmon (LM85) by driver name | P0 | Tested | LM85 | hwmon | L | none | missing sensor = null, not 0; only wired fan shown | — |
 | HAL-02 | HAL | Fan automatic mode via LM85 zones (`nsa310-fan`) | P0 | Tested | LM85 | systemd unit | L | overheating if misconfigured | on failure fan stays 100 %; fan never stops | — |
 | HAL-03 | HAL | LED triggers at boot (`nsa310-leds`) | P1 | Implemented | LEDs | led class | L | none | SYS green after boot; HDD/USB/LAN activity | — |
-| HAL-04 | HAL | COPY button → USB stick backup to `/srv/data/usb-zalohy` | P1 | Implemented | COPY button, USB | evdev, rsync | M | backup of untrusted media | read-only mount, rescue stick skipped, LED feedback; real FAT32 stick test open | STOR-USB |
+| HAL-04 | HAL | COPY button → USB stick backup to a backup-target share (default `usb-backups`, set in Storage → USB; folder per device `<vendor>_<model>_<serial>`) | P1 | Implemented | COPY button, USB | evdev, rsync | M | backup of untrusted media | read-only mount, rescue stick skipped, LED feedback; real FAT32 stick test open | STOR-USB |
 | NET-01 | Network | Interfaces: state, speed, addresses, RX/TX bytes | P0 | Tested | — | /sys/class/net | L | none | matches `ip -s link` | — |
 | STOR-01 | Storage | Disk list (model, size, rotational, removable) | P0 | Tested | — | /sys/block | L | serial disclosure | no `sdX`-only identity in new code (see STOR-10) | — |
 | STOR-02 | Storage | Filesystem usage per mount | P0 | Tested | — | statfs | L | none | matches `df -B1` | — |

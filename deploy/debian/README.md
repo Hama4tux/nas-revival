@@ -195,6 +195,12 @@ systemctl daemon-reload && systemctl enable --now nsa310-button
 
 Installed on the NAS 2026-11-25. `/etc/nsa310-copy.exclude` stays on the device only.
 
+The destination is set in the web UI (Storage -> USB -> "Kopie tlačítkem COPY": a share with the backup
+target option, default subfolder `usb-backups`). The helper writes `/etc/nas-revival/usbcopy.dest` (one
+absolute path below `/srv/data/`); without it the button reports an error (red LED). Each device gets
+the folder `<vendor>_<model>_<serial>` there, with dated versions directly in it (one filesystem) or in
+`<label or partN>_<uuid>/` subfolders (several partitions). Script tests: `bash tests/test_board_scripts.sh`.
+
 The UI listens on HTTPS port 8443 with a self-signed certificate generated on first start
 in `/var/lib/nas-revival/tls` (replace `cert.pem`/`key.pem` to avoid the browser warning).
 There is one administrator account, independent of Linux and Samba users.

@@ -979,6 +979,17 @@ export const cs = {
     ejectTitle: (n: string) => `Bezpečně vysunout ${n}?`,
     ejectText: 'Odpojí všechny oddíly disku, zapíše data z mezipaměti a disk vypne. Sdílené složky na něm přestanou být dostupné, dokud disk znovu nepřipojíte. Otevřené soubory vysunutí zastaví.',
     ejected: 'Disk je vysunutý, můžete ho vytáhnout.',
+    copy: {
+      title: 'Kopie tlačítkem COPY',
+      intro: 'Tlačítko COPY na NASu zkopíruje obsah vloženého USB disku do vybrané sdílené složky. Každé zařízení má vlastní složku <výrobce>_<model>_<sériové číslo>, každé stisknutí přidá verzi s datem a časem; nezměněné soubory nezabírají místo navíc.',
+      share: 'Cíl záloh', shareHint: 'Sdílená složka s volbou Cíl záloh (nastavuje se v Sdílení).', choose: 'Nenastaveno',
+      folder: 'Podsložka', folderHint: 'Volitelná, jedna úroveň. Výchozí usb-backups.',
+      none: 'Nejdřív v Sdílení vytvořte složku s volbou Cíl záloh.', link: 'Přejít do Sdílení',
+      notSet: 'Kopie tlačítkem COPY nemá nastavený cíl, tlačítko nic nezkopíruje a rozsvítí červenou kontrolku.',
+      path: (d: string) => `Kopie se ukládají do ${d}/.`,
+      loadError: 'Nastavení kopírování se nepodařilo načíst.', save: 'Uložit', saved: 'Uloženo.',
+      missing: (n: string) => `Složka ${n} už není cíl záloh.`,
+    },
   },
   files: {
     loadError: 'Soubory se nepodařilo načíst.', unavailable: 'Služba pro soubory není dostupná.',

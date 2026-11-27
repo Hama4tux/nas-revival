@@ -1,5 +1,5 @@
 [Unit]
-Description=NSA310 COPY button: back up USB stick to /srv/data/usb-zalohy
+Description=NSA310 COPY button: back up USB stick to the shared folder set in the web UI
 RequiresMountsFor=/srv/data
 
 [Service]

@@ -461,3 +461,5 @@ export interface UsbPartition {
 }
 export interface UsbDisk { id: string; name: string; model: string; vendor: string; sizeBytes: number; partitions: UsbPartition[] }
 export interface UsbList { disks: UsbDisk[] }
+/** GET/PUT /storage/usb/copy: destination of the COPY button (share = "" means not set). */
+export interface UsbCopy { share: string; folder: string; dest: string }

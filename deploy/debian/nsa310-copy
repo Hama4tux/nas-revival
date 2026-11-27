@@ -1,17 +1,25 @@
 #!/bin/sh
-# COPY button job: back up every USB stick partition to the data disk.
+# COPY button job: back up every USB stick partition to a shared folder.
 #
-# Each press creates a new dated folder per partition; nothing is ever
-# deleted. Unchanged files are hard-linked to the previous copy of the same
-# partition (rsync --link-dest), so repeated backups cost little space.
+# The destination is the folder in /etc/nas-revival/usbcopy.dest (one line,
+# written by the web UI: Storage -> USB -> COPY button, a share with the
+# "backup target" option). Every device gets its own folder named after the
+# hardware (<vendor>_<model>_<serial>); a stick with one filesystem keeps the
+# dated versions directly in it, a stick with several filesystems has one
+# subfolder <label or partN>_<uuid> per partition. Each press creates a new
+# dated version; nothing is ever deleted. Unchanged files are hard-linked to
+# the previous version of the same folder (rsync --link-dest), so repeated
+# backups cost little space.
 # The stick is mounted read-only. Partitions whose UUID is listed in
 # /etc/nsa310-copy.exclude (the rescue stick) are never touched.
 #
 # COPY LED: green blinking = copying, green = done (stick can be removed),
 # red = error (see journalctl -u nsa310-copy). Started by nsa310-button.
 set -u
+umask 027
 
-DEST_ROOT=/srv/data/usb-zalohy
+DEST_FILE=${NSA310_COPY_DEST_FILE:-/etc/nas-revival/usbcopy.dest}
+DEST_PREFIX=${NSA310_COPY_DEST_PREFIX:-/srv/data/}
 DATA_MOUNT=/srv/data
 EXCLUDE=/etc/nsa310-copy.exclude
 MNT=/run/nsa310-copy
@@ -40,88 +48,164 @@ excluded() {
 	[ -n "$1" ] && [ -f "$EXCLUDE" ] && grep -qixF "$1" "$EXCLUDE"
 }
 
-led_blink
 
-if ! mountpoint -q "$DATA_MOUNT"; then
-	# Never fill the system disk when the data partition is missing.
-	fail "$DATA_MOUNT is not mounted"
-	led_on "$LED_R"
-	exit 1
-fi
-mkdir -p "$DEST_ROOT" "$MNT"
+# san <text>: a safe folder name: only A-Za-z0-9._-, repeats collapsed, no
+# leading dots or underscores and no trailing underscores or dots.
+san() {
+	printf '%s' "$1" | tr -c 'A-Za-z0-9._-' '_' | tr -s '_' | sed -e 's/^[._]*//' -e 's/[_.]*$//'
+}
 
-copied=0
-eject=""
-for sys in /sys/block/sd*; do
-	[ -e "$sys" ] || continue
-	case "$(readlink -f "$sys")" in */usb*) ;; *) continue ;; esac
-	disk=/dev/${sys##*/}
-	disk_ok=1
-	parts=$(lsblk -lnpo NAME "$disk" | tail -n +2)
-	[ -n "$parts" ] || parts=$disk # superfloppy: filesystem on the whole disk
-
-	for part in $parts; do
-		fstype=$(blkid -o value -s TYPE "$part" 2>/dev/null)
-		uuid=$(blkid -o value -s UUID "$part" 2>/dev/null)
-		label=$(blkid -o value -s LABEL "$part" 2>/dev/null)
-		[ -n "$fstype" ] || continue
-		if excluded "$uuid"; then
-			log "skipping excluded $part ($uuid)"
-			disk_ok=0
-			continue
+# usb_serial <sys block dir>: serial number of the USB device behind a disk.
+usb_serial() {
+	d=$(readlink -f "$1/device" 2>/dev/null) || return 0
+	while [ -n "$d" ] && [ "$d" != / ] && [ "$d" != /sys ]; do
+		if [ -f "$d/serial" ] && [ -f "$d/idVendor" ]; then
+			tr -d '\n' <"$d/serial" 2>/dev/null
+			return 0
 		fi
-		case "$fstype" in
-		vfat | ext2 | ext3 | ext4) ;;
-		*) fail "$part: filesystem $fstype is not supported"; disk_ok=0; continue ;;
-		esac
-		if findmnt -rn -S "$part" >/dev/null; then
-			fail "$part is already mounted, not touching it"
-			disk_ok=0
-			continue
-		fi
-
-		name=$(printf '%s' "${label:-usb}" | tr -c 'A-Za-z0-9._-' '_')
-		dir="$DEST_ROOT/${name}_${uuid:-nouuid}"
-		stamp=$(date +%Y-%m-%d_%H%M%S)
-		prev=$(ls -1d "$dir"/20* 2>/dev/null | grep -v '\.partial$' | tail -n 1)
-		src="$MNT/${part##*/}"
-		mkdir -p "$dir" "$src"
-
-		if ! mount -t "$fstype" -o ro,nosuid,nodev,noexec "$part" "$src"; then
-			fail "cannot mount $part"
-			disk_ok=0
-			continue
-		fi
-		log "copying $part ($fstype, ${label:-no label}) to $dir/$stamp"
-		# -rlt: files, symlinks as links and times; no owners, permissions,
-		# devices or setuid bits from a foreign stick.
-		if rsync -rlt --modify-window=1 --chmod=D755,F644 \
-			${prev:+--link-dest="$prev"} "$src/" "$dir/$stamp.partial/"; then
-			mv "$dir/$stamp.partial" "$dir/$stamp"
-			copied=$((copied + 1))
-			log "done $part: $(du -sh "$dir/$stamp" | cut -f1) in $dir/$stamp"
-		else
-			fail "copy of $part failed"
-			rm -rf "$dir/$stamp.partial"
-			disk_ok=0
-		fi
-		umount "$src" || fail "cannot unmount $part"
-		rmdir "$src" 2>/dev/null
+		d=$(dirname "$d")
 	done
-	[ "$disk_ok" = 1 ] && eject="$eject ${sys##*/}"
-done
+}
 
-[ "$copied" -gt 0 ] || [ "$errors" -gt 0 ] || fail "no USB stick to copy"
+# device_name <sys block dir> <fallback uuid>: <vendor>_<model>_<serial>.
+device_name() {
+	v=$(cat "$1/device/vendor" 2>/dev/null)
+	m=$(cat "$1/device/model" 2>/dev/null)
+	sn=$(usb_serial "$1")
+	[ -n "$sn" ] || sn=$(printf '%s' "$2" | cut -c1-8)
+	n=$(san "${v}_${m}_${sn}")
+	printf '%s' "${n:-usb}"
+}
 
-sync
-# Detach fully copied sticks so they can be pulled out safely.
-for d in $eject; do
-	echo 1 >"/sys/block/$d/device/delete" && log "$d detached, safe to remove"
-done
+# read_dest: the destination folder from DEST_FILE, or fail. It must be an
+# absolute path below DEST_PREFIX, free of "..", a real directory (no symlink
+# anywhere in the path).
+read_dest() {
+	[ -f "$DEST_FILE" ] || return 1
+	p=$(head -n 1 "$DEST_FILE")
+	p=${p%/}
+	case "$p" in "$DEST_PREFIX"*) ;; *) return 1 ;; esac
+	case "$p" in *..*) return 1 ;; esac
+	[ -d "$p" ] && [ ! -L "$p" ] || return 1
+	[ "$(readlink -f "$p")" = "$p" ] || return 1
+	printf '%s' "$p"
+}
 
-if [ "$errors" -gt 0 ]; then
-	led_on "$LED_R"
-	exit 1
+# last_version <dir>: newest finished version folder in dir (may be empty).
+last_version() {
+	ls -1d "$1"/20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]_[0-9][0-9][0-9][0-9][0-9][0-9] 2>/dev/null | tail -n 1
+}
+
+main() {
+	led_blink
+
+	if ! mountpoint -q "$DATA_MOUNT"; then
+		# Never fill the system disk when the data partition is missing.
+		fail "$DATA_MOUNT is not mounted"
+		led_on "$LED_R"
+		exit 1
+	fi
+	if ! DEST_ROOT=$(read_dest); then
+		fail "no copy destination set (Úložiště → USB)"
+		led_on "$LED_R"
+		exit 1
+	fi
+	mkdir -p "$MNT"
+
+	copied=0
+	eject=""
+	for sys in /sys/block/sd*; do
+		[ -e "$sys" ] || continue
+		case "$(readlink -f "$sys")" in */usb*) ;; *) continue ;; esac
+		disk=/dev/${sys##*/}
+		disk_ok=1
+		parts=$(lsblk -lnpo NAME "$disk" | tail -n +2)
+		[ -n "$parts" ] || parts=$disk # superfloppy: filesystem on the whole disk
+
+		# Number of usable filesystems and the first UUID (serial fallback).
+		nfs=0
+		first_uuid=""
+		for part in $parts; do
+			[ -n "$(blkid -o value -s TYPE "$part" 2>/dev/null)" ] || continue
+			u=$(blkid -o value -s UUID "$part" 2>/dev/null)
+			excluded "$u" && continue
+			nfs=$((nfs + 1))
+			[ -n "$first_uuid" ] || first_uuid=$u
+		done
+		devdir="$DEST_ROOT/$(device_name "$sys" "$first_uuid")"
+
+		for part in $parts; do
+			fstype=$(blkid -o value -s TYPE "$part" 2>/dev/null)
+			uuid=$(blkid -o value -s UUID "$part" 2>/dev/null)
+			label=$(blkid -o value -s LABEL "$part" 2>/dev/null)
+			[ -n "$fstype" ] || continue
+			if excluded "$uuid"; then
+				log "skipping excluded $part ($uuid)"
+				disk_ok=0
+				continue
+			fi
+			case "$fstype" in
+			vfat | ext2 | ext3 | ext4) ;;
+			*) fail "$part: filesystem $fstype is not supported"; disk_ok=0; continue ;;
+			esac
+			if findmnt -rn -S "$part" >/dev/null; then
+				fail "$part is already mounted, not touching it"
+				disk_ok=0
+				continue
+			fi
+
+			if [ "$nfs" -le 1 ]; then
+				dir=$devdir
+			else
+				num=$(printf '%s' "${part##*/}" | sed 's/^.*[^0-9]//')
+				name=$(san "${label:-part${num:-1}}")
+				dir="$devdir/${name:-part${num:-1}}_${uuid:-nouuid}"
+			fi
+			stamp=$(date +%Y-%m-%d_%H%M%S)
+			prev=$(last_version "$dir")
+			src="$MNT/${part##*/}"
+			mkdir -p "$dir" "$src"
+
+			if ! mount -t "$fstype" -o ro,nosuid,nodev,noexec "$part" "$src"; then
+				fail "cannot mount $part"
+				disk_ok=0
+				continue
+			fi
+			log "copying $part ($fstype, ${label:-no label}) to $dir/$stamp"
+			# -rlt: files, symlinks as links and times; no owners, permissions,
+			# devices or setuid bits from a foreign stick.
+			if rsync -rlt --modify-window=1 --chmod=D750,F640 \
+				${prev:+--link-dest="$prev"} "$src/" "$dir/$stamp.partial/"; then
+				mv "$dir/$stamp.partial" "$dir/$stamp"
+				copied=$((copied + 1))
+				log "done $part: $(du -sh "$dir/$stamp" | cut -f1) in $dir/$stamp"
+			else
+				fail "copy of $part failed"
+				rm -rf "$dir/$stamp.partial"
+				disk_ok=0
+			fi
+			umount "$src" || fail "cannot unmount $part"
+			rmdir "$src" 2>/dev/null
+		done
+		[ "$disk_ok" = 1 ] && eject="$eject ${sys##*/}"
+	done
+
+	[ "$copied" -gt 0 ] || [ "$errors" -gt 0 ] || fail "no USB stick to copy"
+
+	sync
+	# Detach fully copied sticks so they can be pulled out safely.
+	for d in $eject; do
+		echo 1 >"/sys/block/$d/device/delete" && log "$d detached, safe to remove"
+	done
+
+	if [ "$errors" -gt 0 ]; then
+		led_on "$LED_R"
+		exit 1
+	fi
+	led_on "$LED_G"
+	log "finished: $copied partition(s) copied"
+}
+
+if [ -z "${NSA310_COPY_LIB:-}" ]; then
+	main
 fi
-led_on "$LED_G"
-log "finished: $copied partition(s) copied"

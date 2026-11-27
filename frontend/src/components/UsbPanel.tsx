@@ -1,7 +1,7 @@
 import { Loader2, Usb } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { UsbDisk, UsbList, UsbPartition } from '../api/types';
+import type { ShareList, UsbCopy, UsbDisk, UsbList, UsbPartition } from '../api/types';
 import { cs } from '../i18n/cs';
 import { formatBytes } from '../lib/format';
 import { canEject, usbFsLine, usbState, usbTitle } from '../lib/usb';
@@ -9,6 +9,8 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
+import { Field, invalidCls } from './ui/field';
+import { Input } from './ui/input';
 
 const t = cs.usb;
 
@@ -46,6 +48,85 @@ function PartitionRow({ p, readOnly, busy, onAction }: {
         <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => onAction('unmount', p)}>{t.unmount}</Button>
       )}
     </li>
+  );
+}
+
+const DEFAULT_COPY_FOLDER = 'usb-backups';
+const selectCls = 'h-10 w-full rounded-md border border-border bg-background/80 px-3 text-sm';
+
+/** Destination of the COPY button: a backupTarget share and a subfolder. */
+function CopyCard({ readOnly }: { readOnly: boolean }) {
+  const c = t.copy;
+  const [saved, setSaved] = useState<UsbCopy | null>(null);
+  const [targets, setTargets] = useState<string[]>([]);
+  const [share, setShare] = useState('');
+  const [folder, setFolder] = useState(DEFAULT_COPY_FOLDER);
+  const [err, setErr] = useState<string | null>(null);
+  const [fieldErr, setFieldErr] = useState<{ field?: string; message: string } | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    let live = true;
+    Promise.all([api<UsbCopy>('/storage/usb/copy'), api<ShareList>('/shares').catch(() => null)])
+      .then(([cp, sl]) => {
+        if (!live) return;
+        setSaved(cp); setShare(cp.share); setFolder(cp.share ? cp.folder : DEFAULT_COPY_FOLDER);
+        setTargets(sl ? sl.shares.filter((x) => x.backupTarget).map((x) => x.name) : []);
+      })
+      .catch(() => { if (live) setErr(c.loadError); });
+    return () => { live = false; };
+  }, [c.loadError]);
+
+  async function save() {
+    setBusy(true); setErr(null); setFieldErr(null); setNote(null);
+    try {
+      const r = await api<UsbCopy>('/storage/usb/copy', { method: 'PUT', body: { share, folder: share ? folder.trim() : '' } });
+      setSaved(r); setNote(c.saved);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 400 && e.message) setFieldErr({ field: e.field ?? undefined, message: e.message });
+      else setErr(message(e));
+    } finally { setBusy(false); }
+  }
+
+  const missing = share !== '' && !targets.includes(share);
+  const dirty = saved !== null && (share !== saved.share || (share !== '' && folder.trim() !== saved.folder));
+  return (
+    <section aria-label={c.title} className="space-y-3 rounded-lg border border-border p-3">
+      <h3 className="font-semibold">{c.title}</h3>
+      <p className="text-sm text-muted-foreground">{c.intro}</p>
+      {err && <p role="alert" className="text-sm text-danger">{err}</p>}
+      {saved && targets.length === 0 && share === '' ? (
+        <p role="note" className="rounded-md bg-muted/50 p-2 text-sm">{c.none} <a className="underline" href="#/shares">{c.link}</a></p>
+      ) : saved && (
+        <div className="space-y-2">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label={c.share} hint={c.shareHint} error={fieldErr?.field === 'share' ? fieldErr.message : missing ? c.missing(share) : undefined}>
+              {(p) => (
+                <select {...p} className={`${selectCls} ${invalidCls}`} value={share} disabled={readOnly || busy} onChange={(e) => setShare(e.target.value)}>
+                  <option value="">{c.choose}</option>
+                  {missing && <option value={share}>{share}</option>}
+                  {targets.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              )}
+            </Field>
+            <Field label={c.folder} hint={c.folderHint} error={fieldErr?.field === 'folder' ? fieldErr.message : undefined}>
+              {(p) => <Input {...p} className={invalidCls} value={folder} disabled={readOnly || busy || share === ''} autoComplete="off" spellCheck={false} maxLength={32}
+                onChange={(e) => setFolder(e.target.value)} />}
+            </Field>
+          </div>
+          {fieldErr && !fieldErr.field && <p role="alert" className="text-sm text-danger">{fieldErr.message}</p>}
+          {saved.share === '' ? <p className="text-xs text-muted-foreground">{c.notSet}</p>
+            : saved.dest && <p className="break-all text-xs text-muted-foreground">{c.path(saved.dest)}</p>}
+          {!readOnly && (
+            <Button type="button" size="sm" disabled={busy || !dirty || missing} onClick={() => void save()}>
+              {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden />}{c.save}
+            </Button>
+          )}
+          {note && <p role="status" className="text-sm text-success">{note}</p>}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -98,6 +179,7 @@ export function UsbPanel({ readOnly }: { readOnly: boolean }) {
               </section>
             ))
           )}
+        <CopyCard readOnly={readOnly} />
       </div>
       {eject && (
         <Dialog title={t.ejectTitle(usbTitle(eject))} onClose={() => setEject(null)} busy={busy} footer={<>
