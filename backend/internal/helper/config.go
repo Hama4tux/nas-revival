@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"regexp"
 	"sync"
+	"time"
 
 	"nas-revival/backend/internal/config"
 )
@@ -36,7 +37,10 @@ type ConfigManager struct {
 	Nfs *NfsManager
 	// Ssh restores ssh.json; nil when SSH settings are disabled.
 	Ssh *SshManager
-	mu  sync.Mutex // one rollback at a time
+	// Hostname and Now stamp the export file; nil uses the system.
+	Hostname func() string
+	Now      func() time.Time
+	mu       sync.Mutex // one rollback or import at a time
 }
 
 // ConfigRollbackResult is the result of config.rollback.
@@ -102,6 +106,8 @@ func (c *ConfigManager) Get(id int) (config.Detail, error) {
 	return d, nil
 }
 
+var errNetPending = &Error{Code: CodeChangePending, Message: "Změna sítě čeká na potvrzení; nejdřív ji potvrďte nebo nechte vrátit."}
+
 // Rollback writes version id back. Time and disk power are applied first; the
 // network file goes last and through the confirm-or-rollback window, so a
 // version with an unreachable address reverts by itself.
@@ -109,25 +115,35 @@ func (c *ConfigManager) Rollback(ctx context.Context, id int, takeover bool, use
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.Net.HasPending() {
-		return ConfigRollbackResult{}, &Error{Code: CodeChangePending, Message: "Změna sítě čeká na potvrzení; nejdřív ji potvrďte nebo nechte vrátit."}
+		return ConfigRollbackResult{}, errNetPending
 	}
 	plan, err := c.Store.Plan(id, user, takeover)
 	if err != nil {
 		return ConfigRollbackResult{}, configErr(err)
 	}
-	res := ConfigRollbackResult{RollbackOf: id, Restored: []string{}}
+	restored, pending, err := c.apply(ctx, plan, user, config.KindRollback, id)
+	if err == nil {
+		slog.Info("helper: config.rollback", "version", id, "restored", restored, "user", user)
+	}
+	return ConfigRollbackResult{RollbackOf: id, Restored: restored, NetworkPending: pending}, err
+}
+
+// apply writes the planned files through their owners, the network file
+// last. Whatever was written is recorded as one version of kind, also when a
+// later file fails.
+func (c *ConfigManager) apply(ctx context.Context, plan []config.Restore, user, kind string, rollbackOf int) (restored []string, pending *Pending, err error) {
+	restored = []string{}
 	defer func() {
-		if len(res.Restored) == 0 {
+		if len(restored) == 0 {
 			return
 		}
-		if _, _, err := c.Store.Record(user, config.KindRollback, "", id); err != nil {
-			slog.Error("helper: config history after rollback failed", "err", err)
+		if _, _, rerr := c.Store.Record(user, kind, "", rollbackOf); rerr != nil {
+			slog.Error("helper: config history after "+kind+" failed", "err", rerr)
 		}
 	}()
 	var network *config.Restore
 	for i := range plan {
 		r := plan[i]
-		var err error
 		switch r.ID {
 		case FileNetwork:
 			network = &plan[i]
@@ -164,20 +180,19 @@ func (c *ConfigManager) Rollback(ctx context.Context, id int, takeover bool, use
 			err = internalErr("Neznámý spravovaný soubor.")
 		}
 		if err != nil {
-			return res, err
+			return restored, nil, err
 		}
-		res.Restored = append(res.Restored, r.ID)
+		restored = append(restored, r.ID)
 	}
 	if network != nil {
 		st, err := c.Net.Restore(ctx, network.Data, network.Present)
 		if err != nil {
-			return res, err
+			return restored, nil, err
 		}
-		res.Restored = append(res.Restored, FileNetwork)
-		res.NetworkPending = st.Pending
+		restored = append(restored, FileNetwork)
+		pending = st.Pending
 	}
-	slog.Info("helper: config.rollback", "version", id, "restored", res.Restored, "user", user)
-	return res, nil
+	return restored, pending, nil
 }
 
 var userRe = regexp.MustCompile(`^[a-z_][a-z0-9_-]{0,31}$`)

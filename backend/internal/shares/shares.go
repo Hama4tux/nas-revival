@@ -359,16 +359,26 @@ func Parse(b []byte) (Config, error) {
 
 // Save writes the configuration (sorted by name) atomically with mode 0644.
 func Save(path string, c Config) error {
-	c.Version = 1
-	sort.Slice(c.Shares, func(i, j int) bool { return strings.ToLower(c.Shares[i].Name) < strings.ToLower(c.Shares[j].Name) })
-	b, err := json.MarshalIndent(c, "", "  ")
+	b, err := Encode(c)
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return atomicfile.Write(path, append(b, '\n'), 0o644)
+	return atomicfile.Write(path, b, 0o644)
+}
+
+// Encode renders shares.json as Save writes it.
+func Encode(c Config) ([]byte, error) {
+	c.Version = 1
+	c.Shares = append([]Share{}, c.Shares...)
+	sort.Slice(c.Shares, func(i, j int) bool { return strings.ToLower(c.Shares[i].Name) < strings.ToLower(c.Shares[j].Name) })
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
 }
 
 // Find returns the index of the share with this name (case-insensitive).

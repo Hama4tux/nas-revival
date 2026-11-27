@@ -297,6 +297,32 @@ function configRoute(path: string, method: string): Response | null {
   return null;
 }
 
+/** W4.4: compares the files of an export with the newest mock version. */
+function importRoute(path: string, method: string, body: { archive?: { hostname?: string; created?: string;
+  files?: { id: string; present: boolean; content?: string }[] }; takeover?: boolean }): Response | null {
+  if (method !== 'POST' || (path !== '/config/import' && path !== '/config/import/preview')) return null;
+  const a = body.archive;
+  if (!a?.files?.length) return err(400, 'invalid', 'Soubor neobsahuje žádnou konfiguraci.');
+  const latest = mockVersions[mockVersions.length - 1]!;
+  const known = a.files.filter((f) => f.id in mockPaths);
+  const files = known.map((f) => {
+    const cur = latest.content[f.id] ?? null, next = f.present ? f.content ?? '' : null;
+    return { id: f.id, path: mockPaths[f.id], same: cur === next, present: next !== null, currentPresent: cur !== null,
+      lines: cur === next ? null : mockLines(cur, next), tooLarge: false };
+  });
+  if (path === '/config/import/preview') {
+    return json(200, { created: a.created ?? new Date().toISOString(), hostname: a.hostname ?? '', otherHost: (a.hostname ?? 'nsa310') !== 'nsa310', files, drift: [] });
+  }
+  const restored = files.filter((f) => !f.same).map((f) => f.id);
+  if (restored.length) {
+    const content = { ...latest.content };
+    for (const f of known) content[f.id] = f.present ? f.content ?? '' : null;
+    mockVersions.push({ entry: { id: latest.entry.id + 1, time: new Date().toISOString(), user: 'admin', kind: 'import',
+      files: [], changed: restored as ConfigEntry['changed'] }, content });
+  }
+  return json(200, { restored, networkPending: null });
+}
+
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 const err = (status: number, code: string, message: string, h?: Record<string, string>) =>
@@ -1331,6 +1357,12 @@ export function installMock(): void {
       let body: Record<string, unknown> = {};
       try { body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
       const r = sharesRoute(path, method, body);
+      if (r) return r;
+    }
+    if (path.startsWith('/config/import')) {
+      let body: { archive?: { hostname?: string; created?: string; files?: { id: string; present: boolean; content?: string }[] }; takeover?: boolean } = {};
+      try { body = init?.body ? JSON.parse(String(init.body)) as typeof body : {}; } catch { return err(400, 'invalid', 'Neplatný JSON'); }
+      const r = importRoute(path, method, body);
       if (r) return r;
     }
     if (path.startsWith('/config/')) {

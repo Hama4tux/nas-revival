@@ -60,7 +60,7 @@ W3.5 ✅ 2026-11-26 (deployed, e2e on the NAS without a real restart: non-persis
 
 W4.1 File Station (phase 1 ✅ 2026-11-26, deployed, tests on the NAS by the owner; ADR 0009: browse, paged list, folder ops, streamed upload/download with progress, delete to the bin; copy jobs and cancel → FS-04) ·
 W4.2 USB storage (phase 1 ✅ 2026-11-26, deployed, tests on the NAS by the owner; ADR 0010: list, mount ro/rw via systemd-mount, unmount, safe eject, share via /srv/usb; open: automount, backup target STOR-USB-03, exFAT/NTFS kernel) · W4.3 Backup jobs (phase 1 ✅ 2026-11-26 on the NAS: pull over SSH, key, host key, test, read-only share; phase 2a ✅ 2026-11-26 on the NAS: dashboard card and health problems, versions with sizes, browse, single-file download through a passed descriptor; phase 2b ✅ 2026-11-26 (deployed, e2e on the NAS restores one file per job into a throw-away share; folder restore and the dialog not yet in a browser on the NAS): restore of a folder or file into a share in the background with progress and cancel; open: failure notifications with W4.5; ADR 0008: task type `backup-pull` on the W3.3 scheduler core; rsync, dry run, history,
-restore of files) · W4.4 Config export/import · W4.5 Notification centre.
+restore of files) · W4.4 Config export/import ✅ 2026-11-27 (deployed, e2e on the NAS: export without secrets, own export changes nothing, foreign files refused, NTP change imported and the original imported back; dialog checked only with tests and the mock build, not yet in a browser; ADR 0011; tasks, backup jobs and hardware settings not in the export yet) · W4.5 Notification centre.
 
 ## W5 – Hardening (M5)
 

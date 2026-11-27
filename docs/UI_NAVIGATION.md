@@ -21,7 +21,7 @@ into **10 apps**; the rest are sections inside them. Each app has *Basic* tabs a
 | 6 | Network (`network`) | Network Manager, diagnostics | in development | ready (settings) |
 | 7 | Monitor (`monitor`) | Resource Monitor, process manager | M3 | Resource Monitor ready (W3.1, `#/monitor`): CPU breakdown, memory and swap, PSI when the kernel has it, disk and network I/O, 1 h history; Processes tab (W3.2): search, sort by CPU/memory/name/PID, kernel threads hidden by default, stop (TERM) or force (KILL) for admins, protected processes marked |
 | 8 | Files (`files`) | File Station | M4 | – |
-| 9 | Backup (`backup`) | Backup & Restore, config export, task scheduler tab | M3–M4 | – |
+| 9 | Backup (`backup`) | Backup & Restore, config export, task scheduler tab | M3–M4 | – (config export/import is in Control panel → System → Config history since W4.4) |
 | 10 | Control panel (`system`) | System info, power, Hardware & Power (fan, LEDs, schedule), Security Center, Update Manager, Log Center tab, Package Center (M6) | M1+ | ready (system page) |
 
 `logs` stays a separate tile (Log center) because it is used often from notifications; Task

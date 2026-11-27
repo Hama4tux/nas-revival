@@ -221,8 +221,8 @@ export interface SystemPowerResult { action: SystemPowerAction; forced: boolean;
 
 /* ---------- config history (GET /config/history, /config/history/{n}, POST /config/rollback/{n}) ---------- */
 
-export type ConfigFileId = 'network' | 'time' | 'disk-power';
-export type ConfigEntryKind = 'baseline' | 'change' | 'manual' | 'rollback';
+export type ConfigFileId = 'network' | 'time' | 'disk-power' | 'shares' | 'smb' | 'nfs' | 'ssh';
+export type ConfigEntryKind = 'baseline' | 'change' | 'manual' | 'rollback' | 'import';
 export interface ConfigFileState { id: ConfigFileId; path: string; present: boolean; sha256?: string; size: number }
 export interface ConfigEntry {
   id: number; time: string; user: string; kind: ConfigEntryKind; module?: ConfigFileId; rollbackOf?: number;
@@ -240,6 +240,11 @@ export interface ConfigRollbackResult {
   rollbackOf: number; restored: ConfigFileId[];
   networkPending: { deadline: string } | null;
 }
+/** POST /config/import/preview and /config/import (W4.4, CFG-05). The export file itself stays opaque. */
+export interface ConfigImportPreview {
+  created: string; hostname: string; otherHost: boolean; files: ConfigFileDiff[]; drift: ConfigFileId[];
+}
+export interface ConfigImportResult { restored: ConfigFileId[]; networkPending: { deadline: string } | null }
 
 /** GET /storage/activity (W1.9): one on-demand measurement. */
 export interface ActivityCounters { readOps: number; readBytes: number; writeOps: number; writeBytes: number }

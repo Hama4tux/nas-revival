@@ -350,7 +350,7 @@ export function SystemPage({ readOnly }: { readOnly: boolean }) {
             <InfoWidget />
             <TimeWidget />
             <CertWidget />
-            <ConfigHistoryWidget className="lg:col-span-5" />
+            <ConfigHistoryWidget className="lg:col-span-5" readOnly={readOnly} />
           </div>
         ) : <HardwarePanel readOnly={readOnly} />}
       </div>

@@ -33,3 +33,20 @@ export const filesToRestore = (files: ConfigFileDiff[]) => files.filter((f) => !
 
 /** Files changed outside the web UI since the newest version. */
 export const driftedFiles = (h: ConfigHistory) => h.drift.filter((d) => d.state === 'modified');
+
+/** Upper bound of an export file, same as the backend (helper.MaxArchive). */
+export const MAX_ARCHIVE = 64 * 1024;
+
+/**
+ * Reads an export file picked by the user. Only the outer shape is checked
+ * here; the helper validates every part before anything is shown or written.
+ */
+export function readArchive(text: string): { archive: Record<string, unknown> } | { error: 'tooBig' | 'notJson' } {
+  if (new TextEncoder().encode(text).length > MAX_ARCHIVE) return { error: 'tooBig' };
+  let v: unknown;
+  try { v = JSON.parse(text); } catch { return { error: 'notJson' }; }
+  if (typeof v !== 'object' || v === null || Array.isArray(v) || (v as { format?: unknown }).format !== 'nas-revival-config') {
+    return { error: 'notJson' };
+  }
+  return { archive: v as Record<string, unknown> };
+}

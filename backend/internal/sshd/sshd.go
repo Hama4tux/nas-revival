@@ -121,18 +121,27 @@ func Parse(b []byte) (Settings, error) {
 
 // Save writes ssh.json atomically.
 func Save(path string, s Settings) error {
-	s.Version = 1
-	if s.SftpGroups == nil {
-		s.SftpGroups = []string{}
-	}
-	b, err := json.MarshalIndent(s, "", "  ")
+	b, err := Encode(s)
 	if err != nil {
 		return err
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return atomicfile.Write(path, append(b, '\n'), 0o644)
+	return atomicfile.Write(path, b, 0o644)
+}
+
+// Encode renders the settings file as Save writes it.
+func Encode(s Settings) ([]byte, error) {
+	s.Version = 1
+	if s.SftpGroups == nil {
+		s.SftpGroups = []string{}
+	}
+	b, err := json.MarshalIndent(s, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
 }
 
 func yesNo(b bool) string {

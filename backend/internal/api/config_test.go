@@ -3,8 +3,11 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
+	"time"
 
 	"nas-revival/backend/internal/auth"
 	"nas-revival/backend/internal/config"
@@ -13,7 +16,21 @@ import (
 
 type fakeConfig struct {
 	rollbacks []string
+	imported  []string
 	err       error
+}
+
+func (f *fakeConfig) ConfigExport(context.Context) (helper.ConfigArchive, error) {
+	return helper.ConfigArchive{Format: helper.ArchiveFormat, Schema: 1, Hostname: "nas/../x",
+		Created: time.Date(2026, 11, 27, 9, 5, 0, 0, time.UTC), Files: []helper.ArchiveFile{}}, f.err
+}
+func (f *fakeConfig) ConfigImportPreview(_ context.Context, a json.RawMessage) (helper.ConfigImportPreview, error) {
+	f.imported = append(f.imported, "preview:"+string(a))
+	return helper.ConfigImportPreview{Hostname: "nas"}, f.err
+}
+func (f *fakeConfig) ConfigImport(_ context.Context, a json.RawMessage, takeover bool) (helper.ConfigImportResult, error) {
+	f.imported = append(f.imported, fmt.Sprintf("import:%s:%v", a, takeover))
+	return helper.ConfigImportResult{Restored: []string{"smb"}}, f.err
 }
 
 func (f *fakeConfig) ConfigHistory(ctx context.Context) (config.History, error) {
@@ -88,5 +105,41 @@ func TestConfigRollback(t *testing.T) {
 	f.err = &helper.Error{Code: helper.CodeConfigDrift, Message: "změněno"}
 	if rec := do(h, "POST", "/api/v1/config/rollback/2", `{}`, xrw, c); rec.Code != http.StatusConflict {
 		t.Fatalf("drift = %d", rec.Code)
+	}
+}
+
+func TestConfigExportIsAnAttachment(t *testing.T) {
+	h, c := newConfigServer(t, &fakeConfig{})
+	rec := do(h, "GET", "/api/v1/config/export", "", nil, c)
+	cd := rec.Header().Get("Content-Disposition")
+	if rec.Code != 200 || !strings.Contains(cd, `filename="nas-revival-config-nasx-2026112`) || rec.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("export = %d %q %q", rec.Code, cd, rec.Header().Get("Cache-Control"))
+	}
+	var a helper.ConfigArchive
+	if json.Unmarshal(rec.Body.Bytes(), &a) != nil || a.Format != helper.ArchiveFormat {
+		t.Fatalf("body = %s", rec.Body)
+	}
+}
+
+func TestConfigImportPassesTheFileThrough(t *testing.T) {
+	f := &fakeConfig{}
+	h, c := newConfigServer(t, f)
+	if rec := do(h, "POST", "/api/v1/config/import/preview", `{"archive":{"format":"x"}}`, xrw, c); rec.Code != 200 {
+		t.Fatalf("preview = %d %s", rec.Code, rec.Body)
+	}
+	if rec := do(h, "POST", "/api/v1/config/import", `{"archive":{"format":"x"},"takeover":true}`, xrw, c); rec.Code != 200 {
+		t.Fatalf("import = %d %s", rec.Code, rec.Body)
+	}
+	if len(f.imported) != 2 || f.imported[0] != `preview:{"format":"x"}` || f.imported[1] != `import:{"format":"x"}:true` {
+		t.Fatalf("calls = %q", f.imported)
+	}
+	for _, bad := range []string{`{}`, `{"archive":"text"}`, `{"archive":[1]}`, `{"archive":{},"extra":1}`} {
+		if rec := do(h, "POST", "/api/v1/config/import", bad, xrw, c); rec.Code != http.StatusBadRequest {
+			t.Fatalf("%s = %d", bad, rec.Code)
+		}
+	}
+	big := `{"archive":{"x":"` + strings.Repeat("a", helper.MaxArchive+2048) + `"}}`
+	if rec := do(h, "POST", "/api/v1/config/import", big, xrw, c); rec.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("too large = %d", rec.Code)
 	}
 }

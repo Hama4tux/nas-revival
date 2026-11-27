@@ -1,14 +1,15 @@
-import { History, RefreshCw, RotateCcw, TriangleAlert } from 'lucide-react';
+import { Download, History, RefreshCw, RotateCcw, TriangleAlert, Upload } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
-import type { ConfigDetail, ConfigEntry, ConfigFileDiff, ConfigHistory as History_, ConfigRollbackResult } from '../api/types';
-import { compactDiff, diffStats, driftedFiles, filesToRestore } from '../lib/config';
+import type { ConfigDetail, ConfigEntry, ConfigFileDiff, ConfigHistory as History_, ConfigImportPreview, ConfigImportResult, ConfigRollbackResult } from '../api/types';
+import { compactDiff, diffStats, driftedFiles, filesToRestore, readArchive } from '../lib/config';
 import { formatBytes } from '../lib/format';
 import { cs } from '../i18n/cs';
 import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
+import { Field } from './ui/field';
 import { Skeleton } from './ui/skeleton';
 
 const t = cs.config;
@@ -17,7 +18,7 @@ const dt = (iso: string) => {
   return Number.isNaN(d.getTime()) ? '–' : d.toLocaleString('cs-CZ');
 };
 const fileLabel = (id: string) => t.files[id] ?? id;
-const kindVariant = { baseline: 'neutral', change: 'success', manual: 'warning', rollback: 'neutral' } as const;
+const kindVariant = { baseline: 'neutral', change: 'success', manual: 'warning', rollback: 'neutral', import: 'neutral' } as const;
 
 function apiMessage(e: unknown): string {
   if (e instanceof ApiError) {
@@ -105,24 +106,7 @@ function VersionDialog({ id, onClose, onDone }: { id: number; onClose: () => voi
             <span>{dt(detail.entry.time)} · {detail.entry.user === 'system' ? t.system : t.by(detail.entry.user)}</span>
           </p>
           {changes.length === 0 ? <p>{t.same}</p> : (
-            <>
-              <p>{t.willChange}</p>
-              {changes.map((f) => <FileChange key={f.id} f={f} />)}
-              {detail.files.filter((f) => f.same).length > 0 && (
-                <p className="text-muted-foreground">{t.unchanged}: {detail.files.filter((f) => f.same).map((f) => fileLabel(f.id)).join(', ')}</p>
-              )}
-              {changes.some((f) => f.id === 'network') && <p role="note" className="rounded-md border border-warning/50 bg-warning/10 p-2">{t.networkWarn}</p>}
-              {changes.some((f) => f.id === 'disk-power') && <p role="note" className="text-muted-foreground">{t.diskWarn}</p>}
-              {drift && (
-                <div className="space-y-2 rounded-md border border-warning/50 bg-warning/10 p-2">
-                  <p>{t.driftWarn} ({detail.drift.map(fileLabel).join(', ')})</p>
-                  <label className="flex items-center gap-2 font-medium">
-                    <input type="checkbox" checked={takeover} onChange={(e) => setTakeover(e.target.checked)} className="h-4 w-4" />
-                    {t.takeover}
-                  </label>
-                </div>
-              )}
-            </>
+            <ChangeList files={detail.files} drift={detail.drift} takeover={takeover} setTakeover={setTakeover} intro={t.willChange} />
           )}
           {err && <p role="alert" className="font-medium text-danger">{err}</p>}
         </>
@@ -131,10 +115,98 @@ function VersionDialog({ id, onClose, onDone }: { id: number; onClose: () => voi
   );
 }
 
-export function ConfigHistoryWidget({ className }: { className?: string }) {
+/** Lists the files an import or rollback changes, the unchanged ones and the warnings. */
+function ChangeList({ files, drift, takeover, setTakeover, intro }: {
+  files: ConfigFileDiff[]; drift: string[]; takeover: boolean; setTakeover: (v: boolean) => void; intro: string;
+}) {
+  const changes = filesToRestore(files);
+  const same = files.filter((f) => f.same);
+  return (
+    <>
+      <p>{intro}</p>
+      {changes.map((f) => <FileChange key={f.id} f={f} />)}
+      {same.length > 0 && <p className="text-muted-foreground">{t.unchanged}: {same.map((f) => fileLabel(f.id)).join(', ')}</p>}
+      {changes.some((f) => f.id === 'network') && <p role="note" className="rounded-md border border-warning/50 bg-warning/10 p-2">{t.networkWarn}</p>}
+      {changes.some((f) => f.id === 'disk-power') && <p role="note" className="text-muted-foreground">{t.diskWarn}</p>}
+      {drift.length > 0 && (
+        <div className="space-y-2 rounded-md border border-warning/50 bg-warning/10 p-2">
+          <p>{t.driftWarn} ({drift.map(fileLabel).join(', ')})</p>
+          <label className="flex items-center gap-2 font-medium">
+            <input type="checkbox" checked={takeover} onChange={(e) => setTakeover(e.target.checked)} className="h-4 w-4" />
+            {t.takeover}
+          </label>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ImportDialog({ onClose, onDone }: { onClose: () => void; onDone: (r: ConfigImportResult) => void }) {
+  const [archive, setArchive] = useState<Record<string, unknown> | null>(null);
+  const [preview, setPreview] = useState<ConfigImportPreview | null>(null);
+  const [takeover, setTakeover] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function pick(f: File | undefined) {
+    setArchive(null); setPreview(null); setErr(null); setTakeover(false);
+    if (!f) return;
+    const r = readArchive(await f.text());
+    if ('error' in r) { setErr(t[r.error]); return; }
+    setBusy(true);
+    try {
+      setPreview(await api<ConfigImportPreview>('/config/import/preview', { method: 'POST', body: { archive: r.archive } }));
+      setArchive(r.archive);
+    } catch (e) { setErr(apiMessage(e)); }
+    finally { setBusy(false); }
+  }
+
+  async function submit() {
+    if (!archive) return;
+    setBusy(true); setErr(null);
+    try { onDone(await api<ConfigImportResult>('/config/import', { method: 'POST', body: { archive, takeover } })); }
+    catch (e) { setErr(apiMessage(e)); }
+    finally { setBusy(false); }
+  }
+
+  const changes = preview ? filesToRestore(preview.files) : [];
+  const canImport = !!archive && changes.length > 0 && (preview!.drift.length === 0 || takeover);
+  return (
+    <Dialog title={t.importTitle} onClose={onClose} busy={busy}
+      footer={<>
+        <Button type="button" variant="outline" onClick={onClose} disabled={busy}>{cs.common.cancel}</Button>
+        <Button type="button" onClick={() => void submit()} disabled={busy || !canImport}>
+          <Upload className="h-4 w-4" aria-hidden />{busy && archive ? t.importing : t.importConfirm}
+        </Button>
+      </>}>
+      <p className="text-muted-foreground">{t.importHint}</p>
+      <Field label={t.importFile}>
+        {(p) => <input {...p} type="file" accept=".json,application/json" data-autofocus className="block w-full text-sm"
+          disabled={busy} onChange={(e) => void pick(e.target.files?.[0])} />}
+      </Field>
+      {busy && !archive && <p role="status" className="text-muted-foreground">{t.reading}</p>}
+      {preview && (
+        <>
+          <p className="text-muted-foreground">{t.fileFrom(preview.hostname, dt(preview.created))}</p>
+          {preview.otherHost && <p role="note" className="rounded-md border border-warning/50 bg-warning/10 p-2">{t.otherHost}</p>}
+          {changes.length === 0 ? <p>{t.importSame}</p> : (
+            <>
+              <ChangeList files={preview.files} drift={preview.drift} takeover={takeover} setTakeover={setTakeover} intro={t.importWillChange} />
+              <p className="text-muted-foreground">{t.importUndo}</p>
+            </>
+          )}
+        </>
+      )}
+      {err && <p role="alert" className="font-medium text-danger">{err}</p>}
+    </Dialog>
+  );
+}
+
+export function ConfigHistoryWidget({ className, readOnly = false }: { className?: string; readOnly?: boolean }) {
   const [data, setData] = useState<History_ | null>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState<number | null>(null);
+  const [importing, setImporting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -155,6 +227,20 @@ export function ConfigHistoryWidget({ className }: { className?: string }) {
         </Button>
       </div>}>
       <p className="text-sm text-muted-foreground">{t.hint}</p>
+      {!readOnly && (
+        <section aria-labelledby="cfg-transfer" className="mt-3 rounded-lg border border-border/70 p-3 text-sm">
+          <h3 id="cfg-transfer" className="font-medium">{t.transferTitle}</h3>
+          <p className="mt-1 text-muted-foreground">{t.transferHint}</p>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <a href="/api/v1/config/export" download><Download className="h-4 w-4" aria-hidden />{t.exportBtn}</a>
+            </Button>
+            <Button type="button" variant="outline" size="sm" onClick={() => { setMsg(null); setImporting(true); }}>
+              <Upload className="h-4 w-4" aria-hidden />{t.importBtn}
+            </Button>
+          </div>
+        </section>
+      )}
       {msg && <p role="status" className="mt-3 text-sm text-success">{msg}</p>}
       {!data ? (
         failed ? <p role="alert" className="mt-3 text-sm text-danger">{t.loadError}</p>
@@ -190,6 +276,14 @@ export function ConfigHistoryWidget({ className }: { className?: string }) {
           )}
           <p className="mt-3 text-xs text-muted-foreground">{t.limits(data.maxEntries, formatBytes(data.usedBytes), formatBytes(data.maxBytes))}</p>
         </>
+      )}
+      {importing && (
+        <ImportDialog onClose={() => setImporting(false)}
+          onDone={(r) => {
+            setImporting(false);
+            setMsg(r.restored.length === 0 ? t.importNothing : r.networkPending ? `${t.imported(r.restored.length)} ${t.donePending}` : t.imported(r.restored.length));
+            void load();
+          }} />
       )}
       {open !== null && (
         <VersionDialog id={open} onClose={() => setOpen(null)}

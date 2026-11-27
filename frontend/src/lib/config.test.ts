@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ConfigDiffLine, ConfigHistory } from '../api/types';
-import { compactDiff, diffStats, driftedFiles, filesToRestore } from './config';
+import { compactDiff, diffStats, driftedFiles, filesToRestore, MAX_ARCHIVE, readArchive } from './config';
 
 const l = (op: ' ' | '-' | '+', text: string): ConfigDiffLine => ({ op, text });
 
@@ -24,5 +24,16 @@ describe('config history helpers', () => {
     const h: ConfigHistory = { entries: [], maxEntries: 20, maxBytes: 1, usedBytes: 0,
       drift: [{ id: 'network', path: '/n', state: 'pending' }, { id: 'time', path: '/t', state: 'modified' }] };
     expect(driftedFiles(h).map((d) => d.id)).toEqual(['time']);
+  });
+});
+
+describe('readArchive', () => {
+  it('accepts an export file and refuses anything else', () => {
+    expect(readArchive('{"format":"nas-revival-config","schema":1,"files":[]}')).toEqual({ archive: { format: 'nas-revival-config', schema: 1, files: [] } });
+    expect(readArchive('{"format":"other"}')).toEqual({ error: 'notJson' });
+    expect(readArchive('[1]')).toEqual({ error: 'notJson' });
+    expect(readArchive('null')).toEqual({ error: 'notJson' });
+    expect(readArchive('not json')).toEqual({ error: 'notJson' });
+    expect(readArchive(`{"format":"nas-revival-config","x":"${'a'.repeat(MAX_ARCHIVE)}"}`)).toEqual({ error: 'tooBig' });
   });
 });

@@ -98,10 +98,11 @@ documents in `/etc/nas-revival/` with a `schemaVersion`.
 - **Drift detection:** the manifest stores the sha256 of each managed file after our last write; a
   differing hash on read = "changed outside the web UI". The UI shows a diff summary and never
   overwrites silently (requires "take over" confirmation).
-- **Export/import:** a versioned archive (JSON manifest + files), size and depth limits, allowlisted
-  paths only. Secrets (password hashes, TLS key, API tokens) are excluded unless the export is
-  encrypted with a user passphrase. Import = the same transaction path with migrations
-  `vN → vN+1` per document.
+- **Export/import** ([ADR 0011](adr/0011-config-export-import.md), W4.4): one versioned JSON document
+  with the managed files, size limits, registry IDs only. The managed files hold no secrets (password
+  hashes, keys, TLS and backup credentials are outside the registry), so there is no encrypted export
+  yet. Import = validate and re-render every part, then the rollback path; schema migrations
+  `vN → vN+1` in `migrateArchive`.
 
 ## 5. Hardware Abstraction Layer
 
@@ -171,6 +172,7 @@ web process (LM85 hardware auto mode, `nsa310-fan` sets it at boot; on failure t
 | 0005 | Config Manager: registry, fragments, snapshots, drift | proposed (§4) |
 | 0006 | Scheduling via systemd timers + `nas-revival task` | proposed (§2) |
 | 0007 | Disk power and system-disk write reduction | accepted 2026-11-25 ([ADR](adr/0007-disk-power-and-system-writes.md)) |
+| 0011 | Config export and import | accepted 2026-11-27 ([ADR](adr/0011-config-export-import.md)) |
 
 ## 10. Build and deployment
 

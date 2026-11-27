@@ -267,3 +267,55 @@ func TestLinesTooLarge(t *testing.T) {
 		t.Fatalf("new file diff = %+v", out)
 	}
 }
+
+func TestExportReturnsEveryManagedFile(t *testing.T) {
+	f := newFixture(t)
+	out, err := f.s.Export()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out) != 2 || out[0].ID != "network" || !out[0].Present || string(out[0].Data) != "[Match]\nName=enp1s0\n\n[Network]\nDHCP=yes\n" ||
+		out[1].ID != "time" || out[1].Present || out[1].Data != nil {
+		t.Fatalf("export = %+v", out)
+	}
+}
+
+func TestImportPlansOnlyIncludedChangedFiles(t *testing.T) {
+	f := newFixture(t)
+	same := []byte("[Match]\nName=enp1s0\n\n[Network]\nDHCP=yes\n")
+	// The network file is unchanged and the time file is left out: nothing to do.
+	plan, err := f.s.PlanImport([]Incoming{{ID: "network", Present: true, Data: same}}, "admin", false)
+	if err != nil || len(plan) != 0 {
+		t.Fatalf("plan = %+v, %v", plan, err)
+	}
+	in := []Incoming{{ID: "network", Present: false}, {ID: "time", Present: true, Data: []byte("[Time]\nNTP=a\n")}}
+	d, err := f.s.Compare(in)
+	if err != nil || len(d.Files) != 2 || d.Files[0].Same || d.Files[0].Present || d.Files[1].Same || !d.Files[1].Present {
+		t.Fatalf("compare = %+v, %v", d, err)
+	}
+	plan, err = f.s.PlanImport(in, "admin", false)
+	if err != nil || len(plan) != 2 || plan[0].ID != "network" || plan[0].Present || string(plan[1].Data) != "[Time]\nNTP=a\n" {
+		t.Fatalf("plan = %+v, %v", plan, err)
+	}
+	if _, err := f.s.Compare([]Incoming{{ID: "passwd", Present: true}}); err == nil {
+		t.Fatal("unknown file accepted")
+	}
+}
+
+func TestImportHonoursDrift(t *testing.T) {
+	f := newFixture(t)
+	f.write(f.ntp, "[Time]\nNTP=manual\n")
+	in := []Incoming{{ID: "time", Present: true, Data: []byte("[Time]\nNTP=b\n")}}
+	if d, err := f.s.Compare(in); err != nil || len(d.Drift) != 1 || d.Drift[0] != "time" {
+		t.Fatalf("compare drift = %+v, %v", d, err)
+	}
+	if _, err := f.s.PlanImport(in, "admin", false); !errors.Is(err, ErrDrift) {
+		t.Fatalf("err = %v", err)
+	}
+	if plan, err := f.s.PlanImport(in, "admin", true); err != nil || len(plan) != 1 {
+		t.Fatalf("takeover plan = %+v, %v", plan, err)
+	}
+	if h := f.list(); h.Entries[0].Kind != KindManual {
+		t.Fatalf("manual state not kept: %+v", h.Entries[0])
+	}
+}

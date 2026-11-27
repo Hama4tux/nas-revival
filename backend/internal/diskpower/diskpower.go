@@ -156,12 +156,21 @@ func Load(path string) (Config, error) {
 
 // Save writes the configuration atomically (0644: the web process reads it).
 func Save(path string, c Config) error {
-	c.Version = 1
-	b, err := json.MarshalIndent(c, "", "  ")
+	b, err := Encode(c)
 	if err != nil {
 		return err
 	}
-	return atomicfile.Write(path, append(b, '\n'), 0o644)
+	return atomicfile.Write(path, b, 0o644)
+}
+
+// Encode renders disks.json as Save writes it.
+func Encode(c Config) ([]byte, error) {
+	c.Version = 1
+	b, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return nil, err
+	}
+	return append(b, '\n'), nil
 }
 
 // Drive power states reported by hdparm -C.

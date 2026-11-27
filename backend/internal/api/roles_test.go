@@ -56,6 +56,9 @@ func TestRolePolicy(t *testing.T) {
 		{"PUT", "/api/v1/users/karel/disabled", `{"disabled":true}`, 200, 403, 403},
 		{"POST", "/api/v1/system/reboot/preview", `{}`, 503, 403, 403},
 		{"PUT", "/api/v1/settings/network", `{}`, 503, 403, 403},
+		// The export lists accounts and NFS clients: not for read-only users.
+		{"GET", "/api/v1/config/export", "", 503, 403, 403},
+		{"POST", "/api/v1/config/import/preview", `{}`, 503, 403, 403},
 	}
 	cookies := map[string]*http.Cookie{"jana": loginAs(t, h, "jana"), "petr": loginAs(t, h, "petr"), "eva": loginAs(t, h, "eva")}
 	for _, c := range cases {

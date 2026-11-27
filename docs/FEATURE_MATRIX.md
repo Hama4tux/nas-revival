@@ -61,7 +61,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | CFG-02 | Config | Atomic write + snapshot + rollback transaction | P0 | Implemented | — | atomicfile | L | half-applied config | killed helper mid-write leaves old or new file, never partial | CFG-01 |
 | CFG-03 | Config | Bounded history (20 snapshots / 2 MiB) | P0 | Implemented | — | — | L | disk fill | 21st snapshot evicts oldest | CFG-02 |
 | CFG-04 | Config | Drift detection (sha256 manifest) | P1 | Partial | — | — | L | silent overwrite of manual edits | manual edit shown as drift and kept in history before the next save; rollback requires takeover (settings save does not yet ask) | CFG-02 |
-| CFG-05 | Config | Export / import archive with schema migration | P1 | Planned | — | — | M | malicious archive, secret leak | size/depth limits; secrets only in encrypted export | CFG-02 |
+| CFG-05 | Config | Export / import archive with schema migration | P1 | Tested (W4.4, ADR 0011: JSON export of the managed files without secrets, preview, import through the rollback path with re-rendered parts; e2e on the NAS 2026-11-27 `scripts/webui/e2e-config.sh`; tasks, backup jobs and hardware settings not yet included) | — | — | M | malicious archive, secret leak | size/depth limits; secrets only in encrypted export | CFG-02 |
 | HAL-10 | HAL | Device profiles: NSA310, generic ARM, generic Linux | P0 | Implemented | — | DT/DMI | L | wrong profile → wrong actuator | unknown board = read-only generic profile | — |
 
 ### Storage (M1)
@@ -160,7 +160,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | FS-03 | File Station | Streamed upload/download | P2 | Implemented (2026-11-26, ADR 0009; unit and socket tests, deployed; owner tests on the NAS) | — | — | M | memory exhaustion | 2 GiB upload with RSS growth < 4 MiB | FS-01 |
 | FS-04 | File Station | Operation progress, cancel, max 2 concurrent ops | P2 | Not started | — | — | M | — | queue bounded | FS-02 |
 | FS-05 | File Station | Name search (on demand), permissions edit, ZIP optional | P3 | Not started | — | — | H | — | no indexing, no thumbnails | FS-01 |
-| BKP-01 | Backup | Config backup/export, history, validation, restore | P1 | Planned | — | — | L | secrets in export | restore goes through CFG transaction | CFG-05 |
+| BKP-01 | Backup | Config backup/export, history, validation, restore | P1 | Partial (W4.4: manual export/import; scheduled config backup not yet) | — | — | L | secrets in export | restore goes through CFG transaction | CFG-05 |
 | BKP-10 | Backup | rsync jobs: USB, other NAS, SSH server; incremental, excludes, bwlimit, dry run | P1 | Partial (W4.3 phase 1: pull over SSH; NAS 2026-11-26) | — | rsync, ssh | M | deleting target data | no `--delete` unless mirror mode confirmed separately | TASK-01 |
 | BKP-11 | Backup | Progress, history, success check, restore of selected files | P1 | Partial (history + success check, last result and failed/stale problems on the dashboard, versions with sizes, browse, single-file download and restore of a folder or file into a share 2026-11-26; notifications with W4.5) | — | — | M | — | last result on dashboard | BKP-10 |
 | BKP-12 | Backup | Proxmox vzdump target via NFS | P1 | Tested | — | nfs | M | — | NFS export only to Proxmox host, root_squash; squashed writes as nobody:nas-nfs; UI shows the `pvesm add nfs … --options vers=4.2` line (W2.6); mount and write from Proxmox tested, a real vzdump backup not yet | NFS-01 |

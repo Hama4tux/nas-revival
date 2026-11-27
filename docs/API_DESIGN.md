@@ -37,7 +37,7 @@ endpoint is implemented, it moves into `api/v1.md`.
 | | `POST /system/shutdown/preview`, `POST /system/shutdown` | admin | `power.shutdown` | M1 |
 | Config | `GET /config/history` (incl. drift), `GET /config/history/{n}` (diff vs. current) | admin | `config.list`, `config.get` | M1 (done W1.8) |
 | | `POST /config/rollback/{snapshot}` | admin | `config.rollback` | M1 |
-| | `GET /config/export`, `POST /config/import` | admin | `config.export/import` | M4 |
+| | `GET /config/export`, `POST /config/import/preview`, `POST /config/import` | admin | `config.export`, `config.importPreview`, `config.import` | M4 (done W4.4) |
 | Storage | `GET /storage` (disks, partitions, mounts, system flags, dependencies) | viewer | – | M1 |
 | | `GET /storage/disks/{id}/smart` (attributes, self-test log, progress) | viewer | – | M1 |
 | | `POST /storage/disks/{id}/smart/test` `{type: short\|long}` | admin | `smart.test` | M1 |

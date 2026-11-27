@@ -27,7 +27,9 @@ import (
 )
 
 const (
-	MaxRequest   = 16 << 10
+	// MaxRequest leaves room for config.import, which carries a whole export
+	// file (MaxArchive); every other request is far smaller.
+	MaxRequest   = MaxArchive + 16<<10
 	readDeadline = 5 * time.Second
 	opTimeout    = 60 * time.Second
 	maxConns     = 8
@@ -282,6 +284,26 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 			break
 		}
 		return d.Config.List()
+	case "config.export":
+		if d.Config == nil {
+			break
+		}
+		return d.Config.Export(user)
+	case "config.importPreview", "config.import":
+		if d.Config == nil {
+			break
+		}
+		var a struct {
+			Archive  json.RawMessage `json:"archive"`
+			Takeover bool            `json:"takeover"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		if req.Op == "config.importPreview" {
+			return d.Config.ImportPreview(a.Archive)
+		}
+		return d.Config.Import(ctx, a.Archive, a.Takeover, user)
 	case "config.get", "config.rollback":
 		if d.Config == nil {
 			break

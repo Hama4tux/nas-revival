@@ -267,3 +267,7 @@ systemctl daemon-reload
 
 Partitions whose UUID is in `/etc/nsa310-copy.exclude` (rescue stick) or labelled `nrinstall` (disk swap
 stick) are never mounted. exFAT and NTFS need the kernel options `CONFIG_EXFAT_FS` / `CONFIG_NTFS3_FS`.
+
+Config export/import (W4.4, ADR 0011) needs nothing extra. After deploying, run `scripts/webui/e2e-config.sh`: it
+exports, previews and imports the own export (no change), checks that foreign files are refused, imports an extra NTP
+server and then the original export again (two `import` versions stay in the config history).

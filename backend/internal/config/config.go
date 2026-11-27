@@ -43,6 +43,7 @@ const (
 	KindChange   = "change"   // saved from the web UI
 	KindManual   = "manual"   // found changed outside the web UI before the next change
 	KindRollback = "rollback" // return to an older version
+	KindImport   = "import"   // written from an imported export file (CFG-05)
 )
 
 // Drift states of a managed file.
@@ -543,23 +544,32 @@ func (s *Store) Get(id int) (Detail, error) {
 		return Detail{}, err
 	}
 	for _, f := range s.Files {
-		cur, curOK, err := readLimited(f.Path)
-		if err != nil {
-			return Detail{}, err
-		}
 		st, _ := stateOf(&e, f.ID)
 		var old []byte
 		if st.Present {
 			old = s.content(e, f.ID)
 		}
-		fd := FileDiff{ID: f.ID, Path: f.Path, Present: st.Present, Current: curOK}
-		fd.Same = st.Present == curOK && (!curOK || st.SHA256 == hashOf(cur))
-		if !fd.Same {
-			fd.Lines, fd.TooLarge = Lines(string(cur), string(old))
+		fd, err := diffFile(f, st.Present, old)
+		if err != nil {
+			return Detail{}, err
 		}
 		d.Files = append(d.Files, fd)
 	}
 	return d, nil
+}
+
+// diffFile compares the wanted state of a managed file with the disk.
+func diffFile(f File, present bool, want []byte) (FileDiff, error) {
+	cur, curOK, err := readLimited(f.Path)
+	if err != nil {
+		return FileDiff{}, err
+	}
+	fd := FileDiff{ID: f.ID, Path: f.Path, Present: present, Current: curOK}
+	fd.Same = present == curOK && (!curOK || hashOf(want) == hashOf(cur))
+	if !fd.Same {
+		fd.Lines, fd.TooLarge = Lines(string(cur), string(want))
+	}
+	return fd, nil
 }
 
 func (s *Store) driftIDs(latest *Entry) ([]string, error) {
@@ -594,7 +604,24 @@ func (s *Store) Plan(id int, user string, takeover bool) ([]Restore, error) {
 	if err != nil {
 		return nil, err
 	}
-	latest := latestOf(ents)
+	want := []Restore{}
+	for _, f := range s.Files {
+		st, _ := stateOf(&e, f.ID)
+		r := Restore{ID: f.ID, Path: f.Path, Present: st.Present}
+		if st.Present {
+			r.Data = s.content(e, f.ID)
+			if r.Data == nil || hashOf(r.Data) != st.SHA256 {
+				return nil, fmt.Errorf("config: version %d: %s damaged", id, f.ID)
+			}
+		}
+		want = append(want, r)
+	}
+	return s.planLocked(latestOf(ents), want, user, takeover)
+}
+
+// planLocked keeps the wanted files that differ from the disk, after the drift
+// check of Plan.
+func (s *Store) planLocked(latest *Entry, want []Restore, user string, takeover bool) ([]Restore, error) {
 	drift, err := s.driftIDs(latest)
 	if err != nil {
 		return nil, err
@@ -608,23 +635,119 @@ func (s *Store) Plan(id int, user string, takeover bool) ([]Restore, error) {
 		}
 	}
 	out := []Restore{}
-	for _, f := range s.Files {
-		st, _ := stateOf(&e, f.ID)
-		cur, curOK, err := readLimited(f.Path)
+	for _, r := range want {
+		cur, curOK, err := readLimited(r.Path)
 		if err != nil {
 			return nil, err
 		}
-		if st.Present == curOK && (!curOK || st.SHA256 == hashOf(cur)) {
+		if r.Present == curOK && (!curOK || hashOf(r.Data) == hashOf(cur)) {
 			continue
-		}
-		r := Restore{ID: f.ID, Path: f.Path, Present: st.Present}
-		if st.Present {
-			r.Data = s.content(e, f.ID)
-			if r.Data == nil || hashOf(r.Data) != st.SHA256 {
-				return nil, fmt.Errorf("config: version %d: %s damaged", id, f.ID)
-			}
 		}
 		out = append(out, r)
 	}
 	return out, nil
+}
+
+// Incoming is one managed file of an imported export (CFG-05), already
+// validated by its owner.
+type Incoming struct {
+	ID      string
+	Present bool
+	Data    []byte
+}
+
+// Export returns the committed content of every managed file, in registry
+// order. A network change waiting for confirmation is exported as the last
+// confirmed version.
+func (s *Store) Export() ([]Restore, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	ents, err := s.entries()
+	if err != nil {
+		return nil, err
+	}
+	snap, err := s.current(latestOf(ents))
+	if err != nil {
+		return nil, err
+	}
+	out := make([]Restore, 0, len(snap.states))
+	for _, st := range snap.states {
+		out = append(out, Restore{ID: st.ID, Path: st.Path, Present: st.Present, Data: snap.data[st.ID]})
+	}
+	return out, nil
+}
+
+// wanted maps incoming files onto the registry; files missing from in stay
+// untouched. An unknown ID is an error.
+func (s *Store) wanted(in []Incoming) ([]Restore, error) {
+	byID := map[string]Incoming{}
+	for _, f := range in {
+		byID[f.ID] = f
+	}
+	out := []Restore{}
+	for _, f := range s.Files {
+		i, ok := byID[f.ID]
+		if !ok {
+			continue
+		}
+		delete(byID, f.ID)
+		r := Restore{ID: f.ID, Path: f.Path, Present: i.Present}
+		if i.Present {
+			r.Data = i.Data
+		}
+		out = append(out, r)
+	}
+	for id := range byID {
+		return nil, fmt.Errorf("config: unknown managed file %q", id)
+	}
+	return out, nil
+}
+
+// ImportDetail is the preview of an import: the differences of the incoming
+// files to the disk and the files changed outside the web UI.
+type ImportDetail struct {
+	Files []FileDiff `json:"files"`
+	Drift []string   `json:"drift"`
+}
+
+// Compare previews an import without writing anything.
+func (s *Store) Compare(in []Incoming) (ImportDetail, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	want, err := s.wanted(in)
+	if err != nil {
+		return ImportDetail{}, err
+	}
+	ents, err := s.entries()
+	if err != nil {
+		return ImportDetail{}, err
+	}
+	d := ImportDetail{Files: []FileDiff{}}
+	if d.Drift, err = s.driftIDs(latestOf(ents)); err != nil {
+		return ImportDetail{}, err
+	}
+	for _, r := range want {
+		fd, err := diffFile(File{ID: r.ID, Path: r.Path}, r.Present, r.Data)
+		if err != nil {
+			return ImportDetail{}, err
+		}
+		d.Files = append(d.Files, fd)
+	}
+	return d, nil
+}
+
+// PlanImport returns the incoming files that differ from the disk, with the
+// same drift rule as Plan.
+func (s *Store) PlanImport(in []Incoming, user string, takeover bool) ([]Restore, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	want, err := s.wanted(in)
+	if err != nil {
+		return nil, err
+	}
+	ents, err := s.entries()
+	if err != nil {
+		return nil, err
+	}
+	return s.planLocked(latestOf(ents), want, user, takeover)
 }

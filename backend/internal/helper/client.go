@@ -200,6 +200,30 @@ func (c *Client) ConfigRollback(ctx context.Context, id int, takeover bool) (Con
 	return r, err
 }
 
+// ConfigExport returns the export file of the managed files (CFG-05).
+func (c *Client) ConfigExport(ctx context.Context) (ConfigArchive, error) {
+	var a ConfigArchive
+	err := c.Call(ctx, "config.export", struct{}{}, &a)
+	return a, err
+}
+
+// ConfigImportPreview checks an export file and shows what it would change.
+func (c *Client) ConfigImportPreview(ctx context.Context, archive json.RawMessage) (ConfigImportPreview, error) {
+	var p ConfigImportPreview
+	err := c.Call(ctx, "config.importPreview", map[string]any{"archive": archive}, &p)
+	return p, err
+}
+
+// ConfigImport writes an export file back; like a rollback it may re-apply
+// disk power and wait for Samba, hence the longer timeout.
+func (c *Client) ConfigImport(ctx context.Context, archive json.RawMessage, takeover bool) (ConfigImportResult, error) {
+	var r ConfigImportResult
+	long := *c
+	long.Timeout = 45 * time.Second
+	err := long.Call(ctx, "config.import", map[string]any{"archive": archive, "takeover": takeover}, &r)
+	return r, err
+}
+
 // Account operations (USR-01..03). Hashing argon2id and running the shadow
 // tools takes a few seconds on the NAS, hence the longer timeout.
 func (c *Client) users(ctx context.Context, op string, args any, result any) error {
