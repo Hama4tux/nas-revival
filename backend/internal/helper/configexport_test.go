@@ -117,14 +117,18 @@ func TestImportRejectsForeignFiles(t *testing.T) {
 		return archiveJSON(t, a)
 	}
 	cases := map[string]json.RawMessage{
-		"format":    mutate(func(a *ConfigArchive) { a.Format = "zyxel" }),
-		"newer":     mutate(func(a *ConfigArchive) { a.Schema = ArchiveSchema + 1 }),
-		"unknown":   mutate(func(a *ConfigArchive) { a.Files = append(a.Files, ArchiveFile{ID: "passwd", Present: true, Content: "root::0:0"}) }),
+		"format": mutate(func(a *ConfigArchive) { a.Format = "zyxel" }),
+		"newer":  mutate(func(a *ConfigArchive) { a.Schema = ArchiveSchema + 1 }),
+		"unknown": mutate(func(a *ConfigArchive) {
+			a.Files = append(a.Files, ArchiveFile{ID: "passwd", Present: true, Content: "root::0:0"})
+		}),
 		"duplicate": mutate(func(a *ConfigArchive) { a.Files = append(a.Files, a.Files[0]) }),
 		"empty":     mutate(func(a *ConfigArchive) { a.Files = nil }),
 		"absent":    mutate(func(a *ConfigArchive) { a.Files[1] = ArchiveFile{ID: FileTime, Content: "x"} }),
-		"big":       mutate(func(a *ConfigArchive) { a.Files[1] = ArchiveFile{ID: FileTime, Present: true, Content: strings.Repeat("#", MaxArchiveFile+1)} }),
-		"field":     json.RawMessage(`{"format":"nas-revival-config","schema":1,"files":[],"script":"x"}`),
+		"big": mutate(func(a *ConfigArchive) {
+			a.Files[1] = ArchiveFile{ID: FileTime, Present: true, Content: strings.Repeat("#", MaxArchiveFile+1)}
+		}),
+		"field": json.RawMessage(`{"format":"nas-revival-config","schema":1,"files":[],"script":"x"}`),
 	}
 	for name, raw := range cases {
 		if _, err := c.call(t, "config.importPreview", map[string]any{"archive": raw}); codeOf(err) != CodeInvalid {
