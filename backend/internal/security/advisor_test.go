@@ -31,6 +31,7 @@ func TestEvaluateHealthy(t *testing.T) {
 		TLS:      cert(now.Add(365*24*time.Hour), false),
 		Accounts: &Accounts{NASAdmins: 1},
 		Firewall: &Firewall{Supported: true, Enabled: true},
+		Updates:  &Updates{CheckedAt: &now},
 	})
 	for _, x := range fs {
 		if x.Status != StatusOK {
@@ -48,11 +49,13 @@ func TestEvaluateFindings(t *testing.T) {
 		Accounts:       &Accounts{NASAdmins: 0, RecoveryAdmin: true},
 		BlockedClients: 2,
 		Firewall:       &Firewall{Supported: true},
+		Updates:        &Updates{Security: 2, Other: 3},
 	})
 	want := map[string]string{
 		"ssh.rootPassword": StatusCrit, "ssh.passwordAuth": StatusWarn, "smb.protocol": StatusInfo,
 		"nfs.publicClient": StatusWarn, "tls.expiry": StatusWarn, "tls.selfSigned": StatusInfo,
 		"accounts.recoveryOnly": StatusWarn, "login.blocked": StatusWarn, "firewall.off": StatusWarn,
+		"updates.pending": StatusWarn, "updates.stale": StatusWarn,
 	}
 	m := byID(fs)
 	for id, st := range want {
@@ -112,5 +115,28 @@ func TestFirewallCheck(t *testing.T) {
 		if got.Status != c.want || got.ID != "firewall.off" || got.Fix != "#/system/security" {
 			t.Errorf("%+v: %+v", c.in, got)
 		}
+	}
+}
+
+func TestUpdatesChecks(t *testing.T) {
+	old, fresh := now.Add(-8*24*time.Hour), now.Add(-time.Hour)
+	cases := []struct {
+		u              *Updates
+		pending, stale string
+	}{
+		{nil, StatusUnknown, StatusUnknown},
+		{&Updates{CheckedAt: &fresh}, StatusOK, StatusOK},
+		{&Updates{CheckedAt: &fresh, Other: 4}, StatusInfo, StatusOK},
+		{&Updates{CheckedAt: &old, Security: 1, Other: 4}, StatusWarn, StatusWarn},
+	}
+	for i, c := range cases {
+		m := byID(Evaluate(Input{Now: now, Updates: c.u}))
+		if m["updates.pending"].Status != c.pending || m["updates.stale"].Status != c.stale || m["updates.pending"].Fix != FixUpdates {
+			t.Errorf("%d: %+v %+v", i, m["updates.pending"], m["updates.stale"])
+		}
+	}
+	m := byID(Evaluate(Input{Now: now, Updates: &Updates{CheckedAt: &old, Security: 1, Other: 4}}))
+	if m["updates.pending"].Params["total"] != "5" || m["updates.pending"].Params["security"] != "1" || m["updates.stale"].Params["days"] != "8" {
+		t.Errorf("params %v %v", m["updates.pending"].Params, m["updates.stale"].Params)
 	}
 }

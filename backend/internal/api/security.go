@@ -113,6 +113,14 @@ func (s *Server) securityAdvisor(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("advisor: firewall", "err", err)
 		}
 	}
+	if s.Updates != nil {
+		if v, err := s.Updates.UpdatesGet(ctx); err == nil {
+			sec := v.Security()
+			in.Updates = &security.Updates{CheckedAt: v.CheckedAt, Security: sec, Other: len(v.Packages) - sec}
+		} else {
+			slog.Warn("advisor: updates", "err", err)
+		}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{"checkedAt": in.Now.UTC().Format(time.RFC3339),
 		"findings": security.Evaluate(in)})
 }

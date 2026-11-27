@@ -1,0 +1,12 @@
+[Unit]
+Description=Daily check for Debian updates (NAS Revival)
+
+[Timer]
+# Only refreshes the package lists and the list of pending updates; nothing is installed.
+OnCalendar=*-*-* 04:40
+RandomizedDelaySec=45min
+Persistent=true
+Unit=nas-revival-updates@check.service
+
+[Install]
+WantedBy=timers.target

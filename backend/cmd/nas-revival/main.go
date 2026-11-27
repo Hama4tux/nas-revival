@@ -3,6 +3,7 @@
 //	nas-revival [-listen :8443] [-config /etc/nas-revival] [-state /var/lib/nas-revival]
 //	nas-revival set-password [-config /etc/nas-revival] [-user admin]
 //	nas-revival task run [-config /etc/nas-revival] [-state /var/lib/nas-revival] <id>
+//	nas-revival updates run [-state /var/lib/nas-revival-updates] <check|upgrade>
 //	nas-revival helper [-socket /run/nas-revival-helper/helper.sock] [-user nas-revival]
 package main
 
@@ -13,6 +14,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -49,6 +51,7 @@ import (
 	"nas-revival/backend/internal/system"
 	"nas-revival/backend/internal/tasks"
 	"nas-revival/backend/internal/tlscert"
+	"nas-revival/backend/internal/updates"
 	"nas-revival/backend/internal/web"
 )
 
@@ -63,6 +66,8 @@ func main() {
 		err = migrateBackupDest(os.Args[3:])
 	} else if len(os.Args) > 2 && os.Args[1] == "task" && os.Args[2] == "run" {
 		err = runTask(os.Args[3:])
+	} else if len(os.Args) > 2 && os.Args[1] == "updates" && os.Args[2] == "run" {
+		err = runUpdates(os.Args[3:])
 	} else if len(os.Args) > 1 && os.Args[1] == "helper" {
 		err = runHelper(os.Args[2:])
 	} else {
@@ -191,6 +196,7 @@ func serve(args []string) error {
 	srv.Ssh = hc
 	srv.Firewall = hc
 	srv.Logs = hc
+	srv.Updates = hc
 	srv.Tasks = hc
 	srv.Backup = hc
 	srv.Files = hc
@@ -428,6 +434,14 @@ func runHelper(args []string) error {
 		Hardware: helper.NewHardwareManager(helper.ExecRunner),
 		Activity: &helper.ActivityManager{Measure: diskactivity.Reader{Root: "/"}},
 		Logs:     &helper.LogManager{Run: helper.ExecRunner},
+		Updates: &helper.UpdateManager{Dir: updates.DefaultStateDir, Run: helper.ExecRunner,
+			Free: func() (uint64, error) { _, _, avail, err := statFS("/"); return avail, err },
+			Memory: func() (uint64, error) {
+				m, err := hal.Reader{Root: "/"}.Memory()
+				return m.AvailableBytes + m.SwapFreeBytes, err
+			},
+			BootTime:       func() (time.Time, error) { return updates.BootTime("/proc") },
+			RebootRequired: func() bool { _, err := os.Stat("/run/reboot-required"); return err == nil }},
 		Services: &helper.ServiceManager{Run: helper.ExecRunner, ProcRoot: "/proc", CgroupRoot: "/sys/fs/cgroup",
 			Now: time.Now, NumCPU: runtime.NumCPU(), PageSize: os.Getpagesize()},
 		Users: &helper.UserManager{Paths: accounts.SystemPaths,
@@ -595,6 +609,71 @@ func runTask(args []string) error {
 		return fmt.Errorf("task %s: %s: %s", fl.Arg(0), run.Result, run.Message)
 	}
 	return nil
+}
+
+// runUpdates is the ExecStart of nas-revival-updates@.service (root): the
+// Debian update check or upgrade (ADR 0016).
+func runUpdates(args []string) error {
+	fl := flag.NewFlagSet("updates run", flag.ContinueOnError)
+	stateDir := fl.String("state", updates.DefaultStateDir, "state directory (state.json)")
+	if err := fl.Parse(args); err != nil {
+		return err
+	}
+	if fl.NArg() != 1 || !updates.ValidJob(fl.Arg(0)) {
+		return errors.New("usage: nas-revival updates run [-state D] <check|upgrade>")
+	}
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	j := &updates.Job{Dir: *stateDir, Run: aptRun, Stream: aptStream, Now: time.Now,
+		BootTime: func() (time.Time, error) { return updates.BootTime("/proc") },
+		Log:      func(format string, a ...any) { slog.Info(fmt.Sprintf(format, a...)) }}
+	err := j.Execute(ctx, fl.Arg(0))
+	if errors.Is(err, updates.ErrBusy) {
+		slog.Info("updates: another job is running, nothing done")
+		return nil
+	}
+	return err
+}
+
+// aptEnv: no debconf questions, no apt-listchanges pager, English output for the parsers.
+var aptEnv = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "LANG=C", "LC_ALL=C",
+	"DEBIAN_FRONTEND=noninteractive", "APT_LISTCHANGES_FRONTEND=none"}
+
+func aptRun(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = aptEnv
+	return cmd.CombinedOutput()
+}
+
+// aptStream runs dpkg/apt-get without a context (it must not be killed
+// half-way) and copies every line to the unit's journal.
+func aptStream(line func(string), name string, args ...string) error {
+	cmd := exec.Command(name, args...)
+	cmd.Env = aptEnv
+	r, w, err := os.Pipe()
+	if err != nil {
+		return err
+	}
+	cmd.Stdout, cmd.Stderr = w, w
+	if err := cmd.Start(); err != nil {
+		r.Close()
+		w.Close()
+		return err
+	}
+	w.Close()
+	sc := bufio.NewScanner(r)
+	sc.Buffer(make([]byte, 64<<10), 1<<20)
+	for sc.Scan() {
+		fmt.Println(sc.Text())
+		line(sc.Text())
+	}
+	if err := sc.Err(); err != nil {
+		// Keep draining, or apt-get blocks on a full pipe and never exits.
+		slog.Warn("updates: output not parsed", "err", err)
+		io.Copy(os.Stdout, r)
+	}
+	r.Close()
+	return cmd.Wait()
 }
 
 // newShareManager is the share manager of the helper and of the root

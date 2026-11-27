@@ -1,6 +1,6 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem, LogEntry, LogRetention, FirewallSettings, FirewallState, ListeningPort } from '../api/types';
+import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem, LogEntry, LogRetention, FirewallSettings, FirewallState, ListeningPort, UpdatePackage, UpdateRun, UpdatesState } from '../api/types';
 import { ApiError } from '../api/client';
 import { setUploadImpl } from '../lib/upload';
 import { lockoutDetail, parseCidr, ruleMatches } from '../lib/firewall';
@@ -61,6 +61,27 @@ let netConfig: NetConfig = { mode: 'dhcp', address: null, prefixLength: null, ga
 let netCurrent = { addresses: [`${HOST_ADDR}/24`], gateway: '192.0.2.1' as string | null, dns: ['192.0.2.1'] };
 const MOCK_CLIENT = '192.168.1.20';
 let fwSettings: FirewallSettings = { enabled: false, allow: { web: [], ssh: [], smb: [], nfs: [] }, rules: [] };
+const updListedAt = new Date(Date.now() - 3600e3).toISOString();
+let updPackages: UpdatePackage[] = [
+  { name: 'libssl3t64', from: '3.5.1-1', to: '3.5.1-1+deb13u1', origin: 'Debian-Security:13/stable-security', security: true, size: 1_912_344 },
+  { name: 'openssl', from: '3.5.1-1', to: '3.5.1-1+deb13u1', origin: 'Debian-Security:13/stable-security', security: true, size: 1_402_112 },
+  { name: 'tzdata', from: '2025b-4', to: '2025b-4+deb13u1', origin: 'Debian:13.2/stable-updates', security: false, size: 262_880 },
+];
+let updRun: UpdateRun | undefined;
+function updState(): UpdatesState {
+  if (updRun?.result === 'running') {
+    const sec = (Date.now() - Date.parse(updRun.startedAt)) / 1000;
+    updRun.done = Math.min(updRun.total, Math.floor(sec / 5));
+    if (sec > 15) {
+      updRun = { ...updRun, result: 'ok', finishedAt: new Date().toISOString(), packages: updPackages.map((p) => `${p.name} ${p.to}`) };
+      updPackages = [];
+    }
+  }
+  return { checkedAt: updListedAt, listedAt: updListedAt, packages: updPackages, keptBack: [],
+    downloadBytes: updPackages.reduce((a, p) => a + p.size, 0), upgrade: updRun,
+    restartPackages: updRun?.result === 'ok' ? ['libssl3t64'] : [], restartRecommended: updRun?.result === 'ok',
+    running: updRun?.result === 'running' ? 'upgrade' : '', freeBytes: 28e9, versions: { app: 'dev-mock', kernel: '6.12.119-nr1' } };
+}
 let fwPending: { deadline: number; next: FirewallSettings } | null = null;
 let fwActive = false;
 const FW_SVC_PORTS: Record<string, { proto: string; port: number }[]> = {
@@ -1452,7 +1473,21 @@ export function installMock(): void {
         { id: 'ssh.passwordAuth', status: 'ok', fix: '#/services' },
         { id: 'ssh.rootPassword', status: 'ok', fix: '#/services' },
         { id: 'tls.expiry', status: 'ok', params: { notAfter: '2028-11-25T00:00:00Z' }, fix: '#/system' },
+        { id: 'updates.pending', status: updPackages.some((p) => p.security) ? 'warn' : updPackages.length ? 'info' : 'ok',
+          params: { security: String(updPackages.filter((p) => p.security).length), total: String(updPackages.length) }, fix: '#/system/updates' },
+        { id: 'updates.stale', status: 'ok', fix: '#/system/updates' },
       ] });
+    }
+    // Update Manager (W5.4): the "upgrade" finishes ~15 s after it starts.
+    if (path.startsWith('/updates') && sessionRole() !== 'user') {
+      if (method !== 'GET' && sessionRole() !== 'admin') return err(403, 'forbidden', 'Účet jen pro čtení nemůže nic měnit.');
+      if (path === '/updates/check' && method === 'POST') return json(202, updState());
+      if (path === '/updates/upgrade' && method === 'POST') {
+        if (updRun?.result === 'running') return err(409, 'updates_running', 'Aktualizace se právě instalují.');
+        updRun = { startedAt: new Date().toISOString(), result: 'running', total: updPackages.length, done: 0 };
+        return json(202, updState());
+      }
+      if (method === 'GET') return json(200, updState());
     }
     if (path.startsWith('/security/sessions') && sessionRole() === 'admin') {
       if (method === 'GET') {

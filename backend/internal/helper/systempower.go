@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/updates"
 )
 
 // Error codes of the power operations.
@@ -98,7 +99,9 @@ func (m *SystemPowerManager) Preflight(ctx context.Context) PowerPreflight {
 	} else if m.heavyLockHeld() {
 		b = append(b, PowerBlocker{Code: BlockTask})
 	}
-	if m.packageManagerRunning() {
+	// The upgrade job runs dpkg --configure -a and apt-get one after the
+	// other; the unit covers the moment between them.
+	if m.packageManagerRunning() || m.unitRunning(ctx, updates.ServiceName(updates.JobUpgrade)) {
 		b = append(b, PowerBlocker{Code: BlockPackageManager})
 	}
 	if m.NetPending != nil && m.NetPending() {

@@ -355,6 +355,27 @@ func (c *Client) ServiceLog(ctx context.Context, name string, lines int) (Servic
 	return r, err
 }
 
+// UpdatesGet returns the Debian update state (updates.get).
+func (c *Client) UpdatesGet(ctx context.Context) (UpdatesStatus, error) {
+	var r UpdatesStatus
+	err := c.Call(ctx, "updates.get", nil, &r)
+	return r, err
+}
+
+// UpdatesCheck starts a refresh of the package lists (updates.check).
+func (c *Client) UpdatesCheck(ctx context.Context) (UpdatesStatus, error) {
+	var r UpdatesStatus
+	err := c.Call(ctx, "updates.check", nil, &r)
+	return r, err
+}
+
+// UpdatesUpgrade starts installing the list computed at listedAt (updates.upgrade).
+func (c *Client) UpdatesUpgrade(ctx context.Context, listedAt string) (UpdatesStatus, error) {
+	var r UpdatesStatus
+	err := c.Call(ctx, "updates.upgrade", map[string]string{"listedAt": listedAt}, &r)
+	return r, err
+}
+
 // LogQuery runs a Log Center journal query (journal.query).
 func (c *Client) LogQuery(ctx context.Context, q services.Query) (JournalResult, error) {
 	long := *c

@@ -70,7 +70,7 @@ endpoint is implemented, it moves into `api/v1.md`.
 | Notifications | `GET /notifications`, `POST /notifications/{id}/read` | viewer | – | M4 |
 | Security | `GET /security/sessions`, `DELETE /security/sessions/{id}`, `GET /security/advisor` | admin | – | M5 |
 | | `GET/PUT /security/firewall`, `POST …/confirm` | admin | `firewall.*` | M5 |
-| Updates | `GET /updates`, `POST /updates/check`, `POST /updates/apply` (job) | admin | `apt.*`, `self.update`, `kernel.write` | M5 |
+| Updates | `GET /updates`, `POST /updates/check`, `POST /updates/upgrade` (job, ADR 0016) | admin (GET viewer) | `updates.*`; later `self.update`, `kernel.write` | M5 |
 | Integration | `GET /integration/status` (compact, never wakes disks) | token `read` | – | M6 |
 | | `GET/POST/DELETE /tokens` | admin | – | M6 |
 | Jobs | `GET /jobs/{id}`, `POST /jobs/{id}/cancel` | owner of job | – | M1 |

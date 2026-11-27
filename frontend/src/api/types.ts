@@ -493,3 +493,18 @@ export interface LogList { entries: LogEntry[]; more: boolean }
 export type LogMaxUse = '32M' | '64M' | '128M' | '256M';
 export type LogMaxRetention = 'none' | '1week' | '1month' | '3month' | '1year';
 export interface LogRetention { maxUse: LogMaxUse; maxRetention: LogMaxRetention; usageBytes?: number }
+
+/** Update Manager (W5.4, ADR 0016): GET /updates. */
+export interface UpdatePackage { name: string; from?: string; to: string; origin: string; security: boolean; size: number }
+export type UpdateResult = 'running' | 'ok' | 'failed';
+export interface UpdateRun {
+  startedAt: string; finishedAt?: string; result: UpdateResult; message?: string;
+  total: number; done: number; packages?: string[];
+}
+export interface UpdatesState {
+  checkedAt?: string; checkError?: string; listedAt?: string;
+  packages: UpdatePackage[]; keptBack: string[]; downloadBytes: number;
+  upgrade?: UpdateRun; restartPackages: string[]; restartRecommended: boolean;
+  running: '' | 'check' | 'upgrade'; freeBytes: number;
+  versions: { app: string; kernel: string };
+}

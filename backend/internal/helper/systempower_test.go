@@ -23,6 +23,7 @@ const (
 
 type fakeSys struct {
 	state, caps, copyState, backupState string
+	upgradeState                        string
 	failSystemctl                       bool
 	calls                               []string
 }
@@ -40,6 +41,8 @@ func (f *fakeSys) run(_ context.Context, name string, args ...string) ([]byte, e
 			return []byte(f.copyState + "\n"), errors.New("exit 3")
 		}
 		return []byte("active\n"), nil
+	case call == "systemctl is-active nas-revival-updates@upgrade.service" && f.upgradeState != "":
+		return []byte(f.upgradeState + "\n"), errors.New("exit 3")
 	case call == "systemctl list-units --plain --no-legend --state=active,activating,deactivating,reloading -- "+backupUnits:
 		if f.backupState != "activating" {
 			return nil, nil
@@ -103,6 +106,15 @@ func TestPreflightFindsEveryBlocker(t *testing.T) {
 	want := "smart_test:wwn-0x1,copy_running:,backup_running:,package_manager:,network_pending:"
 	if got != want {
 		t.Fatalf("got %s, want %s", got, want)
+	}
+}
+
+// Between dpkg --configure -a and apt-get no package manager process exists;
+// the running upgrade unit still blocks.
+func TestPreflightUpgradeJob(t *testing.T) {
+	fx := newSysPower(t, &fakeSys{state: stateActive, caps: sysCapsIdle, copyState: "inactive", upgradeState: "activating"}, "nas-revival")
+	if got := codes(fx.m.Preflight(context.Background()).Blockers); got != "package_manager:" {
+		t.Fatalf("got %s", got)
 	}
 }
 

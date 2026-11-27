@@ -31,7 +31,11 @@ const (
 	FixSystem   = "#/system"
 	FixUsers    = "#/users"
 	FixSecurity = "#/system/security"
+	FixUpdates  = "#/system/updates"
 )
+
+// UpdatesStaleAfter: a list of Debian updates older than this is a warning.
+const UpdatesStaleAfter = 7 * 24 * time.Hour
 
 // CertWarnBefore: a certificate expiring sooner is a warning.
 const CertWarnBefore = 30 * 24 * time.Hour
@@ -70,6 +74,13 @@ type Firewall struct {
 	Enabled   bool
 }
 
+// Updates is what the advisor needs from the Update Manager.
+type Updates struct {
+	CheckedAt *time.Time // last successful refresh of the package lists
+	Security  int        // pending security updates
+	Other     int        // pending other updates
+}
+
 // Accounts counts the administrators who can log in.
 type Accounts struct {
 	NASAdmins     int  // enabled NAS accounts with the administrator role
@@ -85,6 +96,7 @@ type Input struct {
 	TLS            *tlscert.Info
 	Accounts       *Accounts
 	Firewall       *Firewall
+	Updates        *Updates
 	BlockedClients int // clients blocked by the login limiter right now
 }
 
@@ -95,6 +107,7 @@ func Evaluate(in Input) []Finding {
 	out = append(out, smbCheck(in.SMB), nfsCheck(in.NFS))
 	out = append(out, tlsChecks(in.TLS, in.Now)...)
 	out = append(out, accountCheck(in.Accounts), loginCheck(in.BlockedClients), firewallCheck(in.Firewall))
+	out = append(out, updatesChecks(in.Updates, in.Now)...)
 	rank := map[string]int{StatusCrit: 0, StatusWarn: 1, StatusInfo: 2, StatusUnknown: 3, StatusOK: 4}
 	sort.SliceStable(out, func(i, j int) bool {
 		if rank[out[i].Status] != rank[out[j].Status] {
@@ -226,4 +239,30 @@ func firewallCheck(fw *Firewall) Finding {
 		return f("firewall.off", StatusWarn, FixSecurity, nil)
 	}
 	return f("firewall.off", StatusOK, FixSecurity, nil)
+}
+
+// updatesChecks: pending security updates are a warning, other updates a
+// recommendation; a list that was not refreshed for a week cannot be trusted.
+func updatesChecks(u *Updates, now time.Time) []Finding {
+	if u == nil {
+		return []Finding{f("updates.pending", StatusUnknown, FixUpdates, nil), f("updates.stale", StatusUnknown, FixUpdates, nil)}
+	}
+	pending := f("updates.pending", StatusOK, FixUpdates, nil)
+	switch {
+	case u.Security > 0:
+		pending.Status = StatusWarn
+	case u.Other > 0:
+		pending.Status = StatusInfo
+	}
+	if pending.Status != StatusOK {
+		pending.Params = map[string]string{"security": strconv.Itoa(u.Security), "total": strconv.Itoa(u.Security + u.Other)}
+	}
+	stale := f("updates.stale", StatusOK, FixUpdates, nil)
+	if u.CheckedAt == nil {
+		stale.Status = StatusWarn
+	} else if age := now.Sub(*u.CheckedAt); age > UpdatesStaleAfter {
+		stale.Status = StatusWarn
+		stale.Params = map[string]string{"days": strconv.Itoa(int(age.Hours() / 24))}
+	}
+	return []Finding{pending, stale}
 }

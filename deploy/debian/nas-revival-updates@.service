@@ -1,0 +1,23 @@
+[Unit]
+Description=NAS Revival Debian updates (%i)
+Documentation=file:///usr/share/doc/nas-revival/adr-0016
+# Started by the helper ("Zkontrolovat", "Nainstalovat") or by nas-revival-updates-check.timer.
+# Runs outside the helper's cgroup, so restarting the helper or the web UI never kills dpkg.
+# The two instances share one lock in the state directory and never run together.
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nas-revival updates run -state /var/lib/nas-revival-updates %i
+# state.json (0644, package names and versions only) is read by the helper.
+StateDirectory=nas-revival-updates
+StateDirectoryMode=0755
+# apt-get and dpkg maintainer scripts write anywhere in the system: no file system sandbox.
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+# On stop (shutdown) only the runner gets SIGTERM; dpkg is given time to finish.
+KillMode=mixed
+TimeoutStopSec=30min
+TimeoutStartSec=3h

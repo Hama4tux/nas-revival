@@ -58,6 +58,8 @@ type Dispatcher struct {
 	Shares *ShareManager
 	// Services lists and controls the allowlisted units; nil disables it.
 	Services *ServiceManager
+	// Updates checks and installs the Debian updates (W5.4); nil disables it.
+	Updates *UpdateManager
 	// Logs queries the journal and sets its retention (Log Center); nil disables it.
 	Logs *LogManager
 	// Smb manages the SMB service settings; nil disables it.
@@ -362,8 +364,30 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
 	}
+	if strings.HasPrefix(req.Op, "updates.") && d.Updates != nil {
+		return d.handleUpdates(ctx, req)
+	}
 	if strings.HasPrefix(req.Op, "journal.") && req.Op != "journal.unit" && d.Logs != nil {
 		return d.handleLogs(ctx, req)
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleUpdates runs the Debian update operations (ADR 0016).
+func (d *Dispatcher) handleUpdates(ctx context.Context, req request) (any, error) {
+	switch req.Op {
+	case "updates.get":
+		return d.Updates.Get(ctx)
+	case "updates.check":
+		return d.Updates.Check(ctx)
+	case "updates.upgrade":
+		var a struct {
+			ListedAt string `json:"listedAt"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		return d.Updates.Upgrade(ctx, a.ListedAt)
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

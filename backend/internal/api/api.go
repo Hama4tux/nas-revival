@@ -95,6 +95,8 @@ type Server struct {
 	// NetInfo serves /network, NetAdmin the changes under /network; nil answers 503.
 	NetInfo  NetworkInfo
 	NetAdmin NetworkAdmin
+	// Updates serves /updates (Update Manager, W5.4); nil answers 503.
+	Updates UpdatesAdmin
 	// Logs serves /logs (Log Center, W5.3); nil answers 503.
 	Logs LogAdmin
 	// Firewall serves /security/firewall (W5.2); nil answers 503.
@@ -138,6 +140,7 @@ func (s *Server) Handler() http.Handler {
 	s.registerShares(api)
 	s.registerServices(api)
 	s.registerLogs(api)
+	s.registerUpdates(api)
 	s.registerSmb(api)
 	s.registerNfs(api)
 	s.registerSsh(api)

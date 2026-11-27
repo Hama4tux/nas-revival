@@ -297,4 +297,14 @@ install -m 0644 nas-revival-firewall.service /etc/systemd/system/
 systemctl daemon-reload && systemctl enable nas-revival-firewall.service
 ```
 
+Debian updates (W5.4, ADR 0016): the helper starts `nas-revival-updates@check.service` / `@upgrade.service`
+(root, runs `nas-revival updates run`, state in `/var/lib/nas-revival-updates/state.json`);
+`nas-revival-updates-check.timer` refreshes the list every night (nothing is installed automatically). Install
+once, as root, then check with `scripts/webui/e2e-updates.sh` (runs one check, never installs):
+
+```sh
+install -m 0644 nas-revival-updates@.service nas-revival-updates-check.timer /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now nas-revival-updates-check.timer
+```
+
 Recovery when locked out: `nft delete table ip nas_revival` and remove `/etc/nftables.d/nas-revival.nft` (docs/RECOVERY.md R4).

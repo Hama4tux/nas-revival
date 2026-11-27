@@ -90,6 +90,10 @@ files touched, commands run, whether it needs confirmation, whether it takes the
   read-only administrators. The audit view trusts `NAS_REVIVAL_AUDIT=1` only together with the journald-set unit
   field of the NAS Revival services, so other local processes cannot forge entries. The trail is bounded by the
   journal retention and is not tamper-proof (remote syslog is M6).
+- Debian updates (W5.4, ADR 0016): the helper only starts `nas-revival-updates@check|upgrade.service` and reads
+  its root-owned `state.json`; the job runs apt-get with fixed arguments (`upgrade --with-new-pkgs`, never
+  removes packages or changes the release, keeps changed configuration files). An upgrade must name the list
+  it was shown (`listedAt`); free space and memory are checked first; restart/shutdown is blocked while it runs.
 - Disable services not needed: LLMNR (resolved, 5355) is open today – Security Advisor finding.
 - SMB: SMB1 off, `min protocol = SMB2_10`, no guest, `restrict anonymous = 2`.
 - NFS: explicit client list only (IP addresses or networks no wider than /16, IPv6 /48; no `*`, host names or
@@ -116,7 +120,8 @@ files touched, commands run, whether it needs confirmation, whether it takes the
 ## Security Advisor checks (M5)
 
 SMB1 enabled · FTP enabled · root SSH with password · share writable by everyone · NFS export to
-`*` · certificate expiring < 30 days · pending Debian security updates · listening ports not in the
+`*` · certificate expiring < 30 days · pending Debian security updates (done W5.4: `updates.pending`,
+`updates.stale`) · listening ports not in the
 expected list · admin password unchanged since install · web UI exposed on non-LAN interface.
 Each finding: severity, explanation, one-click link to the setting.
 

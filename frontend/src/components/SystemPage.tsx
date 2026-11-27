@@ -6,6 +6,7 @@ import { formatBytes, formatUptime } from '../lib/format';
 import { cs } from '../i18n/cs';
 import { ConfigHistoryWidget } from './ConfigHistory';
 import { HardwarePanel } from './HardwarePanel';
+import { UpdatesPanel } from './UpdatesPanel';
 import { SecurityPanel } from './SecurityPanel';
 import { validateNtp } from '../lib/netvalidate';
 import { Badge } from './ui/badge';
@@ -320,15 +321,16 @@ function CertWidget() {
   );
 }
 
-type Tab = 'system' | 'hardware' | 'security';
-const TABS: Tab[] = ['system', 'hardware', 'security'];
+type Tab = 'system' | 'hardware' | 'security' | 'updates';
+const TABS: Tab[] = ['system', 'hardware', 'security', 'updates'];
+const tabOf = (hash: string): Tab | undefined => TABS.find((k) => hash === `#/system/${k}`);
 
-/** Control panel: system settings, the hardware tab (W3.4) and the Security Center (W5.1); only the shown tab polls. */
+/** Control panel: system settings, the hardware tab (W3.4), the Security Center (W5.1) and the Update Manager (W5.4); only the shown tab polls. */
 export function SystemPage({ readOnly }: { readOnly: boolean }) {
-  const [tab, setTab] = useState<Tab>(() => (location.hash === '#/system/security' ? 'security' : 'system'));
-  // Deep link from the advisor (firewall.off): #/system/security opens the Security tab.
+  const [tab, setTab] = useState<Tab>(() => tabOf(location.hash) ?? 'system');
+  // Deep links from the advisor: #/system/security, #/system/updates open their tab.
   useEffect(() => {
-    const on = () => { if (location.hash === '#/system/security') setTab('security'); };
+    const on = () => { const k = tabOf(location.hash); if (k) setTab(k); };
     window.addEventListener('hashchange', on);
     return () => window.removeEventListener('hashchange', on);
   }, []);
@@ -360,7 +362,8 @@ export function SystemPage({ readOnly }: { readOnly: boolean }) {
             <CertWidget />
             <ConfigHistoryWidget className="lg:col-span-5" readOnly={readOnly} />
           </div>
-        ) : tab === 'hardware' ? <HardwarePanel readOnly={readOnly} /> : <SecurityPanel readOnly={readOnly} />}
+        ) : tab === 'hardware' ? <HardwarePanel readOnly={readOnly} />
+          : tab === 'security' ? <SecurityPanel readOnly={readOnly} /> : <UpdatesPanel readOnly={readOnly} />}
       </div>
     </div>
   );
