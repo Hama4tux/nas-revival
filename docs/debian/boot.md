@@ -69,6 +69,26 @@ nanddump -l <size> -f check /dev/mtd8 # compare sha256 with uImage; check correc
 Slot A is `/dev/mtd7` (`kernel_2`). Only ever write one slot at a time and verify it before
 touching the other one.
 
+## Updating the kernel (scripts/debian/update-kernel.sh)
+
+Slot A always holds the running kernel, slot B the previous good one. An update copies A to B (only when
+B differs, verified by reading back), installs the new modules and writes the new kernel to A (verified):
+
+```
+scripts/debian/build-kernel.sh                 # workstation: output/kernel/uImage, modules-<release>.tar.gz
+scp output/kernel/{uImage,modules-*.tar.gz,SHA256SUMS} scripts/debian/update-kernel.sh nsa310:/root/kernel/
+ssh nsa310 /root/kernel/update-kernel.sh --check /root/kernel/uImage /root/kernel/modules-<release>.tar.gz
+ssh nsa310 /root/kernel/update-kernel.sh /root/kernel/uImage /root/kernel/modules-<release>.tar.gz
+```
+
+Every build has its own release name (`LOCALVERSION`, default `-nr1`; raise it for the next build), so the
+modules of the kernel in slot B are never overwritten and B can boot with its own modules. The script refuses
+a modules tarball that is not exactly `usr/lib/modules/<release>/…` (the old `lib/…` format, links, `..`),
+refuses to run when `/lib` is not the symlink to `usr/lib` and checks it again after extracting
+(`tests/test_update_kernel.sh`). It does not reboot. A kernel that loads but hangs is not caught by the slot
+chain: keep the console ready and boot B with `run slotB` from U-Boot. The update of 2026-11-26 was done by
+hand with the steps below (and broke `/lib`).
+
 ## Installing kernel modules
 
 `/lib` is a symlink to `usr/lib` on Debian 13. The modules tarball of `build-kernel.sh` starts with
