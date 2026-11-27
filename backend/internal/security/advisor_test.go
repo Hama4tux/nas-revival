@@ -30,6 +30,7 @@ func TestEvaluateHealthy(t *testing.T) {
 		NFS:      &NFS{Enabled: true, Exports: []nfs.Export{{Share: "data", Clients: []nfs.Client{{Host: "192.168.1.0/24"}, {Host: "fd00::5"}}}}},
 		TLS:      cert(now.Add(365*24*time.Hour), false),
 		Accounts: &Accounts{NASAdmins: 1},
+		Firewall: &Firewall{Supported: true, Enabled: true},
 	})
 	for _, x := range fs {
 		if x.Status != StatusOK {
@@ -46,11 +47,12 @@ func TestEvaluateFindings(t *testing.T) {
 		TLS:            cert(now.Add(10*24*time.Hour), true),
 		Accounts:       &Accounts{NASAdmins: 0, RecoveryAdmin: true},
 		BlockedClients: 2,
+		Firewall:       &Firewall{Supported: true},
 	})
 	want := map[string]string{
 		"ssh.rootPassword": StatusCrit, "ssh.passwordAuth": StatusWarn, "smb.protocol": StatusInfo,
 		"nfs.publicClient": StatusWarn, "tls.expiry": StatusWarn, "tls.selfSigned": StatusInfo,
-		"accounts.recoveryOnly": StatusWarn, "login.blocked": StatusWarn,
+		"accounts.recoveryOnly": StatusWarn, "login.blocked": StatusWarn, "firewall.off": StatusWarn,
 	}
 	m := byID(fs)
 	for id, st := range want {
@@ -91,6 +93,24 @@ func TestEvaluateEdges(t *testing.T) {
 	for _, id := range []string{"ssh.rootPassword", "smb.protocol", "nfs.publicClient", "tls.expiry", "accounts.recoveryOnly"} {
 		if unknown[id].Status != StatusUnknown {
 			t.Errorf("%s without input: %s", id, unknown[id].Status)
+		}
+	}
+}
+
+func TestFirewallCheck(t *testing.T) {
+	cases := []struct {
+		in   *Firewall
+		want string
+	}{
+		{nil, StatusUnknown},
+		{&Firewall{Supported: true}, StatusWarn},
+		{&Firewall{Supported: true, Enabled: true}, StatusOK},
+		{&Firewall{}, StatusOK},
+	}
+	for _, c := range cases {
+		got := firewallCheck(c.in)
+		if got.Status != c.want || got.ID != "firewall.off" || got.Fix != "#/system/security" {
+			t.Errorf("%+v: %+v", c.in, got)
 		}
 	}
 }

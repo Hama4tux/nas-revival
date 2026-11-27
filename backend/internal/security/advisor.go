@@ -30,6 +30,7 @@ const (
 	FixServices = "#/services"
 	FixSystem   = "#/system"
 	FixUsers    = "#/users"
+	FixSecurity = "#/system/security"
 )
 
 // CertWarnBefore: a certificate expiring sooner is a warning.
@@ -63,6 +64,12 @@ type NFS struct {
 	Exports []nfs.Export
 }
 
+// Firewall is what the advisor needs from the firewall.
+type Firewall struct {
+	Supported bool
+	Enabled   bool
+}
+
 // Accounts counts the administrators who can log in.
 type Accounts struct {
 	NASAdmins     int  // enabled NAS accounts with the administrator role
@@ -77,6 +84,7 @@ type Input struct {
 	NFS            *NFS
 	TLS            *tlscert.Info
 	Accounts       *Accounts
+	Firewall       *Firewall
 	BlockedClients int // clients blocked by the login limiter right now
 }
 
@@ -86,7 +94,7 @@ func Evaluate(in Input) []Finding {
 	out = append(out, sshChecks(in.SSH)...)
 	out = append(out, smbCheck(in.SMB), nfsCheck(in.NFS))
 	out = append(out, tlsChecks(in.TLS, in.Now)...)
-	out = append(out, accountCheck(in.Accounts), loginCheck(in.BlockedClients))
+	out = append(out, accountCheck(in.Accounts), loginCheck(in.BlockedClients), firewallCheck(in.Firewall))
 	rank := map[string]int{StatusCrit: 0, StatusWarn: 1, StatusInfo: 2, StatusUnknown: 3, StatusOK: 4}
 	sort.SliceStable(out, func(i, j int) bool {
 		if rank[out[i].Status] != rank[out[j].Status] {
@@ -207,4 +215,15 @@ func loginCheck(blocked int) Finding {
 		return f("login.blocked", StatusWarn, "", map[string]string{"clients": strconv.Itoa(blocked)})
 	}
 	return f("login.blocked", StatusOK, "", nil)
+}
+
+// firewallCheck warns when the kernel supports the firewall but it is off.
+func firewallCheck(fw *Firewall) Finding {
+	switch {
+	case fw == nil:
+		return f("firewall.off", StatusUnknown, FixSecurity, nil)
+	case fw.Supported && !fw.Enabled:
+		return f("firewall.off", StatusWarn, FixSecurity, nil)
+	}
+	return f("firewall.off", StatusOK, FixSecurity, nil)
 }

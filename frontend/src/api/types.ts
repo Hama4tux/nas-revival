@@ -473,3 +473,12 @@ export interface WebSession {
   createdAt: string; lastSeenAt: string; expiresAt: string; current: boolean;
 }
 export interface WebSessions { sessions: WebSession[]; idleTimeoutSeconds: number; absoluteTimeoutSeconds: number }
+
+/* Firewall (W5.2) */
+export interface FirewallSettings { enabled: boolean; allow: { web: string[]; ssh: string[]; smb: string[]; nfs: string[] } }
+export interface FirewallState {
+  supported: boolean; active: boolean; settings: FirewallSettings;
+  pending: null | { deadline: string; next: FirewallSettings };
+  clientAddress: string; lanNetwork: string | null;
+  services: { key: 'web' | 'ssh' | 'smb' | 'nfs'; ports: { proto: string; port: number }[] }[];
+}

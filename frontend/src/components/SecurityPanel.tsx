@@ -7,6 +7,7 @@ import { Badge } from './ui/badge';
 import { Button } from './ui/button';
 import { Widget } from './ui/card';
 import { Dialog } from './ui/dialog';
+import { FirewallPanel } from './FirewallPanel';
 import { Skeleton } from './ui/skeleton';
 
 const t = cs.sec;
@@ -159,6 +160,7 @@ export function SecurityPanel({ readOnly }: { readOnly: boolean }) {
   return (
     <div className="grid items-start gap-4 lg:grid-cols-5">
       <AdvisorWidget />
+      <div className="lg:col-span-5"><FirewallPanel readOnly={readOnly} /></div>
       {readOnly ? <p className="text-sm text-muted-foreground lg:col-span-5">{t.adminOnly}</p>
         : <SessionsWidget onSelfRevoked={() => location.reload()} />}
     </div>

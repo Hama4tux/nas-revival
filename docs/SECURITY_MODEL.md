@@ -80,9 +80,10 @@ files touched, commands run, whether it needs confirmation, whether it takes the
 ## Network exposure
 
 - Default listen `:8443` on LAN; no UPnP, no port forwarding, no cloud relay, no telemetry.
-- Firewall (M5): nftables table `inet nas_revival` in `/etc/nftables.d/`, default allow LAN subnet
-  only for admin/SMB/NFS/SSH; apply with confirm-or-rollback (180 s) like network changes; the
-  current admin client's address is always kept allowed.
+- Firewall (W5.2, ADR 0014): nftables table `ip nas_revival` (input, policy drop), boot file
+  `/etc/nftables.d/nas-revival.nft`; allowed sources per service (web/SSH/SMB/NFS); apply with
+  confirm-or-rollback (180 s) like network changes; web and SSH must allow the admin client's
+  address, otherwise the change is refused.
 - Disable services not needed: LLMNR (resolved, 5355) is open today – Security Advisor finding.
 - SMB: SMB1 off, `min protocol = SMB2_10`, no guest, `restrict anonymous = 2`.
 - NFS: explicit client list only (IP addresses or networks no wider than /16, IPv6 /48; no `*`, host names or

@@ -25,7 +25,7 @@ makes the kernel wait forever (`rootwait`); the NAS does not power on after a po
 | R1 | Web UI broken / crash loop | no :8443, SSH works | `ssh nsa310`, `journalctl -u nas-revival`, reinstall previous binary from `output/webui` or `/usr/local/lib/nas-revival/b` (M5), `systemctl restart nas-revival` |
 | R2 | Admin password lost | login fails | over SSH: `nas-revival set-password -config /etc/nas-revival` |
 | R3 | Bad network config | NAS unreachable after change | wait 180 s: helper rolls back (also after reboot). Otherwise UART: edit `/etc/systemd/network/20-wired.network`, `networkctl reload` |
-| R4 | Bad firewall (M5) | ports blocked | same confirm/rollback; UART: `nft flush table inet nas_revival` |
+| R4 | Bad firewall (M5) | ports blocked | same confirm/rollback; UART: `nft delete table ip nas_revival` and remove `/etc/nftables.d/nas-revival.nft` |
 | R5 | Service config rejected/broken | service failed | Config Manager rollback in UI or `nas-revival config rollback <n>` over SSH |
 | R6 | New kernel in slot A does not load | U-Boot "Bad Magic"/CRC | automatic: slot B boots. Then rewrite slot A from Linux |
 | R7 | New kernel loads but hangs/panics | no network, LEDs stuck | UART: stop autoboot, `run slotB`; from Linux copy B → A. Planned: boot-once flag |

@@ -32,6 +32,7 @@ import (
 	"nas-revival/backend/internal/config"
 	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/firewall"
 	"nas-revival/backend/internal/hal"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/helper"
@@ -188,6 +189,7 @@ func serve(args []string) error {
 	srv.Smb = hc
 	srv.Nfs = hc
 	srv.Ssh = hc
+	srv.Firewall = hc
 	srv.Tasks = hc
 	srv.Backup = hc
 	srv.Files = hc
@@ -329,6 +331,8 @@ func runHelper(args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 	nm.Recover(ctx)
+	fwm := helper.NewFirewallManager(helper.FirewallPaths{ConfigFile: firewall.DefaultConfigPath, BootFile: firewall.BootFile, StateDir: *state}, helper.ExecRunner)
+	fwm.Recover(ctx)
 	dp := &helper.DiskPowerManager{Resolve: resolvePowerDisk, Disks: powerDisks, Run: helper.ExecRunner,
 		ConfigPath: diskpower.DefaultConfigPath}
 	sp := &helper.SystemPowerManager{Disks: powerDisks, Run: helper.ExecRunner, ProcRoot: "/proc", HeavyLock: helper.DefaultHeavyLock,
@@ -400,6 +404,7 @@ func runHelper(args []string) error {
 	slog.Info("helper listening", "socket", *sock, "uid", uid)
 	return helper.Serve(ctx, ln, uid, &helper.Dispatcher{
 		Net:      nm,
+		Firewall: fwm,
 		Time:     tm,
 		Smart:    &helper.SmartManager{Resolve: resolveSmartDisk, Run: helper.ExecRunner},
 		Power:    dp,

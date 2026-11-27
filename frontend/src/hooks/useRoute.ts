@@ -4,7 +4,7 @@ export type Route = 'overview' | 'storage' | 'tasks' | 'network' | 'monitor' | '
 
 const routes: Record<string, Route> = { '#/storage': 'storage', '#/tasks': 'tasks', '#/network': 'network', '#/monitor': 'monitor', '#/system': 'system', '#/users': 'users', '#/shares': 'shares', '#/services': 'services', '#/files': 'files', '#/account': 'account' };
 
-export const parseRoute = (hash: string): Route => routes[hash] ?? 'overview';
+export const parseRoute = (hash: string): Route => routes[hash.replace(/^(#\/[^/]+)\/.*$/, '$1')] ?? 'overview';
 
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parseRoute(location.hash));

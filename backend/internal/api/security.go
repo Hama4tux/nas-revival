@@ -18,6 +18,7 @@ func (s *Server) registerSecurity(api *http.ServeMux) {
 	api.HandleFunc("DELETE /api/v1/security/sessions/{id}", s.requireRole(accounts.RoleAdmin, s.securityRevoke))
 	api.HandleFunc("POST /api/v1/security/sessions/revoke-others", s.requireRole(accounts.RoleAdmin, s.securityRevokeOthers))
 	api.HandleFunc("GET /api/v1/security/advisor", s.requireSession(s.securityAdvisor))
+	s.registerFirewall(api)
 }
 
 type sessionView struct {
@@ -102,6 +103,13 @@ func (s *Server) securityAdvisor(w http.ResponseWriter, r *http.Request) {
 			in.Accounts = a
 		} else {
 			slog.Warn("advisor: users", "err", err)
+		}
+	}
+	if s.Firewall != nil {
+		if v, err := s.Firewall.FirewallGet(ctx); err == nil {
+			in.Firewall = &security.Firewall{Supported: v.Supported, Enabled: v.Settings.Enabled}
+		} else {
+			slog.Warn("advisor: firewall", "err", err)
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"checkedAt": in.Now.UTC().Format(time.RFC3339),

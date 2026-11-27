@@ -94,6 +94,8 @@ type Server struct {
 	// NetInfo serves /network, NetAdmin the changes under /network; nil answers 503.
 	NetInfo  NetworkInfo
 	NetAdmin NetworkAdmin
+	// Firewall serves /security/firewall (W5.2); nil answers 503.
+	Firewall FirewallAdmin
 	// Monitor serves /monitor; nil answers 503.
 	Monitor MonitorSource
 	// Processes serves /monitor/processes, ProcessKill its kill; nil answers 503.

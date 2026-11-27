@@ -14,6 +14,7 @@ import (
 	"nas-revival/backend/internal/config"
 	"nas-revival/backend/internal/diskactivity"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/firewall"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
@@ -416,6 +417,25 @@ func (c *Client) NetDiag(ctx context.Context, test, target string) (DiagResult, 
 	var r DiagResult
 	err := long.Call(ctx, "net.diag", map[string]string{"test": test, "target": target}, &r)
 	return r, err
+}
+
+func (c *Client) FirewallGet(ctx context.Context) (FirewallState, error) {
+	var s FirewallState
+	err := c.Call(ctx, "firewall.get", struct{}{}, &s)
+	return s, err
+}
+
+// FirewallApply loads the rules into the kernel; they stay until confirmed.
+func (c *Client) FirewallApply(ctx context.Context, s firewall.Settings, clientAddr string) (FirewallState, error) {
+	var r FirewallState
+	err := c.Call(ctx, "firewall.apply", map[string]any{"settings": s, "clientAddr": clientAddr}, &r)
+	return r, err
+}
+
+func (c *Client) FirewallConfirm(ctx context.Context) (FirewallState, error) {
+	var s FirewallState
+	err := c.Call(ctx, "firewall.confirm", struct{}{}, &s)
+	return s, err
 }
 
 func (c *Client) SshGet(ctx context.Context) (SshService, error) {

@@ -282,3 +282,17 @@ server and then the original export again (two `import` versions stay in the con
 Notification centre (W4.5, ADR 0012) needs nothing extra: the web service creates
 `/var/lib/nas-revival/notifications.json` (0600) when the first health problem appears. Check after deploying with
 `journalctl -u nas-revival | grep notification` and the bell in the header.
+
+Firewall (W5.2, ADR 0014): needs kernel `6.12.119-nr1` (nftables built in) and `nft` (`apt install nftables`; leave
+Debian's own `nftables.service` disabled). The helper creates `/etc/nftables.d` (0755) and writes the boot file
+`/etc/nftables.d/nas-revival.nft` and `/etc/nas-revival/firewall.json` only when a change is confirmed in the UI
+(Systém, Zabezpečení); an unconfirmed change is rolled back after 180 s. `nas-revival-firewall.service` loads the boot
+file before the network comes up (`Before=network-pre.target`; skipped while the file does not exist). Install once,
+as root:
+
+```sh
+install -m 0644 nas-revival-firewall.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable nas-revival-firewall.service
+```
+
+Recovery when locked out: `nft delete table ip nas_revival` and remove `/etc/nftables.d/nas-revival.nft` (docs/RECOVERY.md R4).

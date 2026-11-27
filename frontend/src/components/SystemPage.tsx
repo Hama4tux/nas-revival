@@ -325,7 +325,13 @@ const TABS: Tab[] = ['system', 'hardware', 'security'];
 
 /** Control panel: system settings, the hardware tab (W3.4) and the Security Center (W5.1); only the shown tab polls. */
 export function SystemPage({ readOnly }: { readOnly: boolean }) {
-  const [tab, setTab] = useState<Tab>('system');
+  const [tab, setTab] = useState<Tab>(() => (location.hash === '#/system/security' ? 'security' : 'system'));
+  // Deep link from the advisor (firewall.off): #/system/security opens the Security tab.
+  useEffect(() => {
+    const on = () => { if (location.hash === '#/system/security') setTab('security'); };
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
   const refs = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
   function onKey(e: React.KeyboardEvent) {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;

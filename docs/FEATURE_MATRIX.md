@@ -174,7 +174,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 |---|---|---|---|---|---|---|---|---|---|---|
 | SEC-10 | Security | Session list, forced logout | P1 | Implemented 2026-11-27 (W5.1, ADR 0013; sessions persist across restarts) | — | — | L | — | revoked session gets 401 immediately | SEC-02 |
 | SEC-11 | Security | TOTP | P3 | Not started | — | — | L | — | RFC 6238 | SEC-02 |
-| SEC-12 | Firewall | nftables rules: allowed networks per service, anti-lockout, confirm-or-rollback | P1 | Not started | — | nftables (installed) | L | admin lockout | current client net always allowed; rollback after 180 s | PRIV-01 |
+| SEC-12 | Firewall | nftables rules: allowed networks per service, anti-lockout, confirm-or-rollback | P1 | Tested 2026-11-27 (W5.2, ADR 0014; kernel 6.12.119-nr1; `scripts/webui/e2e-firewall.sh` on the NAS: lockout refused, SMB blocked/web+SSH open, 180 s rollback, confirm, disable) | — | nftables (installed) | L | admin lockout | current client net always allowed; rollback after 180 s | PRIV-01 |
 | SEC-13 | Security Advisor | Checks: SMB1, FTP, root SSH, open shares, cert expiry, security updates, unusual ports | P1 | Phase 1 2026-11-27 (W5.1: SSH, SMB, NFS, cert, accounts, blocked logins; updates and ports open) | — | — | L | — | each finding has fix link | SMB-01, UPD-01 |
 | LOG-01 | Log center | journald query by category/severity/time/text, export | P1 | Not started | — | journalctl -o json (fixed args) | M | log injection, secrets | max 1 000 lines per request | — |
 | LOG-02 | Log center | Retention and size limits (journald SystemMaxUse) | P1 | Not started | — | journald | L | disk fill | journal ≤ 64 MiB | CFG-02 |
@@ -182,7 +182,7 @@ M = noticeable while used (subprocess, parsing, short spikes) · H = sustained c
 | UPD-01 | Updates | Debian updates: check, list, security marked, apply, reboot needed | P1 | Not started | — | apt-get (fixed args) | H (apt RAM spike) | broken system | free space and RAM checked; no major upgrade | PRIV-01 |
 | UPD-02 | Updates | NAS Revival self-update: signed manifest, A/B binary, rollback | P1 | Not started | — | ed25519 (Go stdlib) | L | malicious update | unsigned/foreign-arch artifact rejected before writes | CFG-02 |
 | UPD-03 | Updates | Config backup before update, history | P1 | Not started | — | — | L | — | — | BKP-01 |
-| UPD-04 | Updates | Kernel update to NAND slots (A→B copy, write A, verify, boot-once) | P1 | Not started | NAND | mtd-utils | M | unbootable device | never both slots; refuses unless booted from A (`nsa_slot=A`) | BOOT-02 |
+| UPD-04 | Updates | Kernel update to NAND slots (A→B copy, write A, verify, boot-once) | P1 | Partial 2026-11-27 (`scripts/debian/update-kernel.sh` from the shell, used for 6.12.119-nr1; no web UI, no boot-once) | NAND | mtd-utils | M | unbootable device | never both slots; refuses unless booted from A (`nsa_slot=A`) | BOOT-02 |
 
 ### Platform expansion (M6)
 

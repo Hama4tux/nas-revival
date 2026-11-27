@@ -1,0 +1,15 @@
+[Unit]
+Description=NAS Revival firewall (nftables table ip nas_revival, ADR 0014)
+Documentation=file:///usr/share/doc/nas-revival/adr-0014
+DefaultDependencies=no
+Before=network-pre.target
+Wants=network-pre.target
+ConditionPathExists=/etc/nftables.d/nas-revival.nft
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/nftables.d/nas-revival.nft
+
+[Install]
+WantedBy=multi-user.target

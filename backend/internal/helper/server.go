@@ -19,6 +19,7 @@ import (
 
 	"nas-revival/backend/internal/accounts"
 	"nas-revival/backend/internal/diskpower"
+	"nas-revival/backend/internal/firewall"
 	"nas-revival/backend/internal/hardware"
 	"nas-revival/backend/internal/nfs"
 	"nas-revival/backend/internal/shares"
@@ -39,7 +40,9 @@ const (
 
 // Dispatcher executes the fixed list of operations.
 type Dispatcher struct {
-	Net      *Manager
+	Net *Manager
+	// Firewall loads the nft rules with confirm-or-rollback (W5.2); nil disables it.
+	Firewall *FirewallManager
 	Time     *TimeManager
 	Smart    *SmartManager
 	Power    *DiskPowerManager
@@ -329,6 +332,9 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	if strings.HasPrefix(req.Op, "share.") && d.Shares != nil {
 		return d.handleShares(ctx, req, user)
 	}
+	if strings.HasPrefix(req.Op, "firewall.") && d.Firewall != nil {
+		return d.handleFirewall(ctx, req, user)
+	}
 	if strings.HasPrefix(req.Op, "smb.") && d.Smb != nil {
 		return d.handleSmb(ctx, req, user)
 	}
@@ -352,6 +358,35 @@ func (d *Dispatcher) Handle(ctx context.Context, req request) (any, error) {
 	}
 	if (strings.HasPrefix(req.Op, "service.") || req.Op == "journal.unit") && d.Services != nil {
 		return d.handleServices(ctx, req, user)
+	}
+	return nil, invalid("", "Neznámá operace.")
+}
+
+// handleFirewall runs the firewall operations (SEC-12). firewall.json is not
+// part of the config history: a restore would bypass the confirmation.
+func (d *Dispatcher) handleFirewall(ctx context.Context, req request, user string) (any, error) {
+	switch req.Op {
+	case "firewall.get":
+		return d.Firewall.Get(ctx)
+	case "firewall.apply":
+		var a struct {
+			Settings   firewall.Settings `json:"settings"`
+			ClientAddr string            `json:"clientAddr"`
+		}
+		if err := decodeArgs(req.Args, &a); err != nil {
+			return nil, err
+		}
+		st, err := d.Firewall.Apply(ctx, a.Settings, a.ClientAddr)
+		if err == nil {
+			slog.Info("helper: firewall.apply", "enabled", a.Settings.Enabled, "user", user)
+		}
+		return st, err
+	case "firewall.confirm":
+		st, err := d.Firewall.Confirm(ctx)
+		if err == nil {
+			slog.Info("helper: firewall.confirm", "enabled", st.Settings.Enabled, "user", user)
+		}
+		return st, err
 	}
 	return nil, invalid("", "Neznámá operace.")
 }

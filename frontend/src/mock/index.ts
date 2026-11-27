@@ -1,8 +1,9 @@
 // Development-only fake API. Imported dynamically from main.tsx behind import.meta.env.VITE_MOCK,
 // so it never reaches the production bundle.
-import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem } from '../api/types';
+import type { Role, DiskPower, DiskPowerHistory, NetConfig, PowerSettings, NetworkSettings, Overview, Smart, SmartAttribute, SmartDetail, StorageReport, SystemPowerAction, PowerBlocker, TimeSettings, TlsInfo, ConfigEntry, ConfigDiffLine, UserInfo, UserList, Share, ShareInfo, ShareList, ShareVolume, UserAccess, ShareAccess, ServiceInfo, ServiceAction, SmbService, SmbSettings, SmbStatus, NfsService, NfsSettings, NfsStatus, SshService, SshSettings, SshKeys, NetworkInfo, DiagResult, MonitorHistory, MonitorSample, ProcessInfo, FanProfile, FanProfileId, HardwareSettings, HardwareState, HardwareHistory, HardwareThresholds, LedSettings, NotificationItem, FirewallSettings, FirewallState } from '../api/types';
 import { ApiError } from '../api/client';
 import { setUploadImpl } from '../lib/upload';
+import { cidrContains, parseCidr, parseIPv4 } from '../lib/firewall';
 
 const start = Date.now();
 let loggedIn = false;
@@ -58,6 +59,20 @@ function hwHistory(since: number): HardwareHistory {
 const HOST_ADDR = '192.0.2.10';
 let netConfig: NetConfig = { mode: 'dhcp', address: null, prefixLength: null, gateway: null, dns: [], useDhcpDns: true };
 let netCurrent = { addresses: [`${HOST_ADDR}/24`], gateway: '192.0.2.1' as string | null, dns: ['192.0.2.1'] };
+const MOCK_CLIENT = '192.168.1.20';
+let fwSettings: FirewallSettings = { enabled: false, allow: { web: [], ssh: [], smb: [], nfs: [] } };
+let fwPending: { deadline: number; next: FirewallSettings } | null = null;
+let fwActive = false;
+const fwState = (): FirewallState => ({
+  supported: true, active: fwActive, settings: fwSettings,
+  pending: fwPending && { deadline: new Date(fwPending.deadline).toISOString(), next: fwPending.next },
+  clientAddress: MOCK_CLIENT, lanNetwork: '192.168.1.0/24',
+  services: [
+    { key: 'web', ports: [{ proto: 'tcp', port: 8443 }] }, { key: 'ssh', ports: [{ proto: 'tcp', port: 22 }] },
+    { key: 'smb', ports: [{ proto: 'tcp', port: 445 }] }, { key: 'nfs', ports: [{ proto: 'tcp', port: 2049 }, { proto: 'tcp', port: 111 }] },
+  ],
+});
+
 let netPending: { deadline: number; previous: NetConfig; next: NetConfig; prevCurrent: typeof netCurrent } | null = null;
 let ntp: string[] = [];
 let powerToken: string | null = null;
@@ -1309,11 +1324,37 @@ export function installMock(): void {
       noticesRead.set(sessionUser, read);
       return new Response(null, { status: 204 });
     }
+    // Firewall (W5.2): readers GET, administrators PUT and confirm within 180 s.
+    if (path.startsWith('/security/firewall') && sessionRole() !== 'user') {
+      if (fwPending && Date.now() >= fwPending.deadline) { fwPending = null; fwActive = fwSettings.enabled; }
+      if (method === 'GET') return json(200, fwState());
+      if (sessionRole() !== 'admin') return err(403, 'forbidden', 'Účet jen pro čtení nemůže nic měnit.');
+      if (path === '/security/firewall/confirm' && method === 'POST') {
+        if (!fwPending) return err(409, 'nothing_pending', 'Není co potvrdit, změna už se vrátila.');
+        fwSettings = fwPending.next; fwPending = null; fwActive = fwSettings.enabled;
+        return json(200, fwState());
+      }
+      if (path === '/security/firewall' && method === 'PUT') {
+        if (fwPending) return err(409, 'change_pending', 'Jiná změna čeká na potvrzení.');
+        const b = JSON.parse(String(init?.body ?? '{}')) as FirewallSettings;
+        if (b.enabled) {
+          for (const k of ['web', 'ssh'] as const) {
+            if (!(b.allow[k] ?? []).some((e) => { const c = parseCidr(e); return c != null && cidrContains(c, parseIPv4(MOCK_CLIENT)!); })) {
+              return bad(`allow.${k}`, `Změna by odpojila váš počítač (${MOCK_CLIENT}).`);
+            }
+          }
+        }
+        fwPending = { deadline: Date.now() + 180e3, next: b };
+        fwActive = b.enabled;
+        return json(200, fwState());
+      }
+    }
     // Security Center (W5.1): advisor for readers, sessions for administrators.
     if (path === '/security/advisor' && sessionRole() !== 'user') {
       return json(200, { checkedAt: new Date().toISOString(), findings: [
         { id: 'accounts.recoveryOnly', status: 'info', params: { admins: '1' }, fix: '#/users' },
         { id: 'smb.protocol', status: 'info', params: { min: 'SMB2_10' }, fix: '#/services' },
+        { id: 'firewall.off', status: fwSettings.enabled ? 'ok' : 'warn', fix: '#/system/security' },
         { id: 'tls.selfSigned', status: 'info', fix: '#/system' },
         { id: 'login.blocked', status: 'ok' },
         { id: 'nfs.publicClient', status: 'ok', fix: '#/services' },
